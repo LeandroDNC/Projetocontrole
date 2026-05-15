@@ -990,7 +990,7 @@ async function renderCongregacoes(pc) {
         <button class="btn btn-secondary btn-sm" onclick="openCong('${c.id}',${JSON.stringify(c).replace(/"/g, '&quot;')})">${lc("arrow-right", 14)}</button>
       </div>
     </div>`).join('')}</div>`
-      : '<div class="empty"><div class="empty-ico">${lc("church",14)}</div><p>Nenhuma congregação neste setor.</p></div>'}`;
+      : `<div class="empty"><div class="empty-ico">${lc("church",14)}</div><p>Nenhuma congregação neste setor.</p></div>`}`;
 }
 
 function openCong(id, cObj) {
@@ -1222,7 +1222,7 @@ function toggleEventMenu() {
 async function openEventModal(tipo) {
   if (!hasPerm('registrar_eventos')) { toast('Sem permissão', 'error'); return; }
   $('event-menu')?.classList.add('hidden');
-  const info = TIPOS_EVENTO[tipo] || { label: tipo, icon: '${lc("clipboard-list",14)}', financeiro: false, evangelismo: false };
+  const info = TIPOS_EVENTO[tipo] || { label: tipo, icon: lc("clipboard-list",14), financeiro: false, evangelismo: false };
   const { data: mems } = await q('membros').select('id,nome,cargo,frequenta_ebd,papel_ebd').eq('congregacao_id', navState.cong.id).order('nome');
   let qExt = q('membros').select('id,nome,cargo,congregacao_id').order('nome').neq('congregacao_id', navState.cong.id);
   if (!canSeeAllSetores() && currentUser?.setor_id) qExt = qExt.eq('setor_id', currentUser.setor_id);
@@ -1302,7 +1302,7 @@ async function openEventDetail(id) {
   showModal(loadingPage());
   const { data: ev, error } = await q('eventos').select('*').eq('id', id).single();
   if (error || !ev) { closeModal(); toast('Erro', 'error'); return; }
-  const info = TIPOS_EVENTO[ev.tipo] || { label: ev.tipo, icon: '${lc("clipboard-list",14)}' };
+  const info = TIPOS_EVENTO[ev.tipo] || { label: ev.tipo, icon: lc("clipboard-list",14) };
   let participantesHtml = '';
   if (ev.participante_ids?.length > 0) {
     const { data: partics } = await q('membros').select('id,nome,cargo').in('id', ev.participante_ids);
@@ -1599,11 +1599,11 @@ async function renderRelatorios() {
     </div>
   </div>
   <div class="stats-grid stats-4" style="margin-bottom:26px">
-    ${statCard('${lc("church",14)}', 'ic-gold', cultos, 'Cultos', '')}${statCard('🎉', 'ic-blue', genEvt, 'Eventos', '')}${statCard('🚶', 'ic-teal', saidas, 'Saídas Evang.', '')}${statCard('✝', 'ic-violet', totalConv, 'Conversões', '')}
+    ${statCard(lc("church",14), 'ic-gold', cultos, 'Cultos', '')}${statCard('🎉', 'ic-blue', genEvt, 'Eventos', '')}${statCard('🚶', 'ic-teal', saidas, 'Saídas Evang.', '')}${statCard('✝', 'ic-violet', totalConv, 'Conversões', '')}
   </div>
   <div class="stats-grid stats-4" style="margin-bottom:26px">
-    ${statCard('${lc("users",18)}', 'ic-blue', totalPart, 'Participantes', '')}
-    ${canSeeFinanceiro() ? statCard('${lc("coins",14)}', 'ic-teal', fmtMoney(totalOfer), 'Total Ofertas', '') : ''}
+    ${statCard(lc("users",18), 'ic-blue', totalPart, 'Participantes', '')}
+    ${canSeeFinanceiro() ? statCard(lc("coins",14), 'ic-teal', fmtMoney(totalOfer), 'Total Ofertas', '') : ''}
     ${canSeeFinanceiro() ? statCard('💎', 'ic-violet', fmtMoney(totalDiz), 'Total Dízimos', '') : ''}
     ${canSeeFinanceiro() ? statCard('💵', 'ic-gold', fmtMoney(totalOfer + totalDiz), 'Total Arrecadado', '') : ''}
   </div>
@@ -1671,7 +1671,7 @@ async function exportarPDF() {
     for (const c of sCongs) {
       if (y > 255) { doc.addPage(); y = 20; }
       const cEvs = eventos.filter(e => e.congregacao_id === c.id), cPart = cEvs.reduce((x, e) => x + (e.participantes || 0), 0), cConv = cEvs.reduce((x, e) => x + (e.conversoes || 0), 0), cOfer = cEvs.reduce((x, e) => x + (e.ofertas || 0), 0), cDiz = cEvs.reduce((x, e) => x + (e.dizimos || 0), 0);
-      doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(50, 50, 50); doc.text(`  ${lc("church", 14)} ${c.nome}`, margin + 2, y);
+      doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(50, 50, 50); doc.text(`  ${c.nome}`, margin + 2, y);
       doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 100, 100);
       doc.text(`Membros:${memCount(c.id)} | Ev:${cEvs.length} | Part:${cPart} | Conv:${cConv}${canSeeFinanceiro() ? ` | Of:${fmtMoney(cOfer)} | Díz:${fmtMoney(cDiz)}` : ''}`, margin + 4, y + 5); y += 12;
       if (cEvs.length) { const cols = ['Data', 'Tipo', 'Resumo', 'Part.', 'Conv.']; const colW = [20, 30, 44, 12, 12]; if (canSeeFinanceiro()) { cols.push('Ofertas', 'Dízimos'); colW.push(24, 24); } doc.autoTable({ startY: y, margin: { left: margin + 6, right: margin }, head: [cols], body: cEvs.map(e => { const row = [fmtDate(e.data), tipoLabel(e.tipo), (e.resumo || '').slice(0, 40), e.participantes || 0, e.conversoes || 0]; if (canSeeFinanceiro()) { row.push(fmtMoney(e.ofertas), fmtMoney(e.dizimos)); } return row; }), theme: 'striped', headStyles: { fillColor: [30, 30, 50], textColor: [201, 168, 76], fontSize: 7, fontStyle: 'bold' }, styles: { fontSize: 7.5 }, columnStyles: Object.fromEntries(colW.map((w, i) => [i, { cellWidth: w }])) }); y = doc.lastAutoTable.finalY + 6; }
@@ -1747,7 +1747,7 @@ async function renderFrequencia() {
     </div>
   </div>
   <div class="stats-grid stats-4" style="margin-bottom:24px">
-    ${statCard('${lc("clipboard-list",14)}', 'ic-gold', totalEventos, 'Eventos', '')}${statCard('${lc("church",14)}', 'ic-blue', totalCultos, 'Cultos', '')}${statCard('${lc("users",18)}', 'ic-teal', usuariosList.length, 'Usuários', '')}${statCard('${lc("trending-up",14)}', 'ic-violet', freqData.length > 0 ? `${freqData[0]?.pctTotal || 0}%` : '—', 'Maior Freq.', freqData[0]?.nome?.split(' ')[0] || '')}
+    ${statCard(lc("clipboard-list",14), 'ic-gold', totalEventos, 'Eventos', '')}${statCard(lc("church",14), 'ic-blue', totalCultos, 'Cultos', '')}${statCard(lc("users",18), 'ic-teal', usuariosList.length, 'Usuários', '')}${statCard(lc("trending-up",14), 'ic-violet', freqData.length > 0 ? `${freqData[0]?.pctTotal || 0}%` : '—', 'Maior Freq.', freqData[0]?.nome?.split(' ')[0] || '')}
   </div>
   <div class="freq-legend"><span class="freq-leg-item"><span class="freq-dot" style="background:#14b8a6"></span>≥75%</span><span class="freq-leg-item"><span class="freq-dot" style="background:#f59e0b"></span>50–74%</span><span class="freq-leg-item"><span class="freq-dot" style="background:#f43f5e"></span>&lt;50%</span></div>
   <div class="freq-list">
