@@ -1099,14 +1099,14 @@ async function renderCongregacao(pc) {
   <div class="struct-grid" style="margin-bottom:26px">
     ${renderLiderCard('👨🏻‍⚖️', 'Pastor Local', c.pastor_local)}
     ${renderLiderCard('👨🏻‍💼', 'Dirigente', c.dirigente)}
-    ${renderLiderCard('${lc("users",18)}', 'Vice-Dirigente', c.vice_dirigente)}
+    ${renderLiderCard(lc("users",18), 'Vice-Dirigente', c.vice_dirigente)}
     ${renderLiderCard('👩‍💼', 'Secretária', c.secretaria)}
     ${c.auxiliares ? renderLiderCard('🤝', 'Auxiliares', c.auxiliares) : `<div class="struct-card" style="opacity:.5"><div class="s-icon">🤝</div><div class="s-label">Auxiliares</div><div class="s-value">A definir</div></div>`}
   </div>
 
   <div class="stats-grid stats-3" style="margin-bottom:22px">
-    ${statCard('${lc("clipboard-list",14)}', 'ic-gold', (eventos || []).length, 'Eventos registrados', '')}
-    ${canSeeFinanceiro() ? statCard('${lc("coins",14)}', 'ic-teal', fmtMoney(totalOfertas), 'Total Ofertas', '') : ''}
+    ${statCard(lc("clipboard-list",14), 'ic-gold', (eventos || []).length, 'Eventos registrados', '')}
+    ${canSeeFinanceiro() ? statCard(lc("coins",14), 'ic-teal', fmtMoney(totalOfertas), 'Total Ofertas', '') : ''}
     ${canSeeFinanceiro() ? statCard('💵', 'ic-violet', fmtMoney(totalDizimos), 'Total Dízimos', '') : ''}
   </div>
 
@@ -1153,7 +1153,7 @@ function toggleLiderExpand(card) {
 function buildMapLinks(c) {
   if (!c.endereco && !c.latitude) return '';
   const query = c.latitude && c.longitude ? `${c.latitude},${c.longitude}` : encodeURIComponent(c.endereco || c.nome);
-  return `<span class="map-links"><a href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" rel="noopener" class="map-btn maps-btn">${lc("map-pin", 14)} Maps</a><a href="${c.latitude && c.longitude ? `https://waze.com/ul?ll=${c.latitude},${c.longitude}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent(c.endereco || c.nome)}`}" target="_blank" rel="noopener" class="map-btn waze-btn">🚗 Waze</a></span>`;
+  return `<span class="map-links"><a href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" rel="noopener" class="map-btn maps-btn">${lc("map-pin", 14)} Maps</a><a href="${c.latitude && c.longitude ? `https://waze.com/ul?ll=${c.latitude},${c.longitude}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent(c.endereco || c.nome)}`}" target="_blank" rel="noopener" class="map-btn waze-btn">${lc("navigation", 14)} Waze</a></span>`;
 }
 
 function buildEventMenuHtml() {
@@ -1164,7 +1164,7 @@ function buildEventMenuHtml() {
     if (!grupos[info.grupo]) grupos[info.grupo] = [];
     grupos[info.grupo].push({ tipo, ...info });
   });
-  return Object.entries(grupos).map(([grupo, itens]) => `<div class="dropdown-label">${grupo}</div>${itens.map(({ tipo, label, icon }) => `<div class="dropdown-item" onclick="openEventModal('${tipo}')">${icon} ${label}</div>`).join('')}`).join('');
+  return Object.entries(grupos).map(([grupo, itens]) => `<div class="dropdown-label">${grupo}</div>${itens.map(({ tipo, label, icon }) => `<div class="dropdown-item" onclick="openEventModal('${tipo}')">${lc(icon, 14)} ${label}</div>`).join('')}`).join('');
 }
 
 function renderAgendaSemanaGrid(items, inicioSemana, congId) {
@@ -1222,7 +1222,7 @@ function toggleEventMenu() {
 async function openEventModal(tipo) {
   if (!hasPerm('registrar_eventos')) { toast('Sem permissão', 'error'); return; }
   $('event-menu')?.classList.add('hidden');
-  const info = TIPOS_EVENTO[tipo] || { label: tipo, icon: lc("clipboard-list",14), financeiro: false, evangelismo: false };
+  const info = TIPOS_EVENTO[tipo] || { label: tipo, icon: 'clipboard-list', financeiro: false, evangelismo: false };
   const { data: mems } = await q('membros').select('id,nome,cargo,frequenta_ebd,papel_ebd').eq('congregacao_id', navState.cong.id).order('nome');
   let qExt = q('membros').select('id,nome,cargo,congregacao_id').order('nome').neq('congregacao_id', navState.cong.id);
   if (!canSeeAllSetores() && currentUser?.setor_id) qExt = qExt.eq('setor_id', currentUser.setor_id);
@@ -1254,7 +1254,7 @@ async function openEventModal(tipo) {
 
   const memsParaEBD = info.ebd ? (mems || []).filter(m => m.frequenta_ebd) : (mems || []);
 
-  showModal(`<div class="modal-hdr"><span>${info.icon}</span><h2>Registrar: ${info.label}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
+  showModal(`<div class="modal-hdr"><span>${lc(info.icon, 20)}</span><h2>Registrar: ${info.label}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
   <div class="modal-body">
     <div class="form-group"><label>Data *</label><input id="ev-data" type="date" value="${new Date().toISOString().slice(0, 10)}"/></div>
     <div class="form-group"><label>Resumo / Obs.</label><textarea id="ev-resumo" rows="2" style="resize:vertical"></textarea></div>
@@ -1288,7 +1288,7 @@ async function submitEvento(tipo) {
     batismo_espirito: parseInt($('ev-batismo-espirito')?.value) || 0,
     renovo: parseInt($('ev-renovo')?.value) || 0,
     bencaos_alcancadas: parseInt($('ev-bencaos')?.value) || 0,
-    desviados_voltaram: parseInt($('ev-desviados')?.value) || 0,
+    desviados_voltaram_campo: parseInt($('ev-desviados')?.value) || 0,
     literaturas_distribuidas: parseInt($('ev-literaturas')?.value) || 0,
     tema_licao: ($('ev-tema-licao')?.value || '').trim() || null,
     referencia_biblica: ($('ev-referencia')?.value || '').trim() || null,
@@ -1302,7 +1302,7 @@ async function openEventDetail(id) {
   showModal(loadingPage());
   const { data: ev, error } = await q('eventos').select('*').eq('id', id).single();
   if (error || !ev) { closeModal(); toast('Erro', 'error'); return; }
-  const info = TIPOS_EVENTO[ev.tipo] || { label: ev.tipo, icon: lc("clipboard-list",14) };
+  const info = TIPOS_EVENTO[ev.tipo] || { label: ev.tipo, icon: 'clipboard-list' };
   let participantesHtml = '';
   if (ev.participante_ids?.length > 0) {
     const { data: partics } = await q('membros').select('id,nome,cargo').in('id', ev.participante_ids);
@@ -1316,7 +1316,7 @@ async function openEventDetail(id) {
   } else {
     detalhes = `<div class="mem-info-grid"><div class="inf-item"><label>Participantes</label><span>${ev.participantes || 0}</span></div></div>`;
   }
-  showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div style="font-size:40px;margin-bottom:8px">${info.icon}</div><div class="mem-modal-name">${info.label}</div><span class="tag tag-gold">${fmtDate(ev.data)}</span></div>${detalhes}${ev.resumo ? `<div style="padding:0 30px 8px"><p style="color:var(--txt2);font-size:.88rem">${escHtml(ev.resumo)}</p></div>` : ''}${participantesHtml}<div class="mem-modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
+  showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div style="font-size:40px;margin-bottom:8px">${lc(info.icon, 40)}</div><div class="mem-modal-name">${info.label}</div><span class="tag tag-gold">${fmtDate(ev.data)}</span></div>${detalhes}${ev.resumo ? `<div style="padding:0 30px 8px"><p style="color:var(--txt2);font-size:.88rem">${escHtml(ev.resumo)}</p></div>` : ''}${participantesHtml}<div class="mem-modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
 }
 
 async function delEvento(id) {
