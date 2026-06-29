@@ -480,7 +480,7 @@ async function renderDashboard() {
         <h2 class="dash-title">Bem-vindo, ${escHtml(currentUser.nome.split(' ')[0])} 👋</h2>
         <p class="dash-sub">${escHtml(setorSelecionado?.nome||currentUserSetor?.nome||'—')}${cid&&congsList.find(c=>c.id===cid)?' › '+escHtml(congsList.find(c=>c.id===cid).nome):''}</p>
       </div>
-      <button class="btn btn-secondary btn-sm" title="Atualizar dados" onclick="renderDashboard()" style="margin-left:4px;font-size:1rem;padding:6px 10px">🔄</button>
+      <button class="btn btn-secondary btn-sm" title="Atualizar dados" onclick="renderDashboard()" style="margin-left:4px;font-size:1rem;padding:6px 10px"><img src="./aassets/refresh.svg"></img></button>
     </div>
     <div class="dash-period">
       ${setorSel}

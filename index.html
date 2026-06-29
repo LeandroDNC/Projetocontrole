@@ -1,119 +1,107 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-    <title>EclesiaSync — Gestão Eclesiástica</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap"
-      rel="stylesheet" />
-    <script
-      src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-    <link rel="stylesheet" href="style_v4.css">
-    <link rel="stylesheet" href="style_v5_additions.css">
-  </head>
-  <body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>EclesiaSync — Gestão Eclesiástica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <link rel="stylesheet" href="style_v4.css">
+  <link rel="stylesheet" href="style_v5_additions.css">
+</head>
+<body>
 
-    <!-- LOGIN -->
-    <div id="screen-login">
-      <div class="login-orb orb-a"></div>
-      <div class="login-orb orb-b"></div>
-      <div class="login-card">
-        <div class="login-logo">
-          <h1>EclesiaSync</h1>
-          <p>Sistema de Gestão Eclesiástica</p>
-        </div>
-        <div class="form-group">
-          <label>Usuário</label>
-          <input id="inp-user" type="text" placeholder="Digite seu usuário"
-            autocomplete="username" />
-        </div>
-        <div class="form-group">
-          <label>Senha</label>
-          <input id="inp-pass" type="password" placeholder="••••••••"
-            autocomplete="current-password" />
-        </div>
-        <p id="login-err" class="hidden"
-          style="color:var(--rose);font-size:.82rem;margin-bottom:12px"></p>
-        <button id="btn-login" class="btn btn-primary btn-full">→ Entrar no
-          Sistema</button>
+  <!-- LOGIN -->
+  <div id="screen-login">
+    <div class="login-orb orb-a"></div>
+    <div class="login-orb orb-b"></div>
+    <div class="login-card">
+      <div class="login-logo">
+        <h1>EclesiaSync</h1>
+        <p>Sistema de Gestão Eclesiástica</p>
       </div>
-    </div>
-
-    <!-- APP -->
-    <div id="screen-app" class="hidden">
-      <div class="mob-overlay" id="mob-overlay"></div>
-      <nav class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-          <div class="logo-text">
-            <h2>EclesiaSync</h2>
-            <p>Gestão Eclesiástica</p>
-          </div>
-          <div class="sidebar-toggle" id="sidebar-toggle"
-            title="Recolher">‹</div>
-        </div>
-        <div class="sidebar-nav">
-          <div class="nav-label">Principal</div>
-          <div class="nav-item active" data-page="dashboard"><span
-              class="nav-icon">⊞</span><span
-              class="nav-lbl">Dashboard</span></div>
-          <div class="nav-item" data-page="setores"><span
-              class="nav-icon">🏙</span><span
-              class="nav-lbl">Setores</span></div>
-          <div class="nav-item" data-page="usuarios"><span
-              class="nav-icon">👥</span><span
-              class="nav-lbl">Usuários</span></div>
-          <div class="nav-item" data-page="relatorios"><span
-              class="nav-icon">📊</span><span
-              class="nav-lbl">Relatórios</span></div>
-          <div class="nav-label">Análise</div>
-          <div class="nav-item" data-page="frequencia"><span
-              class="nav-icon">📈</span><span
-              class="nav-lbl">Frequência</span></div>
-          <div class="nav-label">Sistema</div>
-          <div class="nav-item" data-page="permissoes"><span
-              class="nav-icon">🔐</span><span
-              class="nav-lbl">Permissões</span></div>
-          <!-- Financeiro e Ev.Setoriais injetados via JS -->
-        </div>
-        <div class="sidebar-footer">
-          <div class="user-pill" id="user-pill">
-            <div class="user-av" id="user-av"></div>
-            <div class="user-inf">
-              <strong id="user-name-side"></strong>
-              <span class="role-badge" id="user-role-side"></span>
-              <span class="user-setor-side" id="user-setor-side"></span>
-            </div>
-          </div>
-        </div>
-      </nav>
-      <div class="main" id="main-wrap">
-        <header class="topbar">
-          <button class="hamburger" id="hamburger">☰</button>
-          <div class="topbar-title">
-            <span id="page-title">Dashboard</span>
-            <small id="topbar-date"></small>
-          </div>
-          <div id="theme-panel-container"></div>
-          <div class="flex items-center gap12">
-            <span class="fs-sm c2 fw5" id="topbar-user"></span>
-          </div>
-        </header>
-        <div class="page" id="page-content"></div>
+      <div class="form-group">
+        <label>Usuário</label>
+        <input id="inp-user" type="text" placeholder="Digite seu usuário" autocomplete="username" />
       </div>
+      <div class="form-group">
+        <label>Senha</label>
+        <input id="inp-pass" type="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <p id="login-err" class="hidden" style="color:var(--rose);font-size:.82rem;margin-bottom:12px"></p>
+      <button id="btn-login" class="btn btn-primary btn-full">→ Entrar no Sistema</button>
     </div>
-    <div id="modal-container"></div>
+  </div>
 
-    <!-- ORDEM IMPORTANTE -->
-    <script src="script_v5.js"></script>
-    <script src="script.js"></script>
-  </body>
+  <!-- APP -->
+  <div id="screen-app" class="hidden">
+    <div class="mob-overlay" id="mob-overlay"></div>
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-text">
+          <h2>EclesiaSync</h2>
+          <p>Gestão Eclesiástica</p>
+        </div>
+        <div class="sidebar-toggle" id="sidebar-toggle" title="Recolher">‹</div>
+      </div>
+      <div class="sidebar-nav">
+        <div class="nav-label">Principal</div>
+        <div class="nav-item active" data-page="dashboard"><span class="nav-icon">⊞</span><span class="nav-lbl">Dashboard</span></div>
+        <div class="nav-item" data-page="setores"><span class="nav-icon">🏙</span><span class="nav-lbl">Setores</span></div>
+        <div class="nav-item" data-page="usuarios"><span class="nav-icon">👥</span><span class="nav-lbl">Usuários</span></div>
+        <div class="nav-item" data-page="relatorios"><span class="nav-icon">📊</span><span class="nav-lbl">Relatórios</span></div>
+        <div class="nav-label">Análise</div>
+        <div class="nav-item" data-page="frequencia"><span class="nav-icon">📈</span><span class="nav-lbl">Frequência</span></div>
+        <!-- 🏆 Ranking injetado via JS -->
+        <div class="nav-label">Sistema</div>
+        <div class="nav-item" data-page="permissoes"><span class="nav-icon">🔐</span><span class="nav-lbl">Permissões</span></div>
+        <!-- 💳 Financeiro injetado via JS -->
+      </div>
+      <div class="sidebar-footer">
+        <div class="user-pill" id="user-pill">
+          <div class="user-av" id="user-av"></div>
+          <div class="user-inf">
+            <strong id="user-name-side"></strong>
+            <span class="role-badge" id="user-role-side"></span>
+            <span class="user-setor-side" id="user-setor-side"></span>
+          </div>
+        </div>
+      </div>
+    </nav>
+    <div class="main" id="main-wrap">
+      <header class="topbar">
+        <button class="hamburger" id="hamburger">☰</button>
+        <div class="topbar-title">
+          <span id="page-title">Dashboard</span>
+          <small id="topbar-date"></small>
+        </div>
+        <div id="theme-panel-container"></div>
+        <div class="flex items-center gap12">
+          <span class="fs-sm c2 fw5" id="topbar-user"></span>
+        </div>
+      </header>
+      <div class="page" id="page-content"></div>
+    </div>
+  </div>
+  <div id="modal-container"></div>
+
+  <!--
+    ORDEM DOS SCRIPTS — não altere:
+    1. script_v5.js        → lógica principal
+    2. financeiro_module.js → módulo financeiro (sobrescreve checkLicenca)
+    3. ranking_module.js   → módulo ranking (injeta menu + renderRanking)
+    4. dashboard_patch.js  → sobrescreve renderDashboard + regras de evento
+    5. theme_engine.js     → tema claro/escuro
+  -->
+  <script src="script_v5.js"></script>
+  <script src="financeiro_module.js"></script>
+  <script src="ranking_module.js"></script>
+  <script src="dashboard_patch.js"></script>
+  <script src="theme_engine.js"></script>
+</body>
 </html>
