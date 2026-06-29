@@ -154,7 +154,11 @@ async function loadPermissions() {
     const { data, error } = await db.rpc('get_user_permissions', { p_user_id: currentUser.id });
     permissionsCache = {};
     if (data && !error) {
-      data.forEach(p => { permissionsCache[p.perm_code] = p.perm_ativo; });
+     data.forEach(p => {
+  const code = p.perm_code ?? p.codigo ?? p.permission_code;
+  const val  = p.perm_ativo ?? p.bool ?? p.ativo ?? false;
+  if (code) permissionsCache[code] = val;
+});
     } else {
       const { data: legado } = await q('permissoes').select('permissao,ativo').eq('role', currentUser.role);
       const map = { 'Gerenciar Setores': 'gerenciar_setores', 'Gerenciar Congregações': 'gerenciar_congregacoes', 'Gerenciar Membros': 'gerenciar_membros', 'Gerenciar Usuários': 'gerenciar_usuarios', 'Visualizar Dashboard': 'visualizar_dashboard', 'Ver Relatórios': 'ver_relatorios', 'Editar Permissões': 'editar_permissoes', 'Exportar Dados': 'exportar_dados', 'Excluir Registros': 'excluir_registros', 'Registrar Eventos': 'registrar_eventos', 'Ver Todos os Setores': 'ver_todos_setores', 'Gerenciar Agenda': 'gerenciar_agenda', 'Ver Frequência de Usuários': 'ver_frequencia_usuarios', 'Visualizar Resumo Financeiro': 'ver_financeiro', 'Filtrar Setor no Dashboard': 'filtrar_setor_dashboard', 'Filtrar Congregação no Dashboard': 'filtrar_congregacao_dashboard', 'Ver Relatório por Congregação': 'ver_relatorio_por_congregacao', 'Criar Eventos Setoriais': 'criar_eventos_setorial', 'Gerenciar Financeiro': 'gerenciar_financeiro', 'Visualizar Ranking Mensal': 'visualizar_ranking', 'Gerenciar Ranking Mensal': 'gerenciar_ranking',};
@@ -1544,6 +1548,9 @@ async function toggleUserPerm(userId, perm, current) {
   catch (e) { const { error } = await q('user_permissions').upsert({ user_id: userId, permission_code: perm, ativo: novoValor }, { onConflict: 'user_id,permission_code' }); if (error) { toast(error.message, 'error'); return; } }
   toast(`Permissão ${novoValor ? 'concedida' : 'removida'}`);
   const uName = document.querySelector('#modal-container .modal-hdr h2')?.textContent.replace('Permissões — ', '') || '';
+  if(perm === 'visualizar_ranking' || perm === 'gerenciar_ranking'){
+  if(typeof window.injectRankingMenu === 'function') window.injectRankingMenu();
+}
   openUserPermModal(userId, uName);
 }
 
@@ -1868,7 +1875,8 @@ async function renderPermissoes() {
   let { data, error } = await q('role_permissions').select('*').eq('role', activeRole);
   if (error || !data?.length) {
     const legacy = await q('permissoes').select('*').eq('role', activeRole);
-    const map = { 'Gerenciar Setores': 'gerenciar_setores', 'Gerenciar Congregações': 'gerenciar_congregacoes', 'Gerenciar Membros': 'gerenciar_membros', 'Gerenciar Usuários': 'gerenciar_usuarios', 'Visualizar Dashboard': 'visualizar_dashboard', 'Ver Relatórios': 'ver_relatorios', 'Editar Permissões': 'editar_permissoes', 'Exportar Dados': 'exportar_dados', 'Excluir Registros': 'excluir_registros', 'Registrar Eventos': 'registrar_eventos', 'Ver Todos os Setores': 'ver_todos_setores', 'Gerenciar Agenda': 'gerenciar_agenda', 'Ver Frequência de Usuários': 'ver_frequencia_usuarios', 'Visualizar Resumo Financeiro': 'ver_financeiro', 'Filtrar Setor no Dashboard': 'filtrar_setor_dashboard', 'Filtrar Congregação no Dashboard': 'filtrar_congregacao_dashboard', 'Ver Relatório por Congregação': 'ver_relatorio_por_congregacao', 'Criar Eventos Setoriais': 'criar_eventos_setorial', 'Gerenciar Financeiro': 'gerenciar_financeiro' };
+    const map = { 'Gerenciar Setores': 'gerenciar_setores', 'Gerenciar Congregações': 'gerenciar_congregacoes', 'Gerenciar Membros': 'gerenciar_membros', 'Gerenciar Usuários': 'gerenciar_usuarios', 'Visualizar Dashboard': 'visualizar_dashboard', 'Ver Relatórios': 'ver_relatorios', 'Editar Permissões': 'editar_permissoes', 'Exportar Dados': 'exportar_dados', 'Excluir Registros': 'excluir_registros', 'Registrar Eventos': 'registrar_eventos', 'Ver Todos os Setores': 'ver_todos_setores', 'Gerenciar Agenda': 'gerenciar_agenda', 'Ver Frequência de Usuários': 'ver_frequencia_usuarios', 'Visualizar Resumo Financeiro': 'ver_financeiro', 'Filtrar Setor no Dashboard': 'filtrar_setor_dashboard', 'Filtrar Congregação no Dashboard': 'filtrar_congregacao_dashboard', 'Ver Relatório por Congregação': 'ver_relatorio_por_congregacao', 'Criar Eventos Setoriais': 'criar_eventos_setorial', 'Gerenciar Financeiro': 'gerenciar_financeiro', 'Visualizar Ranking Mensal': 'visualizar_ranking',
+    'Gerenciar Ranking Mensal':  'gerenciar_ranking' };
     data = (legacy.data || []).map(p => ({ role: p.role, permission_code: map[p.permissao] || p.permissao, ativo: p.ativo }));
   }
   const perms = {}; (data || []).forEach(p => { perms[p.permission_code] = p.ativo; });
@@ -1908,7 +1916,13 @@ async function toggleRolePerm(perm, current) {
   const novoValor = !current;
   try { const { error } = await db.rpc('toggle_role_permission', { p_role: activeRole, p_perm: perm, p_ativo: novoValor }); if (error) throw error; }
   catch (e) { await Promise.all([q('role_permissions').upsert({ role: activeRole, permission_code: perm, ativo: novoValor }, { onConflict: 'role,permission_code' }), q('permissoes').upsert({ role: activeRole, permissao: perm, ativo: novoValor }, { onConflict: 'role,permissao' })]); }
-  permissionsCache[perm] = novoValor; toast(`Permissão ${novoValor ? 'concedida' : 'removida'}`); renderPermissoes();
+ permissionsCache[perm] = novoValor;
+toast(`Permissão ${novoValor ? 'concedida' : 'removida'}`);
+renderPermissoes();
+// Re-injeta menu de ranking se a permissão mudou
+if(perm === 'visualizar_ranking' || perm === 'gerenciar_ranking'){
+  if(typeof window.injectRankingMenu === 'function') window.injectRankingMenu();
+}
 }
 
 function openNewRoleModal() {

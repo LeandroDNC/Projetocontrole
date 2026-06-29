@@ -42,18 +42,64 @@ function calcNivel(totalEventos, config){
 }
 
 /* ── INJETAR MENU ─────────────────────────────────────────  */
-function injectRankingMenu(){
+// Exposta globalmente para ser chamada após mudanças de permissão
+window.injectRankingMenu = async function injectRankingMenu(){
   const nav=document.querySelector('.sidebar-nav');
-  if(!nav||nav.querySelector('[data-page="ranking"]')) return;
+  if(!nav) return;
 
-  // ▸ AJUSTE: ampliado para visualizar_ranking e supervisores
-  const temPerm =
-    (typeof isSuperAdmin==='function' && isSuperAdmin()) ||
-    (typeof hasPerm==='function' && (
-      hasPerm('gerenciar_ranking') ||
-      hasPerm('visualizar_ranking')
-    ));
-  if(!temPerm) return;
+  // Sempre remove item anterior para re-avaliar permissão
+  const existente=nav.querySelector('[data-page="ranking"]');
+
+  // ── Verifica permissão consultando o banco diretamente ──
+  // Isso evita depender do cache permissionsCache que pode estar desatualizado
+  let temPerm = (typeof isSuperAdmin==='function' && isSuperAdmin());
+
+  if(!temPerm){
+    const client=rkDb();
+    const user=window.currentUser;
+    if(client && user?.id){
+      try{
+        // Tenta via RPC primeiro (igual ao loadPermissions do script_v5)
+        const {data:rpcData}=await client.rpc('get_user_permissions',{p_user_id:user.id});
+        if(rpcData){
+          const found=rpcData.find(p=>
+            (p.perm_code==='visualizar_ranking'||p.perm_code==='gerenciar_ranking') && p.perm_ativo
+          );
+          temPerm=!!found;
+        }
+        // Se RPC não retornou nada, tenta tabela role_permissions pelo role do usuário
+        if(!temPerm && user.role){
+          const {data:rp}=await client
+            .from('role_permissions')
+            .select('permission_code,ativo')
+            .eq('role',user.role)
+            .in('permission_code',['visualizar_ranking','gerenciar_ranking']);
+          temPerm=!!(rp||[]).some(p=>p.ativo);
+        }
+        // Atualiza o cache local também
+        if(temPerm){
+          if(typeof permissionsCache!=='undefined'){
+            permissionsCache['visualizar_ranking']=true;
+          }
+        }
+      }catch(e){
+        // Fallback: usa cache local
+        temPerm=(typeof hasPerm==='function')&&(hasPerm('gerenciar_ranking')||hasPerm('visualizar_ranking'));
+      }
+    } else {
+      // Sem banco, usa cache
+      temPerm=(typeof hasPerm==='function')&&(hasPerm('gerenciar_ranking')||hasPerm('visualizar_ranking'));
+    }
+  }
+
+  if(!temPerm){
+    // Remove o item se existir e usuário perdeu permissão
+    if(existente) existente.remove();
+    return;
+  }
+
+  // Já existe, não duplica
+  if(existente) return;
 
   const div=document.createElement('div');
   div.className='nav-item'; div.dataset.page='ranking';
@@ -66,7 +112,7 @@ function injectRankingMenu(){
   const analise=labels.find(el=>el.textContent.trim()==='Análise');
   if(analise) nav.insertBefore(div,analise.nextSibling);
   else nav.appendChild(div);
-}
+};
 
 /* ── APURAR RANKING (semanal + mensal) ──────────────────── */
 window.apurarRanking = async function(silencioso=false){
@@ -146,7 +192,8 @@ window.apurarRanking = async function(silencioso=false){
 /* ── RENDER RANKING ──────────────────────────────────────── */
 window.renderRanking = async function(){
   const pc=document.getElementById('page-content'); if(!pc) return;
-  const temPerm=(typeof isSuperAdmin==='function'&&isSuperAdmin())||(typeof hasPerm==='function'&&(hasPerm('gerenciar_ranking')||hasPerm('visualizar_ranking')));
+const podeGerenciar=(typeof isSuperAdmin==='function'&&isSuperAdmin())||(typeof hasPerm==='function'&&hasPerm('gerenciar_ranking'));
+const podeVisualizar=podeGerenciar||(typeof hasPerm==='function'&&hasPerm('visualizar_ranking'));
   pc.innerHTML=rkLoading();
   const client=rkDb();
   if(!client){pc.innerHTML=`<div class="empty"><div class="empty-ico">⚠</div><p>Supabase não disponível.</p></div>`;return;}
@@ -192,8 +239,8 @@ window.renderRanking = async function(){
       <div class="sec-actions">
         ${rkBack()}
         <button class="btn btn-secondary btn-sm" onclick="apurarRanking(false).then(()=>renderRanking())">🔄 Apurar</button>
-        ${temPerm?`<button class="btn btn-secondary btn-sm" onclick="openRankingConfig()">⚙️ Configurações</button>`:''}
-        ${temPerm?`<button class="btn btn-primary btn-sm" onclick="exportarRankingPDF()">📄 Relatório PDF</button>`:''}
+       ${podeGerenciar?`<button class="btn btn-secondary btn-sm" onclick="openRankingConfig()">⚙️ Configurações</button>`:''}
+${podeGerenciar?`<button class="btn btn-primary btn-sm" onclick="exportarRankingPDF()">📄 Relatório PDF</button>`:''}
       </div>
     </div>
 
@@ -527,7 +574,7 @@ window.getRankingNivel = async function(congId){
   if(!app) return;
   const tryInject=()=>{
     if(!app.classList.contains('hidden')){
-      setTimeout(injectRankingMenu,400);
+      setTimeout(()=>window.injectRankingMenu(), 600);
       return true;
     }
     return false;

@@ -52,7 +52,7 @@
 
 
 
-
+  --white:rgba(253, 253, 253, 0.2);
   --gold: #a07830;
   --gold-l: #c99a3e;
   --blue: #2563eb;
@@ -636,7 +636,7 @@ textarea:focus {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--gold), var(--gold-l));
+  background: linear-gradient(135deg, var(--), var(--gold-l));
   color: #090c18;
   box-shadow: 0 4px 16px rgba(201, 168, 76, .3)
 }
