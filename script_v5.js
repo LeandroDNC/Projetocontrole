@@ -134,6 +134,8 @@ const PERM_DESC = {
   'excluir_registros': { label: 'Excluir Registros', desc: 'Excluir qualquer registro' },
   'editar_permissoes': { label: 'Editar Permissões', desc: 'Alterar permissões de grupos' },
   'gerenciar_financeiro': { label: 'Gerenciar Financeiro', desc: 'Acessar e gerenciar módulo financeiro de licenças' },
+  'visualizar_ranking':   { label: 'Visualizar Ranking Mensal', desc: 'Acessar o menu e tela de ranking mensal das MADALPs' },
+  'gerenciar_ranking':    { label: 'Gerenciar Ranking Mensal', desc: 'Configurar metas, apurar e exportar PDF do ranking' },
 };
 
 const isSuperAdmin = () => currentUser?.role === 'admin';
@@ -155,10 +157,10 @@ async function loadPermissions() {
       data.forEach(p => { permissionsCache[p.perm_code] = p.perm_ativo; });
     } else {
       const { data: legado } = await q('permissoes').select('permissao,ativo').eq('role', currentUser.role);
-      const map = { 'Gerenciar Setores': 'gerenciar_setores', 'Gerenciar Congregações': 'gerenciar_congregacoes', 'Gerenciar Membros': 'gerenciar_membros', 'Gerenciar Usuários': 'gerenciar_usuarios', 'Visualizar Dashboard': 'visualizar_dashboard', 'Ver Relatórios': 'ver_relatorios', 'Editar Permissões': 'editar_permissoes', 'Exportar Dados': 'exportar_dados', 'Excluir Registros': 'excluir_registros', 'Registrar Eventos': 'registrar_eventos', 'Ver Todos os Setores': 'ver_todos_setores', 'Gerenciar Agenda': 'gerenciar_agenda', 'Ver Frequência de Usuários': 'ver_frequencia_usuarios', 'Visualizar Resumo Financeiro': 'ver_financeiro', 'Filtrar Setor no Dashboard': 'filtrar_setor_dashboard', 'Filtrar Congregação no Dashboard': 'filtrar_congregacao_dashboard', 'Ver Relatório por Congregação': 'ver_relatorio_por_congregacao', 'Criar Eventos Setoriais': 'criar_eventos_setorial', 'Gerenciar Financeiro': 'gerenciar_financeiro' };
+      const map = { 'Gerenciar Setores': 'gerenciar_setores', 'Gerenciar Congregações': 'gerenciar_congregacoes', 'Gerenciar Membros': 'gerenciar_membros', 'Gerenciar Usuários': 'gerenciar_usuarios', 'Visualizar Dashboard': 'visualizar_dashboard', 'Ver Relatórios': 'ver_relatorios', 'Editar Permissões': 'editar_permissoes', 'Exportar Dados': 'exportar_dados', 'Excluir Registros': 'excluir_registros', 'Registrar Eventos': 'registrar_eventos', 'Ver Todos os Setores': 'ver_todos_setores', 'Gerenciar Agenda': 'gerenciar_agenda', 'Ver Frequência de Usuários': 'ver_frequencia_usuarios', 'Visualizar Resumo Financeiro': 'ver_financeiro', 'Filtrar Setor no Dashboard': 'filtrar_setor_dashboard', 'Filtrar Congregação no Dashboard': 'filtrar_congregacao_dashboard', 'Ver Relatório por Congregação': 'ver_relatorio_por_congregacao', 'Criar Eventos Setoriais': 'criar_eventos_setorial', 'Gerenciar Financeiro': 'gerenciar_financeiro', 'Visualizar Ranking Mensal': 'visualizar_ranking', 'Gerenciar Ranking Mensal': 'gerenciar_ranking',};
       (legado || []).forEach(p => { permissionsCache[map[p.permissao] || p.permissao] = p.ativo; });
     }
-  } catch (e) { console.warn('Permissões indisponíveis', e); }
+  } catch (e) { console.warn('Permissões indisponíveis', e); } 
 }
 
 async function loadUserSetor() {
@@ -1872,7 +1874,10 @@ async function renderPermissoes() {
   const perms = {}; (data || []).forEach(p => { perms[p.permission_code] = p.ativo; });
   const displayPerms = activeRole === 'admin' ? Object.fromEntries(Object.keys(PERM_DESC).map(k => [k, true])) : perms;
   const activeCount = Object.values(displayPerms).filter(Boolean).length;
-  const grupos = { 'Acesso e Visualização': ['visualizar_dashboard', 'ver_relatorios', 'ver_frequencia_usuarios', 'exportar_dados'], 'Financeiro': ['ver_financeiro', 'gerenciar_financeiro'], 'Filtros e Visibilidade': ['filtrar_setor_dashboard', 'filtrar_congregacao_dashboard', 'ver_relatorio_por_congregacao', 'ver_todos_setores'], 'Gestão': ['gerenciar_setores', 'gerenciar_congregacoes', 'gerenciar_membros', 'gerenciar_usuarios', 'gerenciar_agenda'], 'Operações': ['registrar_eventos', 'criar_eventos_setorial', 'excluir_registros'], 'Sistema': ['editar_permissoes'] };
+  const grupos = {
+    'Acesso e Visualização': ['visualizar_dashboard', 'ver_relatorios', 'ver_frequencia_usuarios', 'exportar_dados'],
+    'Financeiro': ['ver_financeiro', 'gerenciar_financeiro'],
+    'Ranking Mensal': ['visualizar_ranking', 'gerenciar_ranking'], 'Filtros e Visibilidade': ['filtrar_setor_dashboard', 'filtrar_congregacao_dashboard', 'ver_relatorio_por_congregacao', 'ver_todos_setores'], 'Gestão': ['gerenciar_setores', 'gerenciar_congregacoes', 'gerenciar_membros', 'gerenciar_usuarios', 'gerenciar_agenda'], 'Operações': ['registrar_eventos', 'criar_eventos_setorial', 'excluir_registros'], 'Sistema': ['editar_permissoes'] };
   $('page-content').innerHTML = `
   <div class="sec-hdr">
     <h2>Controle de Permissões</h2>
