@@ -61,7 +61,7 @@ window.checkLicenca = async function(userId) {
         <div style="text-align:center;padding:48px 40px;background:#111827;
           border:1px solid rgba(244,63,94,.3);border-radius:20px;
           max-width:440px;width:100%;box-shadow:0 0 40px rgba(244,63,94,.08)">
-          <div style="font-size:56px;margin-bottom:16px">🔒</div>
+          <div style="font-size:56px;margin-bottom:16px">${typeof lc==='function'?lc('lock',56):'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'}</div>
           <h2 style="font-family:'Cinzel',serif;color:#f43f5e;font-size:1.3rem;margin-bottom:10px">
             Acesso Bloqueado
           </h2>
@@ -73,7 +73,7 @@ window.checkLicenca = async function(userId) {
             style="display:inline-flex;align-items:center;gap:8px;background:#25d366;
               color:#fff;padding:13px 28px;border-radius:12px;text-decoration:none;
               font-weight:600;font-size:.9rem">
-            📱 Falar no WhatsApp
+            Falar no WhatsApp
           </a>
           <p style="color:#475569;font-size:.75rem;margin-top:16px">
             Vencimento: ${fmtD(data.data_fim)}
@@ -102,7 +102,7 @@ function injectFinanceiroMenu() {
   const div = document.createElement('div');
   div.className = 'nav-item';
   div.dataset.page = 'financeiro';
-  div.innerHTML = `<span class="nav-icon">💳</span><span class="nav-lbl">Financeiro</span>`;
+  div.innerHTML = `<span class="nav-icon"><i data-lucide="wallet"></i></span><span class="nav-lbl">Financeiro</span>`;
   div.addEventListener('click', () => {
     if (typeof navigate === 'function') navigate('financeiro');
     if (typeof toggleMobile === 'function') toggleMobile(false);
@@ -126,7 +126,7 @@ window.renderFinanceiro = async function() {
   const temPerm = (typeof isSuperAdmin === 'function' && isSuperAdmin()) ||
                   (typeof hasPerm === 'function' && hasPerm('gerenciar_financeiro'));
   if (!temPerm) {
-    pc.innerHTML = `<div class="empty"><div class="empty-ico">🔐</div><p>Sem permissão para acessar o módulo financeiro.</p></div>`;
+    pc.innerHTML = `<div class="empty"><div class="empty-ico">${typeof lc==='function'?lc('shield-off',44):''}</div><p>Sem permissão para acessar o módulo financeiro.</p></div>`;
     return;
   }
 
@@ -134,7 +134,7 @@ window.renderFinanceiro = async function() {
 
   const client = getDb();
   if (!client) {
-    pc.innerHTML = `<div class="empty"><div class="empty-ico">⚠</div><p>Supabase não inicializado.</p></div>`;
+    pc.innerHTML = `<div class="empty"><div class="empty-ico">${typeof lc==='function'?lc('alert-triangle',44):''}</div><p>Supabase não inicializado.</p></div>`;
     return;
   }
 
@@ -155,7 +155,7 @@ window.renderFinanceiro = async function() {
       const proximo  = !vencido && l.data_fim && l.data_fim <= em7;
       const status   = vencido ? 'vencido' : proximo ? 'proximo' : 'ok';
       const cor      = status === 'ok' ? '#14b8a6' : status === 'proximo' ? '#f59e0b' : '#f43f5e';
-      const label    = status === 'ok' ? '✅ Em dia' : status === 'proximo' ? '⚠️ Vence em breve' : '🔴 VENCIDO';
+      const label    = status === 'ok' ? 'Em dia' : status === 'proximo' ? 'Vence em breve' : 'VENCIDO';
       // barra de progresso
       let pct = 0;
       if (l.data_inicio && l.data_fim) {
@@ -182,7 +182,7 @@ window.renderFinanceiro = async function() {
 
     pc.innerHTML = `
     <div class="sec-hdr">
-      <h2>💳 Módulo Financeiro — Licenças</h2>
+      <h2>${typeof lc==='function'?lc('wallet',20):''} Módulo Financeiro — Licenças</h2>
       <div class="sec-actions">
         ${backHtml}
         <button class="btn btn-primary btn-sm" onclick="openAddLicencaModal()">+ Adicionar</button>
@@ -190,10 +190,10 @@ window.renderFinanceiro = async function() {
     </div>
 
     <div class="stats-grid stats-4" style="margin-bottom:24px">
-      <div class="stat-card"><div class="stat-ico ic-teal">✅</div><div><div class="stat-val">${totalOk}</div><div class="stat-lbl">Em dia</div></div></div>
-      <div class="stat-card"><div class="stat-ico ic-gold">⚠️</div><div><div class="stat-val">${totalProximo}</div><div class="stat-lbl">Vencem em 7 dias</div></div></div>
-      <div class="stat-card"><div class="stat-ico ic-violet">🔴</div><div><div class="stat-val">${totalVencido}</div><div class="stat-lbl">Vencidos</div></div></div>
-      <div class="stat-card"><div class="stat-ico ic-blue">💰</div><div><div class="stat-val" style="font-size:1.1rem">${fmtM(totalValor)}</div><div class="stat-lbl">Total cadastrado</div></div></div>
+      <div class="stat-card"><div class="stat-ico ic-teal">${typeof lc==='function'?lc('check-circle',20):''}</div><div><div class="stat-val">${totalOk}</div><div class="stat-lbl">Em dia</div></div></div>
+      <div class="stat-card"><div class="stat-ico ic-gold">${typeof lc==='function'?lc('alert-triangle',20):''}</div><div><div class="stat-val">${totalProximo}</div><div class="stat-lbl">Vencem em 7 dias</div></div></div>
+      <div class="stat-card"><div class="stat-ico ic-violet">${typeof lc==='function'?lc('x-circle',20):''}</div><div><div class="stat-val">${totalVencido}</div><div class="stat-lbl">Vencidos</div></div></div>
+      <div class="stat-card"><div class="stat-ico ic-blue">${typeof lc==='function'?lc('coins',20):''}</div><div><div class="stat-val" style="font-size:1.1rem">${fmtM(totalValor)}</div><div class="stat-lbl">Total cadastrado</div></div></div>
     </div>
 
     <div class="charts-grid" style="margin-bottom:24px">
@@ -219,21 +219,21 @@ window.renderFinanceiro = async function() {
               <div class="user-card-tags" style="margin-top:6px">
                 <span style="background:${l.cor}22;color:${l.cor};border:1px solid ${l.cor}44;border-radius:99px;padding:2px 10px;font-size:.7rem;font-weight:600">${l.label}</span>
                 <span class="tag tag-gold">${fmtM(l.valor)}</span>
-                <span class="tag">📅 ${fmtD(l.data_inicio)} → ${fmtD(l.data_fim)}</span>
+                <span class="tag">${typeof lc==='function'?lc('calendar',12):''} ${fmtD(l.data_inicio)} → ${fmtD(l.data_fim)}</span>
               </div>
               <div style="margin-top:8px;background:rgba(255,255,255,.06);border-radius:99px;height:4px;overflow:hidden">
                 <div style="height:100%;width:${l.pct}%;background:${l.cor};border-radius:99px;transition:width .5s"></div>
               </div>
-              ${l.observacoes ? `<div class="fs-xs c3" style="margin-top:4px">📝 ${escH(l.observacoes)}</div>` : ''}
+              ${l.observacoes ? `<div class="fs-xs c3" style="margin-top:4px">${typeof lc==='function'?lc('file-text',12):''} ${escH(l.observacoes)}</div>` : ''}
             </div>
           </div>
           <div class="user-card-actions">
-            <button class="btn btn-secondary btn-sm" onclick="openEditLicencaModal('${l.id}')">✏ Editar</button>
-            <button class="btn btn-teal btn-sm" onclick="renovarLicenca('${l.id}','${escH(l.user?.nome || '')}')">🔄 +30 dias</button>
-            <button class="btn btn-danger btn-sm" onclick="delLicenca('${l.id}')">🗑</button>
+            <button class="btn btn-secondary btn-sm" onclick="openEditLicencaModal('${l.id}')">${typeof lc==='function'?lc('pencil',14):''} Editar</button>
+            <button class="btn btn-teal btn-sm" onclick="renovarLicenca('${l.id}','${escH(l.user?.nome || '')}')">${typeof lc==='function'?lc('refresh-cw',14):''} +30 dias</button>
+            <button class="btn btn-danger btn-sm" onclick="delLicenca('${l.id}')">${typeof lc==='function'?lc('trash-2',14):''}</button>
           </div>
         </div>`).join('') :
-      `<div class="empty"><div class="empty-ico">💳</div>
+      `<div class="empty"><div class="empty-ico">${typeof lc==='function'?lc('wallet',44):''}</div>
         <p>Nenhuma licença cadastrada.</p>
         <p class="fs-xs c3" style="margin-top:6px">Clique em "+ Adicionar" para cadastrar.</p>
       </div>`}
@@ -259,7 +259,7 @@ window.renderFinanceiro = async function() {
     console.error('renderFinanceiro:', e);
     pc.innerHTML = `
       <div class="empty">
-        <div class="empty-ico">⚠</div>
+        <div class="empty-ico">${typeof lc==='function'?lc('alert-triangle',44):''}</div>
         <p>Erro ao carregar o módulo financeiro.</p>
         <p class="fs-xs c3" style="margin-top:8px;max-width:400px;margin-left:auto;margin-right:auto">${escH(e.message)}</p>
         <div style="margin-top:16px;padding:14px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.15);border-radius:10px;font-size:.8rem;color:#93c5fd;max-width:420px;margin-left:auto;margin-right:auto;text-align:left">
@@ -268,7 +268,7 @@ window.renderFinanceiro = async function() {
           2. Confirme que a tabela <code>financeiro_licencas</code> existe<br>
           3. Verifique o console do navegador (F12)
         </div>
-        <button class="btn btn-primary btn-sm" style="margin-top:16px" onclick="renderFinanceiro()">🔄 Tentar novamente</button>
+        <button class="btn btn-primary btn-sm" style="margin-top:16px" onclick="renderFinanceiro()">${typeof lc==='function'?lc('refresh-cw',14):''} Tentar novamente</button>
       </div>`;
   }
 };
@@ -278,7 +278,7 @@ window.openAddLicencaModal = async function() {
   if (typeof showModal !== 'function') return;
 
   showModal(`
-    <div class="modal-hdr"><span>💳</span><h2>Adicionar Licença</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-hdr"><span>${typeof lc==='function'?lc('wallet',20):''}</span><h2>Adicionar Licença</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div class="modal-body" id="fin-modal-body"><div class="loading-page"><div class="spinner"></div></div></div>
     <div class="modal-foot" id="fin-modal-foot"></div>`);
 
@@ -329,7 +329,7 @@ window.openAddLicencaModal = async function() {
 
     document.getElementById('fin-modal-foot').innerHTML = `
       <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveLicencaModal(null)">💾 Salvar</button>`;
+      <button class="btn btn-primary" onclick="saveLicencaModal(null)">${typeof lc==='function'?lc('save',14):''} Salvar</button>`;
 
   } catch (e) {
     document.getElementById('fin-modal-body').innerHTML =
@@ -344,7 +344,7 @@ window.openEditLicencaModal = async function(id) {
   if (typeof showModal !== 'function') return;
 
   showModal(`
-    <div class="modal-hdr"><span>✏</span><h2>Editar Licença</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-hdr"><span>${typeof lc==='function'?lc('pencil',20):''}</span><h2>Editar Licença</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div class="modal-body" id="fin-modal-body"><div class="loading-page"><div class="spinner"></div></div></div>
     <div class="modal-foot" id="fin-modal-foot"></div>`);
 
@@ -394,7 +394,7 @@ window.openEditLicencaModal = async function(id) {
 
     document.getElementById('fin-modal-foot').innerHTML = `
       <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveLicencaModal('${id}')">💾 Salvar</button>`;
+      <button class="btn btn-primary" onclick="saveLicencaModal('${id}')">${typeof lc==='function'?lc('save',14):''} Salvar</button>`;
 
   } catch (e) {
     document.getElementById('fin-modal-body').innerHTML =
