@@ -115,6 +115,7 @@ const tipoColor = t => ({ culto: 'var(--gold)', ebd: '#38bdf8', evento: 'var(--b
 
 /* ── PERMISSÕES ──────────────────────────────────────────── */
 const PERM_DESC = {
+  'visualizar_eventos_setoriais_dash': { label: 'Visualizar Eventos Setoriais', desc: 'Mostra eventos setoriais (inclusive futuros) no Dashboard inicial' },
   'visualizar_dashboard': { label: 'Visualizar Dashboard', desc: 'Acessar o painel principal' },
   'ver_relatorios': { label: 'Ver Relatórios', desc: 'Acessar relatórios e gráficos' },
   'ver_frequencia_usuarios': { label: 'Ver Frequência de Usuários', desc: 'Ver frequência de participação' },
@@ -161,7 +162,7 @@ async function loadPermissions() {
 });
     } else {
       const { data: legado } = await q('permissoes').select('permissao,ativo').eq('role', currentUser.role);
-      const map = { 'Gerenciar Setores': 'gerenciar_setores', 'Gerenciar Congregações': 'gerenciar_congregacoes', 'Gerenciar Membros': 'gerenciar_membros', 'Gerenciar Usuários': 'gerenciar_usuarios', 'Visualizar Dashboard': 'visualizar_dashboard', 'Ver Relatórios': 'ver_relatorios', 'Editar Permissões': 'editar_permissoes', 'Exportar Dados': 'exportar_dados', 'Excluir Registros': 'excluir_registros', 'Registrar Eventos': 'registrar_eventos', 'Ver Todos os Setores': 'ver_todos_setores', 'Gerenciar Agenda': 'gerenciar_agenda', 'Ver Frequência de Usuários': 'ver_frequencia_usuarios', 'Visualizar Resumo Financeiro': 'ver_financeiro', 'Filtrar Setor no Dashboard': 'filtrar_setor_dashboard', 'Filtrar Congregação no Dashboard': 'filtrar_congregacao_dashboard', 'Ver Relatório por Congregação': 'ver_relatorio_por_congregacao', 'Criar Eventos Setoriais': 'criar_eventos_setorial', 'Gerenciar Financeiro': 'gerenciar_financeiro', 'Visualizar Ranking Mensal': 'visualizar_ranking', 'Gerenciar Ranking Mensal': 'gerenciar_ranking',};
+      const map = { 'Gerenciar Setores': 'gerenciar_setores', 'Gerenciar Congregações': 'gerenciar_congregacoes', 'Gerenciar Membros': 'gerenciar_membros', 'Gerenciar Usuários': 'gerenciar_usuarios', 'Visualizar Dashboard': 'visualizar_dashboard', 'Ver Relatórios': 'ver_relatorios', 'Editar Permissões': 'editar_permissoes', 'Exportar Dados': 'exportar_dados', 'Excluir Registros': 'excluir_registros', 'Registrar Eventos': 'registrar_eventos', 'Ver Todos os Setores': 'ver_todos_setores', 'Gerenciar Agenda': 'gerenciar_agenda', 'Ver Frequência de Usuários': 'ver_frequencia_usuarios', 'Visualizar Resumo Financeiro': 'ver_financeiro', 'Filtrar Setor no Dashboard': 'filtrar_setor_dashboard', 'Filtrar Congregação no Dashboard': 'filtrar_congregacao_dashboard', 'Ver Relatório por Congregação': 'ver_relatorio_por_congregacao', 'Criar Eventos Setoriais': 'criar_eventos_setorial', 'Gerenciar Financeiro': 'gerenciar_financeiro', 'Visualizar Ranking Mensal': 'visualizar_ranking', 'Gerenciar Ranking Mensal': 'gerenciar_ranking','Visualizar Eventos Setoriais': 'visualizar_eventos_setoriais_dash',};
       (legado || []).forEach(p => { permissionsCache[map[p.permissao] || p.permissao] = p.ativo; });
     }
   } catch (e) { console.warn('Permissões indisponíveis', e); } 
@@ -1883,6 +1884,7 @@ async function renderPermissoes() {
   const displayPerms = activeRole === 'admin' ? Object.fromEntries(Object.keys(PERM_DESC).map(k => [k, true])) : perms;
   const activeCount = Object.values(displayPerms).filter(Boolean).length;
   const grupos = {
+    'Ranking Mensal': ['visualizar_ranking', 'gerenciar_ranking', 'visualizar_eventos_setoriais_dash'],
     'Acesso e Visualização': ['visualizar_dashboard', 'ver_relatorios', 'ver_frequencia_usuarios', 'exportar_dados'],
     'Financeiro': ['ver_financeiro', 'gerenciar_financeiro'],
     'Ranking Mensal': ['visualizar_ranking', 'gerenciar_ranking'], 'Filtros e Visibilidade': ['filtrar_setor_dashboard', 'filtrar_congregacao_dashboard', 'ver_relatorio_por_congregacao', 'ver_todos_setores'], 'Gestão': ['gerenciar_setores', 'gerenciar_congregacoes', 'gerenciar_membros', 'gerenciar_usuarios', 'gerenciar_agenda'], 'Operações': ['registrar_eventos', 'criar_eventos_setorial', 'excluir_registros'], 'Sistema': ['editar_permissoes'] };

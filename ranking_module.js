@@ -190,38 +190,51 @@ window.apurarRanking = async function(silencioso=false){
 };
 
 /* ── RENDER RANKING ──────────────────────────────────────── */
+// Estado do filtro de mês/ano do ranking (mantido entre re-renders)
+window._rkMesFiltro = window._rkMesFiltro || (new Date().getMonth()+1);
+window._rkAnoFiltro = window._rkAnoFiltro || (new Date().getFullYear());
+window._rkSetorFiltro = window._rkSetorFiltro || '';
+
 window.renderRanking = async function(){
   const pc=document.getElementById('page-content'); if(!pc) return;
-const podeGerenciar=(typeof isSuperAdmin==='function'&&isSuperAdmin())||(typeof hasPerm==='function'&&hasPerm('gerenciar_ranking'));
-const podeVisualizar=podeGerenciar||(typeof hasPerm==='function'&&hasPerm('visualizar_ranking'));
+  const podeGerenciar=(typeof isSuperAdmin==='function'&&isSuperAdmin())||(typeof hasPerm==='function'&&hasPerm('gerenciar_ranking'));
   pc.innerHTML=rkLoading();
   const client=rkDb();
   if(!client){pc.innerHTML=`<div class="empty"><div class="empty-ico">⚠</div><p>Supabase não disponível.</p></div>`;return;}
   try{
     const hoje=new Date();
-    const mesAtual=hoje.getMonth()+1;
-    const anoAtual=hoje.getFullYear();
+    const mesFiltro=window._rkMesFiltro;
+    const anoFiltro=window._rkAnoFiltro;
+    const ehMesAtual=(mesFiltro===hoje.getMonth()+1 && anoFiltro===hoje.getFullYear());
     const semAtual=getISOWeek(hoje);
 
-    // Apura antes de exibir
-    await apurarRanking(true);
+    // Apura antes de exibir (apenas se for o mês/ano atual — não faz sentido apurar mês passado)
+    if(ehMesAtual) await apurarRanking(true);
 
-    const [{data:cfgArr},{data:congs},{data:mensal},{data:semanal},{data:setores}]=await Promise.all([
+    // ▸ Permissão "ver todos os setores": controla se pode ver MADALPs de outros setores
+    const vetodosSetores=(typeof isSuperAdmin==='function'&&isSuperAdmin())||(typeof canSeeAllSetores==='function'&&canSeeAllSetores())||(typeof hasPerm==='function'&&hasPerm('ver_todos_setores'));
+    const currentUser=window.currentUser;
+
+    const [{data:cfgArr},{data:congsRaw},{data:mensal},{data:semanal},{data:setores}]=await Promise.all([
       client.from('ranking_config').select('*').order('created_at',{ascending:false}).limit(1),
       client.from('congregacoes').select('id,nome,setor_id').order('nome'),
-      client.from('ranking_mensal').select('*').eq('mes',mesAtual).eq('ano',anoAtual),
-      client.from('ranking_semanal').select('*').eq('semana',semAtual).eq('ano',anoAtual),
-      client.from('setores').select('id,nome'),
+      client.from('ranking_mensal').select('*').eq('mes',mesFiltro).eq('ano',anoFiltro),
+      ehMesAtual?client.from('ranking_semanal').select('*').eq('semana',semAtual).eq('ano',anoFiltro):Promise.resolve({data:[]}),
+      client.from('setores').select('id,nome').order('nome'),
     ]);
 
     const config=cfgArr?.[0]||{vermelho_min:1,amarelo_min:3,verde_min:5};
-    const isSA=typeof isSuperAdmin==='function'&&isSuperAdmin();
 
-    // Filtra congregações por setor do usuário (se não admin)
-    const currentUser=window.currentUser;
-    const congsFiltradas=isSA||!currentUser?.setor_id
-      ?(congs||[])
-      :(congs||[]).filter(c=>c.setor_id===currentUser.setor_id);
+    // Base: respeita a permissão de ver todos os setores
+    const congsBase=vetodosSetores||!currentUser?.setor_id
+      ?(congsRaw||[])
+      :(congsRaw||[]).filter(c=>c.setor_id===currentUser.setor_id);
+
+    // Filtro adicional de setor escolhido na tela (só disponível se vetodosSetores)
+    const setorFiltroAtivo=vetodosSetores?window._rkSetorFiltro:'';
+    const congsFiltradas=setorFiltroAtivo
+      ?congsBase.filter(c=>c.setor_id===setorFiltroAtivo)
+      :congsBase;
 
     const getSetorNome=id=>(setores||[]).find(s=>s.id===id)?.nome||'—';
     const getMensal=cid=>(mensal||[]).find(m=>m.madalp_id===cid);
@@ -233,14 +246,18 @@ const podeVisualizar=podeGerenciar||(typeof hasPerm==='function'&&hasPerm('visua
 
     const mesesNome=['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
+    // Lista de anos para o seletor (do ano atual até 2 anos atrás)
+    const anoAtualReal=new Date().getFullYear();
+    const anosDisponiveis=[anoAtualReal,anoAtualReal-1,anoAtualReal-2];
+
     pc.innerHTML=`
     <div class="sec-hdr">
-      <h2>🏆 Ranking Mensal — ${mesesNome[mesAtual]} ${anoAtual}</h2>
+      <h2>🏆 Ranking Mensal — ${mesesNome[mesFiltro]} ${anoFiltro}${!ehMesAtual?' <span class="tag" style="font-size:.65rem;vertical-align:middle">histórico</span>':''}</h2>
       <div class="sec-actions">
         ${rkBack()}
-        <button class="btn btn-secondary btn-sm" onclick="apurarRanking(false).then(()=>renderRanking())">🔄 Apurar</button>
-       ${podeGerenciar?`<button class="btn btn-secondary btn-sm" onclick="openRankingConfig()">⚙️ Configurações</button>`:''}
-${podeGerenciar?`<button class="btn btn-primary btn-sm" onclick="exportarRankingPDF()">📄 Relatório PDF</button>`:''}
+        ${ehMesAtual?`<button class="btn btn-secondary btn-sm" onclick="apurarRanking(false).then(()=>renderRanking())">🔄 Apurar</button>`:''}
+        ${podeGerenciar?`<button class="btn btn-secondary btn-sm" onclick="openRankingConfig()">⚙️ Configurações</button>`:''}
+        ${podeGerenciar?`<button class="btn btn-primary btn-sm" onclick="exportarRankingPDF()">📄 Relatório PDF</button>`:''}
       </div>
     </div>
 
@@ -263,7 +280,7 @@ ${podeGerenciar?`<button class="btn btn-primary btn-sm" onclick="exportarRanking
     <!-- GRÁFICO -->
     <div class="chart-card" style="margin-bottom:24px">
       <h3>Distribuição de Níveis</h3>
-      <p>MADALPs por nível no mês atual</p>
+      <p>MADALPs por nível em ${mesesNome[mesFiltro]}/${anoFiltro}</p>
       <canvas id="chart-ranking-dist" height="60"></canvas>
     </div>
 
@@ -271,6 +288,18 @@ ${podeGerenciar?`<button class="btn btn-primary btn-sm" onclick="exportarRanking
     <div class="filter-bar" style="margin-bottom:16px">
       <div class="filter-title">🔍 Filtrar</div>
       <div class="filter-fields">
+        <div class="form-group" style="margin:0">
+          <label>Mês</label>
+          <select id="rank-filter-mes" onchange="rkAplicarFiltroPeriodo()" style="min-width:120px">
+            ${mesesNome.slice(1).map((m,i)=>`<option value="${i+1}" ${i+1===mesFiltro?'selected':''}>${m}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Ano</label>
+          <select id="rank-filter-ano" onchange="rkAplicarFiltroPeriodo()" style="min-width:90px">
+            ${anosDisponiveis.map(a=>`<option value="${a}" ${a===anoFiltro?'selected':''}>${a}</option>`).join('')}
+          </select>
+        </div>
         <div class="form-group" style="margin:0">
           <label>Nível</label>
           <select id="rank-filter-nivel" onchange="filterRankingTable()" style="min-width:130px">
@@ -280,11 +309,11 @@ ${podeGerenciar?`<button class="btn btn-primary btn-sm" onclick="exportarRanking
             <option value="vermelho">🔴 Vermelho</option>
           </select>
         </div>
-        ${isSA?`<div class="form-group" style="margin:0">
+        ${vetodosSetores?`<div class="form-group" style="margin:0">
           <label>Setor</label>
-          <select id="rank-filter-setor" onchange="filterRankingTable()" style="min-width:160px">
-            <option value="">Todos</option>
-            ${(setores||[]).map(s=>`<option value="${s.id}">${rkEsc(s.nome)}</option>`).join('')}
+          <select id="rank-filter-setor" onchange="rkAplicarFiltroSetor()" style="min-width:160px">
+            <option value="">Todos os setores</option>
+            ${(setores||[]).map(s=>`<option value="${s.id}" ${s.id===setorFiltroAtivo?'selected':''}>${rkEsc(s.nome)}</option>`).join('')}
           </select>
         </div>`:''}
         <div class="form-group" style="margin:0">
@@ -296,6 +325,7 @@ ${podeGerenciar?`<button class="btn btn-primary btn-sm" onclick="exportarRanking
 
     <!-- LISTAGEM -->
     <div class="sec-hdr"><h2>MADALPs <span class="count-badge">${congsFiltradas.length}</span></h2></div>
+    ${!congsFiltradas.length?`<div class="empty"><div class="empty-ico">⛪</div><p>Nenhuma MADALP encontrada${setorFiltroAtivo?' neste setor':''}.</p></div>`:`
     <div id="ranking-lista" style="display:flex;flex-direction:column;gap:8px">
       ${congsFiltradas.map(c=>{
         const m=getMensal(c.id);
@@ -317,7 +347,7 @@ ${podeGerenciar?`<button class="btn btn-primary btn-sm" onclick="exportarRanking
               <div class="user-card-tags" style="margin-top:6px">
                 ${nivelBadge(nivel)}
                 <span class="tag">📅 Mês: ${totalMes} eventos</span>
-                <span class="tag">📆 Semana: ${totalSem} eventos</span>
+                ${ehMesAtual?`<span class="tag">📆 Semana: ${totalSem} eventos</span>`:''}
               </div>
             </div>
           </div>
@@ -326,7 +356,7 @@ ${podeGerenciar?`<button class="btn btn-primary btn-sm" onclick="exportarRanking
           </div>
         </div>`;
       }).join('')}
-    </div>`;
+    </div>`}`;
 
     // Gráfico
     if(typeof Chart!=='undefined'){
@@ -342,6 +372,20 @@ ${podeGerenciar?`<button class="btn btn-primary btn-sm" onclick="exportarRanking
     console.error('renderRanking:',e);
     pc.innerHTML=`<div class="empty"><div class="empty-ico">⚠</div><p>Erro ao carregar ranking.<br><small>${rkEsc(e.message)}</small></p></div>`;
   }
+};
+
+/* ── Handlers dos filtros de período/setor ───────────────── */
+window.rkAplicarFiltroPeriodo = function(){
+  const mesEl=document.getElementById('rank-filter-mes');
+  const anoEl=document.getElementById('rank-filter-ano');
+  window._rkMesFiltro=parseInt(mesEl?.value)||(new Date().getMonth()+1);
+  window._rkAnoFiltro=parseInt(anoEl?.value)||(new Date().getFullYear());
+  renderRanking();
+};
+window.rkAplicarFiltroSetor = function(){
+  const setorEl=document.getElementById('rank-filter-setor');
+  window._rkSetorFiltro=setorEl?.value||'';
+  renderRanking();
 };
 
 /* ── FILTRO DA TABELA ────────────────────────────────────── */

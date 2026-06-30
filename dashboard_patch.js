@@ -164,6 +164,13 @@ window.renderDashboard = async function() {
   <!-- AGENDA -->
   <div class="sec-hdr"><h2>📅 Agenda da Semana</h2><span class="tag">Próximos 7 dias</span></div>
   <div class="agenda-strip" style="margin-bottom:28px">${dpAgendaStrip(agItems||[])}</div>
+  <!-- EVENTOS SETORIAIS (inclui futuros) -->
+  ${(typeof hasPerm==='function' && (hasPerm('visualizar_eventos_setoriais_dash')||isSuperAdmin())) ? `
+  <div class="sec-hdr"><h2>🏙 Eventos Setoriais</h2><span class="tag tag-gold">Inclui futuros</span></div>
+  <div id="dash-eventos-setoriais" class="act-list" style="margin-bottom:28px">${dpLoadingMini()}</div>
+  ` : ''}
+
+  
 
   <!-- EVENTOS RECENTES -->
   <div class="sec-hdr" id="dash-eventos-section">
@@ -206,6 +213,40 @@ window.renderDashboard = async function() {
       if(fCtx) new Chart(fCtx,{type:'bar',data:{labels:['Ofertas','Dízimos','Total'],datasets:[{data:[totalOferMes,totalDizMes,totalOferMes+totalDizMes],backgroundColor:['rgba(201,168,76,.8)','rgba(20,184,166,.7)','rgba(139,92,246,.7)'],borderRadius:8}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'rgba(255,255,255,.03)'}},y:{ticks:{color:'#94a3b8',callback:v=>'R$'+v.toLocaleString()},grid:{color:'rgba(255,255,255,.05)'}}}}});
     }
   }
+  // Carrega e renderiza eventos setoriais (inclui futuros) se permitido
+  if(typeof hasPerm==='function' && (hasPerm('visualizar_eventos_setoriais_dash')||isSuperAdmin())){
+    const esContainer=document.getElementById('dash-eventos-setoriais');
+    if(esContainer){
+      try{
+        // Setor do usuário (a menos que tenha permissão de ver todos)
+        const vetodosSetores=(typeof canSeeAllSetores==='function'&&canSeeAllSetores())||isSuperAdmin();
+        let qES=client.from('eventos').select('*').eq('tipo','evento_setorial').order('data',{ascending:true}).limit(15);
+        if(!vetodosSetores && window.currentUser?.setor_id){
+          qES=qES.eq('setor_id',window.currentUser.setor_id);
+        }
+        const {data:eventosSetoriais}=await qES;
+        const {data:setoresES}=await client.from('setores').select('id,nome');
+        const setorNomeES=id=>(setoresES||[]).find(s=>s.id===id)?.nome||'—';
+        const hojeStr=new Date().toISOString().slice(0,10);
+
+        esContainer.innerHTML=(eventosSetoriais||[]).length?(eventosSetoriais||[]).map(e=>{
+          const futuro=e.data>hojeStr;
+          return `<div class="act-item">
+            <div class="act-dot" style="background:${futuro?'#3b82f6':'var(--gold)'}"></div>
+            <div class="f1">
+              <div class="fw5">🏙 ${dp.esc(e.resumo||'Evento Setorial')}</div>
+              <div class="fs-xs c3">${dp.esc(setorNomeES(e.setor_id))}${futuro?' · <span style="color:#3b82f6;font-weight:600">Agendado</span>':''}</div>
+            </div>
+            <span class="tag">${e.participantes||0} pessoas</span>
+            <span class="act-time">${dp.fmtD(e.data)}</span>
+          </div>`;
+        }).join(''):'<p class="c3" style="padding:16px;text-align:center">Nenhum evento setorial.</p>';
+      }catch(e){
+        esContainer.innerHTML='<p class="c3" style="padding:16px;text-align:center">Erro ao carregar eventos setoriais.</p>';
+      }
+    }
+  }
+
 };
 
 /* ── AÇÕES DOS CARDS GRANDES ────────────────────────────── */
@@ -359,8 +400,7 @@ window.submitEvento = async function(tipo){
     batismo_espirito:futuro?0:(parseInt(document.getElementById('ev-batismo-espirito')?.value)||0),
     renovo:futuro?0:(parseInt(document.getElementById('ev-renovo')?.value)||0),
     bencaos_alcancadas:futuro?0:(parseInt(document.getElementById('ev-bencaos')?.value)||0),
-    desviados_voltaram:futuro?0:(parseInt(document.getElementById('ev-desviados')?.value)||0),
-    literaturas_distribuidas:futuro?0:(parseInt(document.getElementById('ev-literaturas')?.value)||0),
+    desviados_voltaram_campo:futuro?0:(parseInt(document.getElementById('ev-desviados')?.value)||0),    literaturas_distribuidas:futuro?0:(parseInt(document.getElementById('ev-literaturas')?.value)||0),
     tema_licao:(document.getElementById('ev-tema-licao')?.value||'').trim()||null,
     referencia_biblica:(document.getElementById('ev-referencia')?.value||'').trim()||null,
   };
