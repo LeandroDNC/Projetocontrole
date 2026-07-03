@@ -507,11 +507,8 @@ async function renderDashboard() {
       <div>
         <p class="dash-sub">${escHtml(setorSelecionado?.nome || currentUserSetor?.nome || '—')}${cid && congsList.find(c => c.id === cid) ? ' › ' + escHtml(congsList.find(c => c.id === cid).nome) : ''}</p>
       </div>
-<<<<<<< HEAD
-      <button class="btn btn-secondary btn-sm" title="Atualizar dados" onclick="renderDashboard()" style="margin-left:4px;font-size:1rem;padding:6px 10px"><img src="./aassets/refresh.svg"></img></button>
-=======
       <button class="btn btn-secondary btn-sm" title="Atualizar dados" onclick="renderDashboard()" style="margin-left:4px;font-size:1rem;padding:6px 10px">${lc('refresh-cw', 16)}</button>
->>>>>>> c687e3401aeffd7683103f6c5e6db9d3465e42e0
+
     </div>
     <div class="dash-period">
       ${setorSel}
@@ -1883,11 +1880,15 @@ async function renderPermissoes() {
   const perms = {}; (data || []).forEach(p => { perms[p.permission_code] = p.ativo; });
   const displayPerms = activeRole === 'admin' ? Object.fromEntries(Object.keys(PERM_DESC).map(k => [k, true])) : perms;
   const activeCount = Object.values(displayPerms).filter(Boolean).length;
-  const grupos = {
-    'Ranking Mensal': ['visualizar_ranking', 'gerenciar_ranking', 'visualizar_eventos_setoriais_dash'],
+    const grupos = {
     'Acesso e Visualização': ['visualizar_dashboard', 'ver_relatorios', 'ver_frequencia_usuarios', 'exportar_dados'],
     'Financeiro': ['ver_financeiro', 'gerenciar_financeiro'],
-    'Ranking Mensal': ['visualizar_ranking', 'gerenciar_ranking'], 'Filtros e Visibilidade': ['filtrar_setor_dashboard', 'filtrar_congregacao_dashboard', 'ver_relatorio_por_congregacao', 'ver_todos_setores'], 'Gestão': ['gerenciar_setores', 'gerenciar_congregacoes', 'gerenciar_membros', 'gerenciar_usuarios', 'gerenciar_agenda'], 'Operações': ['registrar_eventos', 'criar_eventos_setorial', 'excluir_registros'], 'Sistema': ['editar_permissoes'] };
+    'Ranking e Eventos Setoriais': ['visualizar_ranking', 'gerenciar_ranking', 'visualizar_eventos_setoriais_dash'],
+    'Filtros e Visibilidade': ['filtrar_setor_dashboard', 'filtrar_congregacao_dashboard', 'ver_relatorio_por_congregacao', 'ver_todos_setores'],
+    'Gestão': ['gerenciar_setores', 'gerenciar_congregacoes', 'gerenciar_membros', 'gerenciar_usuarios', 'gerenciar_agenda'],
+    'Operações': ['registrar_eventos', 'criar_eventos_setorial', 'excluir_registros'],
+    'Sistema': ['editar_permissoes']
+  };
   $('page-content').innerHTML = `
   <div class="sec-hdr">
     <h2>Controle de Permissões</h2>

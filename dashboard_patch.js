@@ -1,15 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   EclesiaSync · dashboard_patch.js v1.0
-   Adicione no HTML após ranking_module.js:
-     <script src="dashboard_patch.js"></script>
-
-   O que faz:
-   + Remove cards pequenos (shortcuts) do dashboard
-   + Cards grandes viram hyperlinks inteligentes
-   + Eventos mostram conversões, ofertas, dízimos
-   + Status de eventos (rascunho/pendente/publicado)
-   + Regra: eventos futuros não aceitam participantes
-   + Badge de ranking nas congregações
+   EclesiaSync · dashboard_patch.js v1.1
    ═══════════════════════════════════════════════════════════ */
 
 /* ── helpers ─────────────────────────────────────────────── */
@@ -23,9 +13,13 @@ const dp = {
   isPendente: d=>d<=dp.hoje(),
 };
 
+/* ── FIX 3: dpLoadingMini estava ausente — causava erro e loop no dashboard ── */
+function dpLoadingMini(){
+  return `<div class="loading-page" style="padding:20px"><div class="spinner"></div></div>`;
+}
+
 /* ══════════════════════════════════════════════════════════
    1. SOBRESCREVE renderDashboard
-   Remove shortcuts, cards grandes = hyperlinks inteligentes
 ══════════════════════════════════════════════════════════ */
 window.renderDashboard = async function() {
   if(typeof hasPerm==='function'&&!hasPerm('visualizar_dashboard')&&!(typeof isSuperAdmin==='function'&&isSuperAdmin())){
@@ -50,8 +44,6 @@ window.renderDashboard = async function() {
 
   const canFin=typeof canSeeFinanceiro==='function'?canSeeFinanceiro():false;
 
-  // Queries paralelas
-  const qs=[];
   let qSet=client.from('setores').select('id',{count:'exact',head:true});
   let qCong=client.from('congregacoes').select('id',{count:'exact',head:true});
   let qMem=client.from('membros').select('id',{count:'exact',head:true});
@@ -62,9 +54,8 @@ window.renderDashboard = async function() {
   if(sid){qSet=qSet.eq('id',sid);qCong=qCong.eq('setor_id',sid);qMem=qMem.eq('setor_id',sid);qEv=qEv.eq('setor_id',sid);qEvM=qEvM.eq('setor_id',sid);qAg=qAg.eq('setor_id',sid);}
   if(cid){qCong=qCong.eq('id',cid);qMem=qMem.eq('congregacao_id',cid);qEv=qEv.eq('congregacao_id',cid);qEvM=qEvM.eq('congregacao_id',cid);qAg=qAg.eq('congregacao_id',cid);}
 
-  const [{data:allSetores},{data:allCongsData}]=await Promise.all([
+  const [{data:allSetores}]=await Promise.all([
     client.from('setores').select('id,nome').order('nome'),
-    client.from('congregacoes').select('id,nome').eq('setor_id',sid||'00000000-0000-0000-0000-000000000000').order('nome'),
   ]);
 
   const [rSet,rCong,rMem,rEv,rEvM,{data:agItems}]=await Promise.all([qSet,qCong,qMem,qEv,qEvM,qAg.limit(10)]);
@@ -77,7 +68,6 @@ window.renderDashboard = async function() {
   const totalPartMes=eventosMes.reduce((s,e)=>s+(e.participantes||0),0);
   const nomeMes=now.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
 
-  // Seletor setor/cong
   const canFS=typeof canFilterSetores==='function'?canFilterSetores():false;
   const canFC=typeof canFilterCong==='function'?canFilterCong():false;
   const congsList=sid?(await client.from('congregacoes').select('id,nome').eq('setor_id',sid).order('nome')).data||[]:[];
@@ -96,15 +86,22 @@ window.renderDashboard = async function() {
     <span class="selector-badge">Somente visualização</span>
   </div>`:`<div class="dash-setor-locked"><span>📍</span> ${dp.esc((allSetores||[]).find(s=>s.id===sid)?.nome||'Meu Setor')} <span class="tag tag-blue" style="font-size:.65rem">fixo</span></div>`;
 
+  /* ── FIX 1: conflito de merge resolvido — usa lc() do script_v5.js ── */
+  const btnRefresh=typeof lc==='function'
+    ?`<button class="btn btn-secondary btn-sm" title="Atualizar dados" onclick="renderDashboard()" style="margin-left:4px;font-size:1rem;padding:6px 10px">${lc('refresh-cw',16)}</button>`
+    :`<button class="btn btn-secondary btn-sm" title="Atualizar dados" onclick="renderDashboard()" style="margin-left:4px;font-size:1rem;padding:6px 10px">🔄</button>`;
+
+  /* ── Verifica permissão de eventos setoriais ── */
+  const podeVerEvSetoriais=(typeof hasPerm==='function'&&(hasPerm('visualizar_eventos_setoriais_dash')))||(typeof isSuperAdmin==='function'&&isSuperAdmin());
+
   pc.innerHTML=`
   <div class="dash-header">
     <div style="display:flex;align-items:center;gap:10px">
       <div>
-        <h2 class="dash-title">Bem-vindo, ${dp.esc((window.currentUser?.nome||'').split(' ')[0])} 👋</h2>
+        <h2 class="dash-title">Bem-vindo, ${dp.esc((window.currentUser?.nome||'').split(' ')[0])} </h2>
         <p class="dash-sub">${dp.esc((allSetores||[]).find(s=>s.id===sid)?.nome||'')}${cid&&congsList.find(c=>c.id===cid)?' › '+dp.esc(congsList.find(c=>c.id===cid).nome):''}</p>
       </div>
-      <button title="Atualizar" onclick="renderDashboard()"
-        style="background:rgba(255,255,255,.05);border:1px solid var(--bdr2);border-radius:var(--r2);color:var(--txt2);font-size:1rem;padding:6px 10px;cursor:pointer;transition:var(--ease)">🔄</button>
+      ${btnRefresh}
     </div>
     <div class="dash-period">
       ${setorSel}
@@ -112,7 +109,7 @@ window.renderDashboard = async function() {
     </div>
   </div>
 
-  <!-- CARDS GRANDES = HYPERLINKS INTELIGENTES (sem shortcuts pequenos) -->
+  <!-- CARDS GRANDES -->
   <div class="stats-grid stats-4" style="cursor:pointer">
     <div class="stat-card stat-clickable" onclick="dpNavSetores()" title="Ver congregações">
       <div class="stat-ico ic-gold">🏙</div>
@@ -164,13 +161,12 @@ window.renderDashboard = async function() {
   <!-- AGENDA -->
   <div class="sec-hdr"><h2>📅 Agenda da Semana</h2><span class="tag">Próximos 7 dias</span></div>
   <div class="agenda-strip" style="margin-bottom:28px">${dpAgendaStrip(agItems||[])}</div>
-  <!-- EVENTOS SETORIAIS (inclui futuros) -->
-  ${(typeof hasPerm==='function' && (hasPerm('visualizar_eventos_setoriais_dash')||isSuperAdmin())) ? `
+
+  <!-- EVENTOS SETORIAIS (só aparece se tiver permissão) -->
+  ${podeVerEvSetoriais?`
   <div class="sec-hdr"><h2>🏙 Eventos Setoriais</h2><span class="tag tag-gold">Inclui futuros</span></div>
   <div id="dash-eventos-setoriais" class="act-list" style="margin-bottom:28px">${dpLoadingMini()}</div>
-  ` : ''}
-
-  
+  `:''}
 
   <!-- EVENTOS RECENTES -->
   <div class="sec-hdr" id="dash-eventos-section">
@@ -213,13 +209,13 @@ window.renderDashboard = async function() {
       if(fCtx) new Chart(fCtx,{type:'bar',data:{labels:['Ofertas','Dízimos','Total'],datasets:[{data:[totalOferMes,totalDizMes,totalOferMes+totalDizMes],backgroundColor:['rgba(201,168,76,.8)','rgba(20,184,166,.7)','rgba(139,92,246,.7)'],borderRadius:8}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'rgba(255,255,255,.03)'}},y:{ticks:{color:'#94a3b8',callback:v=>'R$'+v.toLocaleString()},grid:{color:'rgba(255,255,255,.05)'}}}}});
     }
   }
-  // Carrega e renderiza eventos setoriais (inclui futuros) se permitido
-  if(typeof hasPerm==='function' && (hasPerm('visualizar_eventos_setoriais_dash')||isSuperAdmin())){
+
+  // Carrega eventos setoriais de forma assíncrona (não bloqueia o render)
+  if(podeVerEvSetoriais){
     const esContainer=document.getElementById('dash-eventos-setoriais');
     if(esContainer){
       try{
-        // Setor do usuário (a menos que tenha permissão de ver todos)
-        const vetodosSetores=(typeof canSeeAllSetores==='function'&&canSeeAllSetores())||isSuperAdmin();
+        const vetodosSetores=(typeof canSeeAllSetores==='function'&&canSeeAllSetores())||(typeof isSuperAdmin==='function'&&isSuperAdmin());
         let qES=client.from('eventos').select('*').eq('tipo','evento_setorial').order('data',{ascending:true}).limit(15);
         if(!vetodosSetores && window.currentUser?.setor_id){
           qES=qES.eq('setor_id',window.currentUser.setor_id);
@@ -241,12 +237,12 @@ window.renderDashboard = async function() {
             <span class="act-time">${dp.fmtD(e.data)}</span>
           </div>`;
         }).join(''):'<p class="c3" style="padding:16px;text-align:center">Nenhum evento setorial.</p>';
-      }catch(e){
-        esContainer.innerHTML='<p class="c3" style="padding:16px;text-align:center">Erro ao carregar eventos setoriais.</p>';
+      }catch(err){
+        const esC=document.getElementById('dash-eventos-setoriais');
+        if(esC) esC.innerHTML='<p class="c3" style="padding:16px;text-align:center">Erro ao carregar eventos setoriais.</p>';
       }
     }
   }
-
 };
 
 /* ── AÇÕES DOS CARDS GRANDES ────────────────────────────── */
@@ -257,7 +253,6 @@ window.dpNavSetores = function(){
 window.dpNavCongs = function(){
   const sid=window.currentUser?.setor_id;
   if(!sid){ if(typeof navigate==='function') navigate('setores'); return; }
-  // Navega para o setor do usuário direto na listagem de congregações
   if(typeof navState!=='undefined'&&typeof renderSetores==='function'){
     const setor=window.currentUserSetor||{id:sid,nome:'Meu Setor'};
     window.navState={view:'congregacoes',setor,cong:null};
@@ -270,7 +265,6 @@ window.dpNavCongs = function(){
 };
 
 window.dpNavMembros = function(){
-  // Vai para a congregação do usuário logado
   const cong=window.currentUserCong;
   const setor=window.currentUserSetor||{id:window.currentUser?.setor_id,nome:'Meu Setor'};
   if(cong&&typeof navState!=='undefined'&&typeof renderSetores==='function'){
@@ -318,7 +312,7 @@ function dpTipoLabel(t){
 }
 
 /* ══════════════════════════════════════════════════════════
-   2. CSS inline para stat-clickable
+   2. CSS inline
 ══════════════════════════════════════════════════════════ */
 (function injectCSS(){
   if(document.getElementById('dp-styles')) return;
@@ -326,46 +320,23 @@ function dpTipoLabel(t){
   style.id='dp-styles';
   style.textContent=`
     .stat-clickable { cursor:pointer; }
-    .stat-clickable:hover {
-      border-color:var(--gold) !important;
-      transform:translateY(-4px);
-      box-shadow:0 0 28px rgba(201,168,76,.18);
-    }
+    .stat-clickable:hover { border-color:var(--gold) !important; transform:translateY(-4px); box-shadow:0 0 28px rgba(201,168,76,.18); }
     .stat-clickable:hover .stat-ico { transform:scale(1.08); transition:transform .2s; }
     .stat-clickable .stat-chg { color:var(--txt3); font-size:.68rem; }
     .stat-clickable:hover .stat-chg { color:var(--gold); }
-
-    /* Badge de status do evento */
-    .ev-status-badge {
-      display:inline-block; font-size:.65rem; font-weight:700;
-      padding:2px 8px; border-radius:99px;
-    }
+    .ev-status-badge { display:inline-block; font-size:.65rem; font-weight:700; padding:2px 8px; border-radius:99px; }
     .ev-status-rascunho  { background:rgba(100,116,139,.15); color:#64748b; }
     .ev-status-pendente  { background:rgba(245,158,11,.15); color:#f59e0b; border:1px solid rgba(245,158,11,.3); }
     .ev-status-publicado { background:rgba(20,184,166,.15); color:#14b8a6; }
-
-    /* Aviso evento futuro */
-    .futuro-notice {
-      background:rgba(59,130,246,.07); border:1px solid rgba(59,130,246,.2);
-      border-radius:10px; padding:12px 16px; margin-bottom:14px;
-      font-size:.82rem; color:#93c5fd; display:flex; align-items:center; gap:8px;
-    }
-    /* Botão publicar */
-    .btn-publicar {
-      background:linear-gradient(135deg,#14b8a6,#0d9488);
-      color:#fff; border:none; border-radius:var(--r2);
-      padding:8px 18px; font-size:.82rem; font-weight:700;
-      cursor:pointer; transition:var(--ease); display:inline-flex;
-      align-items:center; gap:6px;
-    }
+    .futuro-notice { background:rgba(59,130,246,.07); border:1px solid rgba(59,130,246,.2); border-radius:10px; padding:12px 16px; margin-bottom:14px; font-size:.82rem; color:#93c5fd; display:flex; align-items:center; gap:8px; }
+    .btn-publicar { background:linear-gradient(135deg,#14b8a6,#0d9488); color:#fff; border:none; border-radius:var(--r2); padding:8px 18px; font-size:.82rem; font-weight:700; cursor:pointer; transition:var(--ease); display:inline-flex; align-items:center; gap:6px; }
     .btn-publicar:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(20,184,166,.3); }
   `;
   document.head.appendChild(style);
 })();
 
 /* ══════════════════════════════════════════════════════════
-   3. SOBRESCREVE submitEvento — status automático
-      + bloqueia participantes em eventos futuros
+   3. SOBRESCREVE submitEvento
 ══════════════════════════════════════════════════════════ */
 window.submitEvento = async function(tipo){
   if(typeof hasPerm==='function'&&!hasPerm('registrar_eventos')){ if(typeof toast==='function') toast('Sem permissão','error'); return; }
@@ -373,9 +344,8 @@ window.submitEvento = async function(tipo){
   if(!dataEv){ if(typeof toast==='function') toast('Data é obrigatória','error'); return; }
 
   const futuro=dp.isFuturo(dataEv);
-  const status=futuro?'rascunho':'pendente'; // pendente = aguardando publicação
+  const status=futuro?'rascunho':'pendente';
 
-  // Se futuro: zera participantes e IDs
   const localChecked=futuro?[]:[...document.querySelectorAll('.ev-mem-check:checked')].map(c=>c.value);
   const extChecked=futuro?[]:[...document.querySelectorAll('.ev-ext-check:checked')].map(c=>c.value);
   const participanteIds=[...localChecked,...extChecked];
@@ -400,7 +370,8 @@ window.submitEvento = async function(tipo){
     batismo_espirito:futuro?0:(parseInt(document.getElementById('ev-batismo-espirito')?.value)||0),
     renovo:futuro?0:(parseInt(document.getElementById('ev-renovo')?.value)||0),
     bencaos_alcancadas:futuro?0:(parseInt(document.getElementById('ev-bencaos')?.value)||0),
-    desviados_voltaram_campo:futuro?0:(parseInt(document.getElementById('ev-desviados')?.value)||0),    literaturas_distribuidas:futuro?0:(parseInt(document.getElementById('ev-literaturas')?.value)||0),
+    desviados_voltaram_campo:futuro?0:(parseInt(document.getElementById('ev-desviados')?.value)||0),
+    literaturas_distribuidas:futuro?0:(parseInt(document.getElementById('ev-literaturas')?.value)||0),
     tema_licao:(document.getElementById('ev-tema-licao')?.value||'').trim()||null,
     referencia_biblica:(document.getElementById('ev-referencia')?.value||'').trim()||null,
   };
@@ -431,10 +402,7 @@ window.publicarEvento = async function(id){
 /* ── PATCH: openEventModal — aviso para eventos futuros ── */
 const _origOpenEventModal=window.openEventModal;
 window.openEventModal = async function(tipo){
-  // Deixa o modal original abrir normalmente
   if(typeof _origOpenEventModal==='function') await _origOpenEventModal(tipo);
-
-  // Depois de abrir, verifica se a data escolhida é futura e injeta aviso
   const patchFuturoCheck=()=>{
     const dataInput=document.getElementById('ev-data');
     if(!dataInput) return;
@@ -447,7 +415,6 @@ window.openEventModal = async function(tipo){
         notice.className='futuro-notice';
         notice.innerHTML='🔒 <strong>Evento futuro:</strong> Participantes e dados não podem ser preenchidos agora. Registre como rascunho e publique após a realização.';
         dataInput.parentElement.parentElement.insertBefore(notice,dataInput.parentElement.nextSibling);
-        // Desabilita campos de participantes
         document.querySelectorAll('.ev-mem-check,.ev-ext-check').forEach(el=>el.disabled=true);
         document.querySelectorAll('#ev-participantes,#ev-conversoes,#ev-ofertas,#ev-dizimos,#ev-evangelizados,#ev-almas-salvas,#ev-batismo-espirito,#ev-renovo,#ev-bencaos,#ev-desviados,#ev-literaturas').forEach(el=>{if(el){el.disabled=true;el.value=0;}});
       } else {
@@ -456,17 +423,15 @@ window.openEventModal = async function(tipo){
       }
     };
     dataInput.addEventListener('change',updateAviso);
-    updateAviso(); // checa valor inicial
+    updateAviso();
   };
   setTimeout(patchFuturoCheck,100);
 };
 
-/* ── PATCH: renderCongregacao — badge ranking + btn publicar ─ */
+/* ── PATCH: renderCongregacao — badge ranking ── */
 const _origRenderCong=window.renderCongregacao;
 window.renderCongregacao = async function(pc){
   if(typeof _origRenderCong==='function') await _origRenderCong(pc);
-
-  // Injeta badge de ranking no header
   if(typeof window.navState!=='undefined'&&window.navState.cong?.id&&typeof getRankingNivel==='function'){
     getRankingNivel(window.navState.cong.id).then(nivel=>{
       if(!nivel) return;
@@ -479,28 +444,12 @@ window.renderCongregacao = async function(pc){
       if(h2) h2.appendChild(badge);
     });
   }
-
-  // Injeta botão "Publicar" em eventos pendentes
-  setTimeout(()=>{
-    pc.querySelectorAll('.act-item').forEach(item=>{
-      // Pega o ID do evento do onclick do botão excluir
-      const delBtn=item.querySelector('.btn-danger');
-      if(!delBtn) return;
-      const match=delBtn.getAttribute('onclick')?.match(/delEvento\('([^']+)'\)/);
-      if(!match) return;
-      const evId=match[1];
-      // Verifica se é pendente (tem data <= hoje mas não está publicado ainda)
-      // Como já filtramos por publicado no render principal, nada a fazer aqui
-      // Mas adicionamos botão para eventos pendentes via query separada
-    });
-  },200);
 };
 
 /* ── PATCH: renderCongregacao — mostrar eventos pendentes ── */
 const _origRenderCongFull=window.renderCongregacao;
 window.renderCongregacao = async function(pc){
   if(typeof _origRenderCongFull==='function') await _origRenderCongFull(pc);
-  // Busca eventos pendentes desta congregação e injeta seção
   if(typeof navState==='undefined'||!navState.cong?.id) return;
   const client=dp.db(); if(!client) return;
   try{
@@ -536,4 +485,4 @@ window.renderCongregacao = async function(pc){
   }catch(e){ console.warn('pendentes:',e); }
 };
 
-console.log('[dashboard_patch] carregado ✓');
+console.log('[dashboard_patch v1.1] carregado ✓');
