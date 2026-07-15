@@ -507,11 +507,7 @@ async function renderDashboard() {
       <div>
         <p class="dash-sub">${escHtml(setorSelecionado?.nome || currentUserSetor?.nome || '—')}${cid && congsList.find(c => c.id === cid) ? ' › ' + escHtml(congsList.find(c => c.id === cid).nome) : ''}</p>
       </div>
-<<<<<<< HEAD
-      <button class="btn btn-secondary btn-sm" title="Atualizar dados" onclick="renderDashboard()" style="margin-left:4px;font-size:1rem;padding:6px 10px"><img src="./aassets/refresh.svg"></img></button>
-=======
-      <button class="btn btn-secondary btn-sm" title="Atualizar dados" onclick="renderDashboard()" style="margin-left:4px;font-size:1rem;padding:6px 10px">${lc('refresh-cw', 16)}</button>
->>>>>>> c687e3401aeffd7683103f6c5e6db9d3465e42e0
+
     </div>
     <div class="dash-period">
       ${setorSel}
@@ -1330,6 +1326,135 @@ async function openEventDetail(id) {
   showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div style="font-size:40px;margin-bottom:8px">${lc(info.icon, 40)}</div><div class="mem-modal-name">${info.label}</div><span class="tag tag-gold">${fmtDate(ev.data)}</span></div>${detalhes}${ev.resumo ? `<div style="padding:0 30px 8px"><p style="color:var(--txt2);font-size:.88rem">${escHtml(ev.resumo)}</p></div>` : ''}${participantesHtml}<div class="mem-modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
 }
 
+async function openEventoSetorialDetail(id) {
+  showModal(loadingPage());
+  const { data: ev, error } = await q('eventos').select('*').eq('id', id).single();
+  if (error || !ev) { closeModal(); toast('Erro', 'error'); return; }
+  const { data: setores } = await q('setores').select('id,nome');
+  const setorNome = (setores || []).find(s => s.id === ev.setor_id)?.nome || '—';
+  let participantesHtml = '';
+  if (ev.participante_ids?.length > 0) {
+    const { data: partics } = await q('sistema_usuarios').select('id,nome,cargo').in('id', ev.participante_ids);
+    if ((partics || []).length) participantesHtml = `<div style="padding:0 30px 8px"><div class="sec-hdr" style="margin-bottom:10px"><h2 style="font-size:.9rem">Participantes (${partics.length})</h2></div><div class="partic-list">${partics.map(p => `<div class="partic-row"><div class="av av-sm" style="background:${avatarColor(p.nome)}">${initials(p.nome)}</div><span class="fs-sm">${escHtml(p.nome)} <em class="c3 fs-xs">${escHtml(p.cargo || '')}</em></span></div>`).join('')}</div></div>`;
+  }
+  const detalhes = `<div class="mem-info-grid"><div class="inf-item"><label>Setor</label><span>${escHtml(setorNome)}</span></div><div class="inf-item"><label>Data</label><span>${fmtDate(ev.data)}</span></div><div class="inf-item"><label>Horário</label><span>${ev.hora_inicio || '—'} ${ev.hora_fim ? '– ' + ev.hora_fim : ''}</span></div><div class="inf-item"><label>Participantes</label><span>${ev.participantes || 0}</span></div>${ev.conversoes ? `<div class="inf-item"><label>Conversões</label><span>${ev.conversoes}</span></div>` : ''}</div>`;
+  showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div style="font-size:40px;margin-bottom:8px">${lc('building-2', 40)}</div><div class="mem-modal-name">${escHtml(ev.resumo || 'Evento Setorial')}</div><span class="tag tag-violet">Evento Setorial</span></div>${detalhes}${ev.descricao ? `<div style="padding:0 30px 8px"><p style="color:var(--txt2);font-size:.88rem">${escHtml(ev.descricao)}</p></div>` : ''}${participantesHtml}<div class="mem-modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
+}
+
+async function openOfertasModal() {
+  showModal(loadingPage());
+  const now = new Date();
+  const mesAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const inicioMes = `${mesAtual}-01`;
+  const fimMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const sid = window.dashSetorFiltro || null;
+  const cid = window.dashCongFiltro || null;
+  
+  let query = q('eventos').select('id,resumo,data,hora_inicio,hora_fim,participantes,ofertas,congregacao_id')
+    .gte('data', inicioMes)
+    .lte('data', fimMes)
+    .gt('ofertas', 0)
+    .order('data', { ascending: false });
+  
+  if (sid) query = query.eq('setor_id', sid);
+  if (cid) query = query.eq('congregacao_id', cid);
+  
+  const { data: eventos = [] } = await query;
+  const totalOfertas = eventos.reduce((s, e) => s + (e.ofertas || 0), 0);
+  
+  const eventosList = eventos.map(e => `
+    <div class="act-item" onclick="openEventDetail('${e.id}')" style="cursor:pointer">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;color:var(--txt)">${escHtml(e.resumo || 'Evento')}</div>
+        <div style="font-size:.78rem;color:var(--txt2);margin-top:2px">${fmtDate(e.data)} ${e.hora_inicio ? '· ' + e.hora_inicio : ''}</div>
+      </div>
+      <span class="tag tag-gold" style="white-space:nowrap">${fmtMoney(e.ofertas || 0)}</span>
+    </div>
+  `).join('');
+  
+  const noResults = eventos.length === 0 ? `<div style="padding:30px 20px;text-align:center;color:var(--txt2)"><p>${lc('inbox', 32)}</p><p style="font-size:.88rem;margin-top:8px">Nenhuma oferta registrada este mês</p></div>` : '';
+  
+  const html = `
+    <div class="modal-hdr">
+      <span>${lc('coins', 20)}</span>
+      <h2>Ofertas</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" style="max-height:500px;overflow-y:auto">
+      <div style="padding:20px 30px;border-bottom:1px solid var(--bdr)">
+        <div style="font-size:.88rem;color:var(--txt2);margin-bottom:4px">Total de Ofertas</div>
+        <div style="font-size:1.6rem;font-weight:800;color:var(--txt)">${fmtMoney(totalOfertas)}</div>
+        <div style="font-size:.72rem;color:var(--txt3);margin-top:2px">${eventos.length} evento(s) este mês</div>
+      </div>
+      <div style="padding:12px">
+        ${noResults || eventosList}
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+    </div>
+  `;
+  
+  showModal(html);
+}
+
+async function openDizimosModal() {
+  showModal(loadingPage());
+  const now = new Date();
+  const mesAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const inicioMes = `${mesAtual}-01`;
+  const fimMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const sid = window.dashSetorFiltro || null;
+  const cid = window.dashCongFiltro || null;
+  
+  let query = q('eventos').select('id,resumo,data,hora_inicio,hora_fim,participantes,dizimos,congregacao_id')
+    .gte('data', inicioMes)
+    .lte('data', fimMes)
+    .gt('dizimos', 0)
+    .order('data', { ascending: false });
+  
+  if (sid) query = query.eq('setor_id', sid);
+  if (cid) query = query.eq('congregacao_id', cid);
+  
+  const { data: eventos = [] } = await query;
+  const totalDizimos = eventos.reduce((s, e) => s + (e.dizimos || 0), 0);
+  
+  const eventosList = eventos.map(e => `
+    <div class="act-item" onclick="openEventDetail('${e.id}')" style="cursor:pointer">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;color:var(--txt)">${escHtml(e.resumo || 'Evento')}</div>
+        <div style="font-size:.78rem;color:var(--txt2);margin-top:2px">${fmtDate(e.data)} ${e.hora_inicio ? '· ' + e.hora_inicio : ''}</div>
+      </div>
+      <span class="tag tag-violet" style="white-space:nowrap">${fmtMoney(e.dizimos || 0)}</span>
+    </div>
+  `).join('');
+  
+  const noResults = eventos.length === 0 ? `<div style="padding:30px 20px;text-align:center;color:var(--txt2)"><p>${lc('inbox', 32)}</p><p style="font-size:.88rem;margin-top:8px">Nenhum dízimo registrado este mês</p></div>` : '';
+  
+  const html = `
+    <div class="modal-hdr">
+      <span>${lc('gem', 20)}</span>
+      <h2>Dízimos</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" style="max-height:500px;overflow-y:auto">
+      <div style="padding:20px 30px;border-bottom:1px solid var(--bdr)">
+        <div style="font-size:.88rem;color:var(--txt2);margin-bottom:4px">Total de Dízimos</div>
+        <div style="font-size:1.6rem;font-weight:800;color:var(--txt)">${fmtMoney(totalDizimos)}</div>
+        <div style="font-size:.72rem;color:var(--txt3);margin-top:2px">${eventos.length} evento(s) este mês</div>
+      </div>
+      <div style="padding:12px">
+        ${noResults || eventosList}
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+    </div>
+  `;
+  
+  showModal(html);
+}
+
 async function delEvento(id) {
   if (!hasPerm('excluir_registros')) { toast('Sem permissão', 'error'); return; }
   const r = await confirmDialog('Excluir Evento', 'Este evento será removido permanentemente.');
@@ -1883,11 +2008,15 @@ async function renderPermissoes() {
   const perms = {}; (data || []).forEach(p => { perms[p.permission_code] = p.ativo; });
   const displayPerms = activeRole === 'admin' ? Object.fromEntries(Object.keys(PERM_DESC).map(k => [k, true])) : perms;
   const activeCount = Object.values(displayPerms).filter(Boolean).length;
-  const grupos = {
-    'Ranking Mensal': ['visualizar_ranking', 'gerenciar_ranking', 'visualizar_eventos_setoriais_dash'],
+    const grupos = {
     'Acesso e Visualização': ['visualizar_dashboard', 'ver_relatorios', 'ver_frequencia_usuarios', 'exportar_dados'],
     'Financeiro': ['ver_financeiro', 'gerenciar_financeiro'],
-    'Ranking Mensal': ['visualizar_ranking', 'gerenciar_ranking'], 'Filtros e Visibilidade': ['filtrar_setor_dashboard', 'filtrar_congregacao_dashboard', 'ver_relatorio_por_congregacao', 'ver_todos_setores'], 'Gestão': ['gerenciar_setores', 'gerenciar_congregacoes', 'gerenciar_membros', 'gerenciar_usuarios', 'gerenciar_agenda'], 'Operações': ['registrar_eventos', 'criar_eventos_setorial', 'excluir_registros'], 'Sistema': ['editar_permissoes'] };
+    'Ranking e Eventos Setoriais': ['visualizar_ranking', 'gerenciar_ranking', 'visualizar_eventos_setoriais_dash'],
+    'Filtros e Visibilidade': ['filtrar_setor_dashboard', 'filtrar_congregacao_dashboard', 'ver_relatorio_por_congregacao', 'ver_todos_setores'],
+    'Gestão': ['gerenciar_setores', 'gerenciar_congregacoes', 'gerenciar_membros', 'gerenciar_usuarios', 'gerenciar_agenda'],
+    'Operações': ['registrar_eventos', 'criar_eventos_setorial', 'excluir_registros'],
+    'Sistema': ['editar_permissoes']
+  };
   $('page-content').innerHTML = `
   <div class="sec-hdr">
     <h2>Controle de Permissões</h2>

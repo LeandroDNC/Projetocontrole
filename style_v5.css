@@ -1546,6 +1546,7 @@ textarea:focus {
   padding: 28px 30px;
   flex: 1;
   animation: fadeUp .3s ease both
+  
 }
 
 /* ─ ATALHOS DASHBOARD ─ */
@@ -1562,7 +1563,7 @@ textarea:focus {
   align-items: center;
   gap: 5px;
   background: var(--bg-card);
-  border: 1px solid var(--bdr2);
+  border-bottom: 3px solid #4747dde7;
   border-radius: 12px;
   padding: 12px 16px;
   cursor: pointer;
@@ -1570,6 +1571,7 @@ textarea:focus {
   flex: 1;
   min-width: 80px;
   max-width: 140px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05), 0 5px 10px rgba(10, 105, 189, .38);
 }
 
 .shortcut-btn:hover {
@@ -1710,15 +1712,16 @@ textarea:focus {
 
 .stat-card {
   background: var(--bg-card);
-  border: 1px solid var(--bdr2);
+  border-bottom: 3px solid #3e3ecddb;
   border-radius: var(--r);
   padding: 22px;
   display: flex;
   align-items: flex-start;
   gap: 14px;
   transition: var(--ease);
-  animation: fadeUp .4s ease both
-}
+  animation: fadeUp .4s ease both;
+  box-shadow: 0 5px 10px rgba(10, 105, 189, 0.38);
+} 
 
 .stat-card:hover {
   border-color: var(--gold);
@@ -1839,7 +1842,9 @@ textarea:focus {
   animation: fadeUp .3s ease both;
   position: relative;
   overflow: hidden;
-  cursor: pointer
+  cursor: pointer;
+  box-shadow: 0 5px 10px rgba(10, 105, 189, 0.38);
+  
 }
 
 .item-card::after {
@@ -2128,7 +2133,8 @@ textarea:focus {
   border: 1px solid var(--bdr2);
   border-radius: var(--r2);
   font-size: .82rem;
-  transition: var(--ease)
+  transition: var(--ease);
+  cursor: pointer;
 }
 
 [data-theme="light"] .act-item {
@@ -2137,7 +2143,8 @@ textarea:focus {
 
 .act-item:hover {
   border-color: rgba(201, 168, 76, .2);
-  background: rgba(255, 255, 255, .03)
+  background: rgba(255, 255, 255, .03);
+  transform: translateX(2px);
 }
 
 [data-theme="light"] .act-item:hover {
@@ -2336,7 +2343,9 @@ textarea:focus {
 }
 
 .agenda-body {
-  flex: 1
+  flex: 1;
+  
+    
 }
 
 .agenda-empty {
@@ -3368,10 +3377,11 @@ textarea:focus {
     gap: 14px
   }
 
-  .cards-grid {
-    grid-template-columns: 1fr
-  }
-
+ .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 15px;
+}
   .mem-info-grid {
     grid-template-columns: 1fr
   }

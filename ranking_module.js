@@ -225,10 +225,30 @@ window.renderRanking = async function(){
 
     const config=cfgArr?.[0]||{vermelho_min:1,amarelo_min:3,verde_min:5};
 
+    console.log('==========================');
+console.log('vetodosSetores:', vetodosSetores);
+console.log('currentUser:', currentUser);
+console.log('setor usuário:', currentUser?.setor_id);
+
+(congsRaw || []).forEach(c => {
+    console.log(
+        c.nome,
+        'setor congregação:', c.setor_id,
+        '==',
+        currentUser?.setor_id,
+        '=>',
+        c.setor_id === currentUser?.setor_id
+    );
+});
+
     // Base: respeita a permissão de ver todos os setores
     const congsBase=vetodosSetores||!currentUser?.setor_id
       ?(congsRaw||[])
       :(congsRaw||[]).filter(c=>c.setor_id===currentUser.setor_id);
+
+      console.log('Total congregações:', congsRaw.length);
+console.log('Após filtro:', congsBase.length);
+console.log(congsBase);
 
     // Filtro adicional de setor escolhido na tela (só disponível se vetodosSetores)
     const setorFiltroAtivo=vetodosSetores?window._rkSetorFiltro:'';
