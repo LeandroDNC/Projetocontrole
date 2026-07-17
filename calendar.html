@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Calendário UMADALPE 2026</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style/calendar.css">
+    <link rel="stylesheet" href="style/modal.css">
+
+  
+</head>
+
+<body>
+    <div class="calendar-container">
+
+        <aside class="calendar-aside">
+            <button class="voltar" onclick="openLogout()">Sair</button>
+            <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+        </aside>
+
+        <h1>EVENTOS UMADALPE 2026</h1>
+        <div id="calendar"></div>
+
+    </div>
+
+    <!-- Modal logout -->
+    <div id="logoutModal" class="modal-overlay" style="display:none;">
+        <div class="modal">
+            <h2>Tem certeza?</h2>
+            <p>Você realmente deseja sair do sistema?</p>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="calendar-btn" onclick="confirmLogout()">Sim, sair</button>
+                <button class="calendar-btn" onclick="closeLogout()" style="background:#ccc;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de comentários -->
+    <div id="commentsOverlay" class="modal-overlay" style="display:none;">
+        <div class="modalcoment">
+            <button class="close" onclick="closeComments()">×</button>
+            <h2>Comentários</h2>
+            <div id="commentsList" class="comments-list">Carregando...</div>
+            <textarea id="commentText" placeholder="Escreva um comentário..."></textarea>
+            <button class="calendar-btn" onclick="sendComment()">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== CONFIG ====================
+        const YEAR = 2026;
+        const MONTHS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+        const SEQUENCY = ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM"];
+
+        function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
+        if (localStorage.getItem("theme") === "dark") document.body.classList.add("dark");
+        function toggleTheme() { document.body.classList.toggle("dark"); localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light"); }
+        function openLogout() { document.getElementById("logoutModal").style.display = "flex"; }
+        function closeLogout() { document.getElementById("logoutModal").style.display = "none"; }
+
+        async function confirmLogout() {
+            try {
+                await window.signOut(window.auth); // 🔥 encerra sessão Firebase
+                sessionStorage.clear();
+                localStorage.clear();
+                window.location.href = "index.html";
+            } catch (error) {
+                alert("Erro ao sair");
+                console.error(error);
+            }
+        }
+
+        // ==================== CALENDAR ====================
+        fetch("events.json").then(res => res.json()).then(data => renderCalendar(data[String(YEAR)] || {}));
+
+        function renderCalendar(events) {
+            const container = document.getElementById("calendar");
+            container.innerHTML = "";
+            MONTHS.forEach((month, mIndex) => {
+                const section = document.createElement("section");
+                section.className = "month-section";
+                section.innerHTML = `<h2>${month}</h2>`;
+
+                const weekHeader = document.createElement("div"); weekHeader.className = "week-header";
+                SEQUENCY.forEach(day => { const span = document.createElement("span"); span.textContent = day; weekHeader.appendChild(span); });
+                section.appendChild(weekHeader);
+
+                const grid = document.createElement("div"); grid.className = "days-grid";
+                const firstDay = new Date(YEAR, mIndex, 1).getDay();
+                const offset = (firstDay + 6) % 7;
+                for (let i = 0; i < offset; i++) { const empty = document.createElement("div"); empty.className = "day-card empty"; grid.appendChild(empty); }
+
+                for (let day = 1; day <= getDaysInMonth(YEAR, mIndex); day++) {
+                    const event = events?.[mIndex]?.[day];
+                    const card = document.createElement("div"); card.className = "day-card" + (event ? " has-event" : "");
+                    card.innerHTML = `<span>${day}</span><small>${event?.title || "Sem evento"}</small>`;
+                    card.onclick = () => openModal(day, mIndex, event);
+                    grid.appendChild(card);
+                }
+                section.appendChild(grid);
+                container.appendChild(section);
+            });
+        }
+
+        // ==================== MODAL EVENT ====================
+        function formatEventId(year, month, day) { return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`; }
+
+        function getTransportLinks(event) {
+            const query = encodeURIComponent(event.location);
+            return `
+      <div class="transport-icons">
+        <a href="https://m.uber.com/ul/?action=setPickup&dropoff[formatted_address]=${query}" target="_blank"><img src="./assets/uber.svg" alt="Uber"></a>
+        <a href="https://99app.com/launch?dropoff=${query}" target="_blank"><img src="./assets/99.svg" alt="99"></a>
+        <a href="https://waze.com/ul?q=${query}&navigate=yes" target="_blank"><img src="./assets/waze.svg" alt="Waze"></a>
+        <a href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank"><img src="./assets/maps.svg" alt="Google Maps"></a>
+        <a href="https://moovitapp.com/?to=${query}" target="_blank"><img src="./assets/movit.svg" alt="Moovit"></a>
+      </div>
+    `;
+        }
+
+        function openModal(day, month, event) {
+            const overlay = document.createElement("div"); overlay.className = "modal-overlay"; overlay.onclick = () => overlay.remove();
+            const modal = document.createElement("div"); modal.className = "modal"; modal.onclick = e => e.stopPropagation();
+            modal.innerHTML = `
+        <button class="close">×</button>
+        <p class="event-date">${day} de ${MONTHS[month]} de ${YEAR}</p>
+        ${!event ? "<p>Não há evento neste dia.</p>" :
+                    `
+        ${event.image ? `<img src="${event.image}" class="event-image">` : ""}
+        <h2>${event.title}</h2>
+        <p>${event.description || ""}</p>
+        ${event.time ? `<p><b>Horário:</b> ${event.time}</p>` : ""}
+        ${event.location ? `<p><b>Local:</b> ${event.location}</p>${getTransportLinks(event)}` : ""}
+        <button class="calendar-btn" onclick="openComments('${formatEventId(YEAR, month, day)}')">💬 Ver comentários</button>
+        <button class="calendar-btn" onclick="addToGoogleCalendar(${day},${month},'${event.title}','${event.description || ""}')">Adicionar ao calendário</button>
+        `}
+    `;
+            modal.querySelector(".close").onclick = () => overlay.remove();
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+        }
+
+        function addToGoogleCalendar(day, month, title, description) {
+            const date = `${YEAR}${String(month + 1).padStart(2, "0")}${String(day).padStart(2, "0")}`;
+            const start = `${date}T190000`;
+            const end = `${date}T200000`;
+            window.open(`https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(description)}&dates=${start}/${end}`, "_blank");
+        }
+
+        // ==================== COMMENTS ====================
+        let currentEventId = null;
+
+        window.openComments = function (eventId) { currentEventId = eventId; document.getElementById("commentsOverlay").style.display = "flex"; document.getElementById("commentsOverlay").style.zIndex = "5000"; loadComments(eventId); }
+        window.closeComments = function () { document.getElementById("commentsOverlay").style.display = "none"; }
+
+        window.sendComment = async function () {
+            const text = document.getElementById("commentText").value.trim();
+            const user = window.auth.currentUser;
+            if (!user) { alert("Usuário não autenticado"); return; }
+            if (!text) { alert("Digite algo"); return; }
+
+            const commentsRef = window.collection(window.db, "eventos", currentEventId, "comentarios");
+            const snap = await window.getDocs(window.query(commentsRef, window.orderBy("data", "asc")));
+
+            // 🔹 Filtra comentários do usuário
+            let meus = snap.docs.map(d => ({ id: d.id, ...d.data(), ref: d.ref })).filter(c => c.uid === user.uid);
+
+            // 🔹 Se já tiver 3, apaga o mais antigo (FIFO)
+            if (meus.length >= 3) { await window.deleteDoc(meus[0].ref); }
+
+            // 🔹 Cria novo comentário
+            await window.addDoc(commentsRef, { nome: user.email, texto: text, uid: user.uid, data: new Date() });
+
+            document.getElementById("commentText").value = "";
+            loadComments(currentEventId);
+        }
+
+        window.loadComments = async function (eventId) {
+            const list = document.getElementById("commentsList");
+            list.innerHTML = "Carregando...";
+            const snap = await window.getDocs(window.query(window.collection(window.db, "eventos", eventId, "comentarios"), window.orderBy("data", "asc")));
+            list.innerHTML = "";
+            if (snap.empty) { list.innerHTML = "<p>Sem comentários ainda</p>"; return; }
+
+            snap.forEach(doc => {
+                const c = doc.data();
+                const date = c.data ? c.data.toDate().toLocaleString() : "";
+                list.innerHTML += `
+            <div class="comment">
+                <b>${c.nome}</b>
+                <p>${c.texto}</p>
+                <small>${date}</small>
+                ${c.uid === window.uid ? `<button class="deletemensagem" onclick="deleteComment('${doc.id}')"> Apagar</button>` : ""}
+            </div>
+        `;
+            });
+        }
+
+        window.deleteComment = async function (commentId) {
+            const user = window.auth.currentUser;
+
+            if (!user) {
+                alert("Usuário não autenticado");
+                return;
+            }
+
+            if (!confirm("Deseja apagar este comentário?")) return;
+
+            const commentRef = window.doc(
+                window.db,
+                "eventos",
+                currentEventId,
+                "comentarios",
+                commentId
+            );
+
+            await window.deleteDoc(commentRef);
+
+            loadComments(currentEventId);
+        };
+
+    </script>
+</body>
+
+</html>

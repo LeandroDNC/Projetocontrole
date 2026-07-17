@@ -112,11 +112,46 @@ function ico(name, size=18, color='currentColor'){
   .fin-card-sub  { font-size:.62rem; color:var(--txt3,#475569); margin-top:1px; }
 
   @media(max-width:600px){
-    .fin-grid { grid-template-columns:1fr; }
-    .fin-right { flex-direction:row; }
-    .fin-card  { flex-direction:column; align-items:flex-start; gap:8px; padding:14px 12px; }
-    .fin-card-val { font-size:.95rem; }
+    .fin-grid { grid-template-columns:1fr 1fr; }
+   
+
+    .gauge-card{
+    width:150%;}
+     .fin-right{
+    width:50%;
+    
+    }
   }
+
+    @media(max-width:480px){
+   .fin-grid{
+   display:flex;}
+
+    .gauge-card{
+    width:155%;
+    
+    }
+     .fin-right{
+    width:40%;
+    
+    }
+    .fin-card-ico{
+    width:20%;
+    height:10%;}
+    .fin-card-val{
+    font-size:80%;
+    }
+
+   grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 24px;
+
+  }
+
+
+
+
+   
 
   /* Resumo do mês (participantes + conversões) */
   .mes-grid {
@@ -322,9 +357,27 @@ window.renderDashboard = async function(){
         <div class="stat-lbl">Eventos</div>
         <div class="stat-chg">Este mês</div>
       </div>
+      
     </div>
+    
   </div>
-
+   <div class="dash-shortcuts" style="margin-bottom:24px">
+    ${((typeof hasPerm==='function'&&(hasPerm('visualizar_ranking')||hasPerm('gerenciar_ranking')))||(typeof isSuperAdmin==='function'&&isSuperAdmin()))?`
+    <div class="shortcut-btn" onclick="navigate('ranking')">
+      <div class="shortcut-ico ic-gold">${SVG.trophy}</div><small>Ranking Mensal</small>
+    </div>`:''}
+    <div class="shortcut-btn" onclick="navigate('frequencia')">
+      <div class="shortcut-ico ic-blue">${SVG.freq}</div><small>Frequência</small>
+    </div>
+    ${((typeof hasPerm==='function'&&hasPerm('editar_permissoes'))||(typeof isSuperAdmin==='function'&&isSuperAdmin()))?`
+    <div class="shortcut-btn" onclick="navigate('permissoes')">
+      <div class="shortcut-ico ic-teal">${SVG.shield}</div><small>Permissões</small>
+    </div>`:''}
+    ${canFin?`
+    <div class="shortcut-btn" onclick="navigate('financeiro')">
+      <div class="shortcut-ico ic-violet">${SVG.wallet}</div><small>Financeiro</small>
+    </div>`:''}
+  </div>
   <!-- RESUMO DO MÊS (participantes + conversões) -->
   <div class="sec-hdr"><h2>Resumo do Mês</h2><span class="tag tag-primary">Tempo real</span></div>
   <div class="mes-grid">
@@ -410,26 +463,7 @@ window.renderDashboard = async function(){
     </div>
   </div>
 
-  <!-- ACESSOS RÁPIDOS -->
-  <div class="sec-hdr"><h2>Acessos rápidos</h2></div>
-  <div class="dash-shortcuts" style="margin-bottom:24px">
-    ${((typeof hasPerm==='function'&&(hasPerm('visualizar_ranking')||hasPerm('gerenciar_ranking')))||(typeof isSuperAdmin==='function'&&isSuperAdmin()))?`
-    <div class="shortcut-btn" onclick="navigate('ranking')">
-      <div class="shortcut-ico ic-gold">${SVG.trophy}</div><small>Ranking Mensal</small>
-    </div>`:''}
-    <div class="shortcut-btn" onclick="navigate('frequencia')">
-      <div class="shortcut-ico ic-blue">${SVG.freq}</div><small>Frequência</small>
-    </div>
-    ${((typeof hasPerm==='function'&&hasPerm('editar_permissoes'))||(typeof isSuperAdmin==='function'&&isSuperAdmin()))?`
-    <div class="shortcut-btn" onclick="navigate('permissoes')">
-      <div class="shortcut-ico ic-teal">${SVG.shield}</div><small>Permissões</small>
-    </div>`:''}
-    ${canFin?`
-    <div class="shortcut-btn" onclick="navigate('financeiro')">
-      <div class="shortcut-ico ic-violet">${SVG.wallet}</div><small>Financeiro</small>
-    </div>`:''}
-  </div>
-
+ 
   <!-- AGENDA -->
   <div class="sec-hdr"><h2>${ico('calendar',16)} Agenda da Semana</h2><span class="tag">Próximos 7 dias</span></div>
   <div class="agenda-strip" style="margin-bottom:24px">${dpAgendaStrip(agItems||[])}</div>

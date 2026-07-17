@@ -1551,6 +1551,7 @@ textarea:focus {
 
 /* ─ ATALHOS DASHBOARD ─ */
 .dash-shortcuts {
+  width: 100%;
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
@@ -1569,8 +1570,7 @@ textarea:focus {
   cursor: pointer;
   transition: var(--ease);
   flex: 1;
-  min-width: 80px;
-  max-width: 140px;
+  
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05), 0 5px 10px rgba(10, 105, 189, .38);
 }
 
@@ -1829,11 +1829,12 @@ textarea:focus {
 /* ─ CARDS ─ */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(20%, 1fr));
   gap: 15px
 }
 
 .item-card {
+  
   background: var(--bg-card);
   border: 1px solid var(--bdr2);
   border-radius: var(--r);
@@ -3379,7 +3380,7 @@ textarea:focus {
 
  .cards-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(40%, 1fr));
     gap: 15px;
 }
   .mem-info-grid {
@@ -3407,14 +3408,12 @@ textarea:focus {
     width: 100%
   }
 
-  .dash-header {
+  /* .dash-header {
     flex-direction: column;
     gap: 12px
-  }
+  } */
 
-  .dash-shortcuts {
-    gap: 6px
-  }
+ 
 
   .shortcut-btn {
     min-width: 60px;
@@ -3656,9 +3655,7 @@ textarea:focus {
     gap: 8px
   }
 
-  .dash-shortcuts {
-    gap: 5px
-  }
+
 
   .shortcut-btn {
     padding: 8px 6px;
@@ -3766,15 +3763,27 @@ textarea:focus {
     grid-template-columns: repeat(2, 1fr)
   }
 
-  .dash-shortcuts {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr)
+
+
+  
+
+.item-card {
+  background: var(--bg-card);
+  border: 1px solid var(--bdr2);
+  border-radius: var(--r);
+  padding: 18px;
+  transition: var(--ease);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 5px 10px rgba(10, 105, 189, 0.38);
+}
   }
 
   .shortcut-btn {
     max-width: unset
   }
-}
+
 
 /* ═══════════════════════════════════════════════════════════
    EclesiaSync · style_v5_additions.css
