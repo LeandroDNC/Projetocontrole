@@ -204,7 +204,7 @@ width:200%;
   /* FIX 1: filtros sempre em linha horizontal */
   .dash-setor-selector {
     display: flex !important;
-    flex-direction: row !important;
+    flex-direction: column !important;
     align-items: center;
     flex-wrap: nowrap;
     gap: 8px;
@@ -217,11 +217,11 @@ width:200%;
     overflow-x: auto;
   }
   .dash-period {
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center;
-    flex-wrap: nowrap;
+    display:flex;
+    flex-direction: column !important;
+    align-items: flex-start;
     gap: 8px;
+    width: 100%
   }
   /* shortcuts modernos */
   .shortcut-ico svg { width:20px;height:20px; }

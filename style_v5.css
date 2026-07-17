@@ -1614,7 +1614,6 @@ textarea:focus {
 }
 
 .dash-period {
-  width: 100%;
   display: flex;
   gap: 8px;
   align-items: center;
@@ -3345,7 +3344,12 @@ textarea:focus {
     padding: 0 14px;
     gap: 8px
   }
-
+.dash-period {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%
+  }
   .topbar-title {
     font-size: .88rem
   }
@@ -3552,6 +3556,12 @@ textarea:focus {
 
   .bloqueado-icon {
     font-size: 44px;
+  }
+  .dash-period {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%
   }
 
   .back-btn {
