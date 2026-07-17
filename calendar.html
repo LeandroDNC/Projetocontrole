@@ -8,8 +8,607 @@
     <link rel="stylesheet" href="style/calendar.css">
     <link rel="stylesheet" href="style/modal.css">
 
-  
+
 </head>
+
+
+<style>
+    .calendar-container {
+        background: #fffaf3;
+        color: #4b2e1e;
+        padding: 20px;
+    }
+
+    .month-section {
+        margin-bottom: 30px;
+    }
+
+    .days-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 10px;
+    }
+
+
+    .week-header {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #555;
+        font-size: 70%;
+    }
+
+
+    .day-card {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: linear-gradient(145deg, #fff, #f7f1e3);
+        border: 1px solid rgba(212, 175, 55, 0.5);
+        border-radius: 16px;
+        padding: 14px 8px;
+        cursor: pointer;
+        text-align: center;
+        transition: all .35s cubic-bezier(.4, 0, .2, 1);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, .08);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .day-card:hover {
+        transform: translateY(-6px) scale(1.05);
+        box-shadow: 0 25px 40px rgba(0, 0, 0, .15);
+        background: linear-gradient(145deg, #fff7db, #f5e6c8);
+    }
+
+    h1 {
+        margin: 1rem 0;
+    }
+
+    .day-card.empty {
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    .event-image {
+        width: 100%;
+        height: auto;
+        background-size: cover;
+        background-position: center;
+    }
+
+
+    .day-card:hover {
+        background: #f5e6c8;
+    }
+
+    .day-card.has-event {
+        background: linear-gradient(135deg, #d4af37, #f7dc6f);
+        color: #4b2e1e;
+        border: none;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(212, 175, 55, .6);
+        }
+
+        70% {
+            box-shadow: 0 0 0 12px rgba(212, 175, 55, 0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(212, 175, 55, 0);
+        }
+    }
+
+
+    /* Header */
+    .calendar-aside {
+        position: sticky;
+        top: 0;
+        z-index: 80;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 22px;
+        border: 1px solid rgba(212, 175, 55, 0.5);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, .4);
+    }
+
+    .transport-icons {
+        display: flex;
+        gap: 12px;
+        margin-top: 10px;
+    }
+
+    .transport-icons img {
+        width: 36px;
+        height: 36px;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .transport-icons img:hover {
+        transform: scale(1.1);
+    }
+
+
+    .voltar {
+        background: #d4af37;
+        border: 1px solid rgba(45, 43, 39, 0.5);
+        padding: 10px 16px;
+        border-radius: 12px;
+        color: #fff;
+        cursor: pointer;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+
+    }
+
+
+
+    .theme-toggle {
+        background: rgba(128, 95, 95, 0.15);
+        border: 1px solid rgba(212, 175, 55, 0.5);
+        padding: 10px 16px;
+        border-radius: 12px;
+        cursor: pointer;
+    }
+
+
+
+    /* Dark mode */
+
+    .dark .modalcoment {
+        background: #1f1f1f;
+        color: #f5f5f5;
+
+    }
+
+    .dark .modalcoment button {
+        color: #fff;
+    }
+
+    .dark .modal {
+        background: #212121;
+        color: #f5f5f5;
+    }
+
+    body.dark {
+        background: #121212;
+        color: #f5f5f5;
+    }
+
+    .dark .voltar {
+        background: #212121;
+        border: 1px solid rgba(212, 175, 55, 0.5);
+        color: #d7d7d7;
+    }
+
+    body.dark .calendar-container {
+        background: #121212;
+    }
+
+    body.dark .day-card {
+        background: #1f1f1f;
+        color: #f5f5f5;
+    }
+
+    body.dark .day-card.has-event {
+        background: #2a2416;
+        border-color: #e6c75a;
+
+    }
+
+    .dark h1,
+    .dark .month-section h2 {
+        color: #d4af37;
+    }
+
+    .calendar-btn {
+        background: linear-gradient(135deg, #d4af37, #f7dc6f);
+        border: none;
+        padding: 12px 18px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: .3s;
+        box-shadow: 0 6px 15px rgba(0, 0, 0, .2);
+    }
+
+    .calendar-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, .3);
+    }
+
+    @media (max-width:600px) {
+        .days-grid {
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+
+        .day-card {
+            border-radius: 5px;
+            width: 70%;
+            height: 5vh;
+            padding: 8px 8px;
+            font-size: 10px;
+        }
+
+        .week-header {
+            font-size: 70%;
+        }
+
+        .calendar-container {
+
+            padding: 10px;
+        }
+    }
+
+    /* ===========================
+   OVERLAY
+=========================== */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: radial-gradient(circle at top, rgba(0, 0, 0, .45), rgba(0, 0, 0, .75));
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+
+    }
+
+    /* ===========================
+   MODAL
+=========================== */
+    .modal {
+        background: linear-gradient(145deg, #ffffff, #f6f2e8);
+        border-radius: 18px;
+        padding: 22px;
+        max-width: 420px;
+        width: 92%;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, .35);
+        position: relative;
+    }
+
+    .modalcoment {
+        background: linear-gradient(145deg, #ffffff, #f6f2e8);
+        padding: 22px;
+        max-width: 420px;
+        width: 92%;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, .35);
+        position: relative;
+        overflow-y: scroll;
+        height: 80vh;
+        width: 80%;
+        border-radius: 20px;
+
+    }
+
+    /* X */
+    .modal .close {
+        position: absolute;
+        top: 12px;
+        right: 14px;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(212, 175, 55, .2);
+        font-size: 22px;
+        cursor: pointer;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, .25);
+
+
+    }
+
+    .modalcoment .close {
+        position: fixed;
+
+        left: calc(50% + 200px - 26px);
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(212, 175, 55, .2);
+        font-size: 22px;
+        cursor: pointer;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, .25);
+
+
+    }
+
+    /* Data */
+    .event-date {
+        font-weight: bold;
+        color: #6b4b2a;
+    }
+
+    /* Imagem */
+    .event-image {
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+        border-radius: 14px;
+        margin: 12px 0;
+    }
+
+    /* Botão */
+    .calendar-btn {
+        margin-top: 14px;
+        width: 100%;
+        padding: 14px;
+        border-radius: 12px;
+        border: none;
+        background: linear-gradient(135deg, #d4af37, #fff2b0);
+        font-weight: bold;
+        cursor: pointer;
+
+    }
+
+    /* ===========================
+   LISTA DE COMENTÁRIOS
+=========================== */
+    .comments-list {
+        margin: 15px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    /* ===========================
+   CARD DE COMENTÁRIO
+=========================== */
+    .comment {
+        background: linear-gradient(145deg, #fffdf7, #f1eadb);
+        border-radius: 14px;
+        padding: 14px 16px;
+        box-shadow: 0 6px 15px rgba(0, 0, 0, .15);
+        position: relative;
+        animation: fadeUp .25s ease;
+    }
+
+    /* Animação suave */
+    @keyframes fadeUp {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Nome do usuário */
+    .comment b {
+        display: block;
+        font-size: 14px;
+        color: #6b4b2a;
+        margin-bottom: 4px;
+    }
+
+    /* Texto do comentário */
+    .comment p {
+        font-size: 14px;
+        line-height: 1.4;
+        color: #333;
+        margin: 0 0 6px;
+    }
+
+    /* Data */
+    .comment small {
+        font-size: 11px;
+        color: #8b7a5a;
+    }
+
+    /* ===========================
+   BOTÃO APAGAR
+=========================== */
+    .comment button {
+        position: absolute;
+        top: 10px;
+        right: 12px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 16px;
+        transition: transform .15s ease, color .15s ease;
+    }
+
+    .comment button:hover {
+        transform: scale(1.15);
+        color: #e74c3c;
+    }
+
+    /* ===========================
+   CAMPO DE TEXTO
+=========================== */
+    #commentText {
+        width: 90%;
+        resize: none;
+        min-height: 80px;
+        border-radius: 14px;
+        padding: 12px;
+        border: 1px solid rgba(0, 0, 0, .15);
+        font-size: 14px;
+        outline: none;
+        background: #fffdf7;
+    }
+
+    #commentText:focus {
+        border-color: #d4af37;
+        box-shadow: 0 0 0 2px rgba(212, 175, 55, .25);
+    }
+
+    /* ===========================
+   BOTÃO APAGAR COMENTÁRIO
+=========================== */
+    .deletemensagem {
+        position: absolute;
+        top: 10px;
+        right: 12px;
+
+        background: rgba(212, 175, 55, 0.15);
+        border: none;
+        border-radius: 14px;
+
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: bold;
+
+        color: #6b4b2a;
+        cursor: pointer;
+
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        transition: all 0.15s ease;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, .15);
+    }
+
+    /* Hover */
+    .deletemensagem:hover {
+        background: rgba(212, 175, 55, 0.35);
+        transform: scale(1.05);
+    }
+
+    /* Clique */
+    .deletemensagem:active {
+        transform: scale(0.95);
+    }
+
+
+    /* ===========================
+   BOTÃO ENVIAR (COM EFEITO)
+=========================== */
+    .modalcoment .calendar-btn {
+        margin-top: 12px;
+        background: linear-gradient(135deg, #d4af37, #fff2b0);
+        border-radius: 18px;
+        font-size: 15px;
+        transition: transform .15s ease, box-shadow .15s ease;
+    }
+
+    .modalcoment .calendar-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, .25);
+    }
+
+    /* ===========================
+   SCROLL MAIS LIMPO
+=========================== */
+    .modalcoment::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .modalcoment::-webkit-scrollbar-thumb {
+        background: rgba(212, 175, 55, .6);
+        border-radius: 10px;
+    }
+
+
+    /* Animação de abertura */
+    .modal,
+    .modalcoment {
+        animation: popIn 0.35s cubic-bezier(0.25, 1.5, 0.5, 1);
+    }
+
+    .modal-overlay {
+        background: rgba(0, 0, 0, .55);
+        backdrop-filter: blur(6px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal {
+        background: rgba(255, 255, 255, .9);
+        border-radius: 20px;
+        padding: 25px;
+        max-width: 420px;
+        width: 90%;
+        animation: popIn .4s cubic-bezier(.4, 0, .2, 1);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, .3);
+    }
+
+    .modalcoment {
+        background: rgba(255, 255, 255, .9);
+        padding: 25px;
+        max-width: 420px;
+        width: 90%;
+        animation: popIn .4s cubic-bezier(.4, 0, .2, 1);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, .3);
+    }
+
+    @keyframes popIn {
+        0% {
+            opacity: 0;
+            transform: scale(.7) translateY(40px);
+        }
+
+        100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+
+    @keyframes popIn {
+        0% {
+            transform: scale(0.7) translateY(30px);
+            opacity: 0;
+        }
+
+        100% {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+    }
+
+    @media (max-width:600px) {
+        .modalcoment {
+            background: linear-gradient(145deg, #ffffff, #f6f2e8);
+            padding: 22px;
+            max-width: 420px;
+            width: 92%;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, .35);
+            position: relative;
+            overflow-y: scroll;
+            height: 80vh;
+            width: 80%;
+            border-radius: 20px;
+            scrollbar-width: none;
+        }
+
+        .modalcoment .close {
+            position: fixed;
+            left: calc(50% + 150px - 26px);
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: rgba(212, 175, 55, .2);
+            font-size: 22px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, .25);
+
+
+        }
+
+    }
+</style>
+
+
 
 <body>
     <div class="calendar-container">
@@ -60,15 +659,7 @@
         function closeLogout() { document.getElementById("logoutModal").style.display = "none"; }
 
         async function confirmLogout() {
-            try {
-                await window.signOut(window.auth); // 🔥 encerra sessão Firebase
-                sessionStorage.clear();
-                localStorage.clear();
-                window.location.href = "index.html";
-            } catch (error) {
-                alert("Erro ao sair");
-                console.error(error);
-            }
+            window.location.href = "index.html";
         }
 
         // ==================== CALENDAR ====================

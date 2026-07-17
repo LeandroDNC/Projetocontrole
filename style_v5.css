@@ -1610,10 +1610,11 @@ textarea:focus {
 .dash-sub {
   font-size: .82rem;
   color: var(--txt3);
-  font-family: 'DM Sans', sans-serif
+  font-family: 'DM Sans', sans-serif;
 }
 
 .dash-period {
+  width: 100%;
   display: flex;
   gap: 8px;
   align-items: center;
@@ -1671,7 +1672,8 @@ textarea:focus {
   border-radius: 99px;
   background: rgba(59, 130, 246, .15);
   color: #93c5fd;
-  white-space: nowrap
+  white-space: nowrap;
+  text-align: center;
 }
 
 [data-theme="light"] .selector-badge {

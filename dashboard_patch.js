@@ -114,9 +114,11 @@ function ico(name, size=18, color='currentColor'){
   @media(max-width:600px){
     .fin-grid { grid-template-columns:1fr 1fr; }
    
-
+.fin-card{
+width:200%;
+}
     .gauge-card{
-    width:150%;}
+    width:100%;}
      .fin-right{
     width:50%;
     
@@ -320,7 +322,7 @@ window.renderDashboard = async function(){
     </div>
     <div class="dash-period">
       ${setorSel}
-      <span class="tag tag-primary">${ico('calendar',12)} ${nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1)}</span>
+      <span id="calenda" class="tag tag-primary">${ico('calendar',12)} ${nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1)}</span>
     </div>
   </div>
 

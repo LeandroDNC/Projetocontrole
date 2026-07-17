@@ -1,0 +1,77 @@
+/* ═══════════════════════════════════════════════════════════
+   EclesiaSync · patch_ajustes.css
+   Adicione este <link> por ÚLTIMO no <head>, depois de
+   style_ecclesia_redesign.css
+   ═══════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────────────────────────
+   FIX 1 — Ícones e texto do menu lateral somem no tema claro
+   ──────────────────────────────────────────────────────────
+   O sidebar (.sidebar .nav-item) tinha cor branca fixa,
+   assumindo fundo sempre escuro. No tema claro, --bg-side vira
+   branco e o texto/ícone (que usam a mesma cor via currentColor)
+   ficam brancos sobre fundo branco — por isso "somem".
+   Aqui definimos --side-text também para o tema escuro (mantendo
+   o visual atual) e fazemos o item do menu realmente usar essa
+   variável, que já muda corretamente no tema claro.
+════════════════════════════════════════════════════════════ */
+:root,
+[data-theme="dark"] {
+  --side-text: rgba(255, 255, 255, .78);
+}
+
+.sidebar .nav-item {
+  color: var(--side-text) !important;
+}
+.sidebar .nav-item:hover {
+  color: var(--side-text) !important;
+  opacity: .85;
+}
+.sidebar .nav-item.active {
+  color: var(--gold) !important;
+  opacity: 1;
+}
+.sidebar .user-inf strong {
+  color: var(--side-text) !important;
+}
+.sidebar .user-setor-side {
+  color: var(--side-text) !important;
+  opacity: .65;
+}
+
+/* ──────────────────────────────────────────────────────────
+   FIX 2 — Filtro de Setor/Congregação cortando nomes no mobile
+   ──────────────────────────────────────────────────────────
+   Em telas pequenas, os <select> ficavam lado a lado em uma
+   única linha com largura mínima, cortando nomes longos de
+   setor/congregação. Aqui empilhamos os campos e damos
+   largura total, garantindo que o nome inteiro apareça.
+════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .dash-setor-selector {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100%;
+    gap: 8px !important;
+  }
+  .dash-setor-selector .selector-select {
+    width: 100% !important;
+    max-width: 100%;
+    white-space: normal;
+  }
+  .dash-setor-selector .selector-label {
+    white-space: normal;
+  }
+  .dash-period {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100%;
+    gap: 8px !important;
+  }
+  .dash-setor-locked {
+    white-space: normal;
+    height: auto;
+  }
+}

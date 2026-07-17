@@ -1,0 +1,239 @@
+{
+  "2026": {
+    "0": {
+      "10": {
+        "date": "10/01/2026",
+        "title": "VIGÍLIA JOVEM",
+        "description": "Vigília jovem da UMADALPE.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "22H",
+        "image": "./assets/vigilia.svg"
+      },
+      "26": {
+        "date": "26/01/2026",
+        "title": "CONGRESSO DE JOVENS",
+        "description": "Congresso de jovens da UMADALPE.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "18:30",
+        "image": "./assets/ebj.svg"
+      },
+      "30": {
+        "date": "30/01/2026",
+        "title": "EBJ",
+        "description": "EBJ – Escola Bíblica de Jovens.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "13H ÀS 21H",
+        "image": "./assets/image1.svg"
+      }
+    },
+
+    "1": {
+      "7": {
+        "date": "07/02/2026",
+        "title": "CAPACITAÇÃO AUXILIARES",
+        "description": "Capacitação para auxiliares e secretarias da UMADALPE.",
+        "location": "Auditório do Templo Central",
+        "time": "18H",
+        "image": "./assets/image1.svg"
+      },
+      "8": {
+        "date": "08/02/2026",
+        "title": "CAPACITAÇÃO DIRIGENTE E VICE",
+        "description": "Capacitação para dirigente e vice da UMADALPE.",
+        "location": "Auditório do Templo Central",
+        "time": "13H",
+        "image": "./assets/image1.svg"
+      },
+      "15": {
+        "date": "15/02/2026",
+        "title": "50 ANOS CONFRA JOVENS E ADOLESCENTES",
+        "description": "Celebração dos 50 anos da confraternização de jovens e adolescentes.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "18H",
+        "image": "./assets/image1.svg"
+      },
+      "16": {
+        "date": "16/02/2026",
+        "title": "50 ANOS CONFRA JOVENS E ADOLESCENTES",
+        "description": "Celebração dos 50 anos da confraternização de jovens e adolescentes.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "13H ÀS 21H",
+        "image": "./assets/image1.svg"
+      },
+      "17": {
+        "date": "17/02/2026",
+        "title": "50 ANOS CONFRA JOVENS E ADOLESCENTES",
+        "description": "Celebração dos 50 anos da confraternização de jovens e adolescentes.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "13H ÀS 21H",
+        "image": "./assets/image1.svg"
+      },
+      "18": {
+        "date": "18/02/2026",
+        "title": "ENCERRAMENTO 50 ANOS CONFRA",
+        "description": "Encerramento dos 50 anos da confraternização com cruzada evangelística.",
+        "location": "Pátio da Feira Abreu e Lima",
+        "time": "18:30",
+        "image": "./assets/image1.svg"
+      }
+    },
+
+    "2": {
+      "29": {
+        "date": "29/03/2026",
+        "title": "REUNIÃO GERAL UMADALPE",
+        "description": "Reunião geral da UMADALPE.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "13H",
+        "image": "./assets/image1.svg"
+      }
+    },
+
+    "3": {
+      "25": {
+        "date": "25/04/2026",
+        "title": "CRUZADA JOVEM",
+        "description": "Cruzada jovem da UMADALPE.",
+        "location": "Itapissuma",
+        "time": "18:30",
+        "image": "./assets/image1.svg"
+      }
+    },
+
+    "4": {
+      "12": {
+        "date": "12/05/2026",
+        "title": "CONVOCAÇÃO EBO",
+        "description": "Convocação para EBO da UMADALPE.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "18H",
+        "image": "./assets/image1.svg"
+      }
+    },
+
+    "5": {
+      "6": {
+        "date": "06/06/2026",
+        "title": "2ª EDIÇÃO VIGÍLIA JOVEM",
+        "description": "Segunda edição da vigília jovem da UMADALPE.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "22H",
+        "image": "./assets/image1.svg"
+      }
+    },
+
+    "6": {
+      "3": {
+        "date": "03/07/2026",
+        "title": "ANIVERSÁRIO UMADALPE",
+        "description": "Aniversário do departamento UMADALPE.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "19H",
+        "image": "./assets/image1.svg"
+      }
+    },
+
+    "7": {
+      "1": {
+        "date": "01/08/2026",
+        "title": "JOVEM SOLIDÁRIO",
+        "description": "Ação social Jovem Solidário.",
+        "location": "Deserto",
+        "time": "13H ÀS 21H",
+        "image": "./assets/image1.svg"
+      },
+      "8": {
+        "date": "08/08/2026",
+        "title": "CAPACITAÇÃO LIDERANÇA MASCULINA",
+        "description": "Capacitação da liderança masculina.",
+        "location": "Auditório do Templo Central",
+        "time": "18:30",
+        "image": "./assets/image1.svg"
+      },
+      "16": {
+        "date": "16/08/2026",
+        "title": "CAPACITAÇÃO LIDERANÇA FEMININA",
+        "description": "Capacitação da liderança feminina.",
+        "location": "Auditório do Templo Central",
+        "time": "13H",
+        "image": "./assets/image1.svg"
+      },
+      "22": {
+        "date": "22/08/2026",
+        "title": "PROJETO JOVEM MISSIONÁRIO",
+        "description": "Projeto Jovem Missionário da UMADALPE.",
+        "location": "Ginásio / Em Definição",
+        "time": "18H",
+        "image": "./assets/image1.svg"
+      }
+    },
+
+    "8": {
+      "7": {
+        "date": "07/09/2026",
+        "title": "CONVOCAÇÃO SEMANA DE MISSÕES",
+        "description": "Convocação da Semana de Missões.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "18:30",
+        "image": "./assets/image1.svg"
+      },
+      "26": {
+        "date": "26/09/2026",
+        "title": "VIAGEM MISSIONÁRIA",
+        "description": "Viagem missionária da UMADALPE.",
+        "location": "Em Definição",
+        "time": "09H",
+        "image": "./assets/image1.svg"
+      }
+    },
+
+    "9": {
+      "17": {
+        "date": "17/10/2026",
+        "title": "3ª ED CONFERÊNCIA FEMININA",
+        "description": "Terceira edição da Conferência Feminina.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "13H ÀS 21H",
+        "image": "./assets/image1.svg"
+      }
+    },
+
+    "10": {
+      "2": {
+        "date": "02/11/2026",
+        "title": "CONVOCAÇÃO SANTA CEIA",
+        "description": "Convocação da Santa Ceia.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "18H",
+        "image": "./assets/image1.svg"
+      },
+      "15": {
+        "date": "15/11/2026",
+        "title": "REUNIÃO GERAL UMADALPE",
+        "description": "Reunião geral da UMADALPE.",
+        "location": "IEADALPE TEMPLO CENTRAL - ABREU E LIMA",
+        "time": "13H",
+        "image": "./assets/image1.svg"
+      },
+      "20": {
+        "date": "20/11/2026",
+        "title": "8º ED PROJETO JOVEM DOADOR",
+        "description": "Oitava edição do Projeto Jovem Doador.",
+        "location": "Auditório do Templo Central",
+        "time": "08H",
+        "image": "./assets/image1.svg"
+      }
+    },
+
+    "11": {
+      "19": {
+        "date": "19/12/2026",
+        "title": "PRÉ CONGRESSO DA EXPANSÃO",
+        "description": "Pré Congresso da Expansão da UMADALPE.",
+        "location": "Caxangá",
+        "time": "18H",
+        "image": "./assets/image1.svg"
+      }
+    }
+  }
+}

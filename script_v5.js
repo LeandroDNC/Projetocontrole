@@ -343,7 +343,14 @@ $('mob-overlay').addEventListener('click', () => toggleMobile(false));
 function toggleMobile(o) { mobileOpen = o; $('sidebar').classList.toggle('mob-open', o); $('mob-overlay').classList.toggle('show', o); }
 
 document.querySelectorAll('.nav-item').forEach(el => {
-  el.addEventListener('click', () => { navigate(el.dataset.page); toggleMobile(false); });
+  el.addEventListener('click', () => {
+    if (el.dataset.page === 'calendario') {
+      window.open('calendar.html', '_blank');
+      toggleMobile(false);
+      return;
+    }
+    navigate(el.dataset.page); toggleMobile(false);
+  });
 });
 $('user-pill').addEventListener('click', async () => {
   const r = await confirmDialog('Sair do sistema', 'Deseja encerrar sua sessão?');
