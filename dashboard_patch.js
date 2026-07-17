@@ -127,14 +127,16 @@ width:200%;
 
     @media(max-width:480px){
    .fin-grid{
-   display:flex;}
+   width:100%;
+   gap:5px;
+   }
 
     .gauge-card{
-    width:155%;
+    width:100%;
     
     }
      .fin-right{
-    width:40%;
+    width:50%;
     
     }
     .fin-card-ico{
@@ -145,7 +147,7 @@ width:200%;
     }
 
    grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    gap: 5px;
     margin-bottom: 24px;
 
   }
