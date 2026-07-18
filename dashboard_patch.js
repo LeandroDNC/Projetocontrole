@@ -291,6 +291,9 @@ window.renderDashboard = async function(){
   const totalPartMes=eventosMes.reduce((s,e)=>s+(e.participantes||0),0);
   const totalFinMes=totalOferMes+totalDizMes;
   const nomeMes=now.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const hojeStr2 = new Date().toISOString().slice(0,10);
+  const eventosFuturos = eventos.filter(e => e.data > hojeStr2);
+  const eventosPassados = eventos.filter(e => e.data <= hojeStr2);
 
   // Gauge
   const metaFin=20000;
@@ -469,6 +472,22 @@ window.renderDashboard = async function(){
 
  
   <!-- AGENDA -->
+
+  ${eventosFuturos.length ? `
+<div class="sec-hdr"><h2>${ico('calendar', 16)} Próximos Eventos</h2><span class="tag tag-gold">Agendados</span></div>
+<div class="act-list" style="margin-bottom:24px">
+  ${eventosFuturos.slice(0, 8).map(e => `
+  <div class="act-item" onclick="openEventDetail('${e.id}')" style="cursor:pointer;border-left:3px solid var(--primary-l,#7eb3ff)">
+    <div class="act-dot" style="background:${dpTipoColor(e.tipo)}"></div>
+    <div class="f1">
+      <div class="fw5 fs-sm">${dpTipoLabel(e.tipo)}</div>
+      <div class="fs-xs c3">${dp.esc(e.resumo || '')}</div>
+    </div>
+    <span class="tag tag-primary">Agendado</span>
+    <span class="act-time">${dp.fmtD(e.data)}</span>
+  </div>`).join('')}
+</div>` : ''}
+
   <div class="sec-hdr"><h2>${ico('calendar',16)} Agenda da Semana</h2><span class="tag">Próximos 7 dias</span></div>
   <div class="agenda-strip" style="margin-bottom:24px">${dpAgendaStrip(agItems||[])}</div>
 
@@ -483,7 +502,7 @@ window.renderDashboard = async function(){
     <button class="btn btn-secondary btn-sm" onclick="navigate('relatorios')">Ver todos</button>
   </div>
   <div class="act-list">
-    ${eventos.slice(0,8).map(e=>`
+    ${eventosPassados.slice(0,8).map(e=>`
     <div class="act-item" onclick="openEventDetail('${e.id}')" style="cursor:pointer;transition:all .2s">
       <div class="act-dot" style="background:${dpTipoColor(e.tipo)}"></div>
       <div class="f1">

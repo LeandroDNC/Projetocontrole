@@ -1579,6 +1579,7 @@ async function renderUsuarios() {
             ${u.setor_id ? `<span class="tag tag-blue fs-xs">${setorNome(u.setor_id)}</span>` : '<span class="tag tag-rose fs-xs">Sem setor</span>'}
             ${u.congregacao_id ? `<span class="tag tag-gold fs-xs">${lc("church", 14)} ${congNome(u.congregacao_id)}</span>` : ''}
             ${u.frequenta_ebd ? `<span class="tag tag-blue fs-xs">${lc("book-open", 14)} EBD</span>` : ''}
+            ${u.vocacao ? `<span class="tag tag-gold fs-xs">${lc("sparkles", 14)} ${escHtml(u.vocacao)}</span>` : ''}
           </div>
         </div>
       </div>
@@ -1651,7 +1652,7 @@ async function saveUser(id) {
   if (!id && !senha) { toast('Senha obrigatória', 'error'); return; }
   const congId = $('um-cong-sel')?.value || null;
   const congNomeVal = allCongsCache.find(c => c.id === congId)?.nome || '';
-  const payload = { nome, username, role: $('um-role').value, cargo: $('um-cargo').value, congregacao: congNomeVal, congregacao_id: congId, idade: parseInt($('um-age')?.value) || null, ativo: $('um-ativo').value === 'true', setor_id: $('um-setor')?.value || null, frequenta_ebd: $('um-ebd')?.value === 'true', papel_ebd: $('um-papel-ebd')?.value || null };
+  const payload = { nome, username, role: $('um-role').value, cargo: $('um-cargo').value, congregacao: congNomeVal, congregacao_id: congId, idade: parseInt($('um-age')?.value) || null, ativo: $('um-ativo').value === 'true', setor_id: $('um-setor')?.value || null, frequenta_ebd: $('um-ebd')?.value === 'true', papel_ebd: $('um-papel-ebd')?.value || null, vocacao: ($('um-vocacao')?.value || '').trim() || null } ;
   if (senha) payload.senha = senha;
   const { error } = id ? await q('sistema_usuarios').update(payload).eq('id', id) : await q('sistema_usuarios').insert(payload);
   if (error) { toast(error.message, 'error'); return; }

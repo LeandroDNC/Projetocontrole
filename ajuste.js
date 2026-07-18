@@ -623,3 +623,196 @@ window.exportarFrequenciaExcel = async function () {
 };
 
 console.log('[patch_ajustes] carregado ✓');
+
+window.openUserModal = function (id) {
+  const ROLES_FIXOS = ['admin', 'dirigente', 'adjunto', 'usuario'];
+  showModal(`<div class="modal-hdr"><span>👤</span><h2>${id ? 'Editar Usuário' : 'Novo Usuário'}</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="user-modal-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot" id="user-modal-foot"></div>`);
+  Promise.all([
+    id ? q('sistema_usuarios').select('*').eq('id', id).single() : { data: null },
+    q('setores').select('id,nome').order('nome'),
+    q('congregacoes').select('id,nome,setor_id').order('nome'),
+    q('roles').select('nome').order('nome'),
+  ]).then(([{ data: u }, { data: setores }, { data: congs }, { data: rolesCustom }]) => {
+    const ROLES = [...ROLES_FIXOS, ...(rolesCustom || []).map(r => r.nome).filter(n => !ROLES_FIXOS.includes(n))];
+    $('user-modal-body').innerHTML = userFormHtml(u, ROLES, setores || [], congs || []);
+    $('user-modal-foot').innerHTML = `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveUser('${id || ''}')">${lc("save", 14)} Salvar</button>`;
+    const setorSel = document.getElementById('um-setor');
+    const congSel = document.getElementById('um-cong-sel');
+    if (setorSel && congSel) {
+      setorSel.addEventListener('change', () => {
+        const sid = setorSel.value;
+        const filtered = sid ? (congs || []).filter(c => c.setor_id === sid) : (congs || []);
+        congSel.innerHTML = `<option value="">— Sem vínculo —</option>${filtered.map(c => `<option value="${c.id}" ${c.id === u?.congregacao_id ? 'selected' : ''}>${escHtml(c.nome)}</option>`).join('')}`;
+      });
+    }
+  });
+};
+
+/* Helper compartilhado: aviso + trava campos quando data é futura */
+function pfAplicarFuturo(dateInputId, disableSelector) {
+  const dataInput = document.getElementById(dateInputId);
+  if (!dataInput) return;
+  const upd = () => {
+    document.getElementById('futuro-notice')?.remove();
+    const futuro = dataInput.value > new Date().toISOString().slice(0,10);
+    if (futuro) {
+      const n = document.createElement('div');
+      n.id = 'futuro-notice'; n.className = 'futuro-notice';
+      n.innerHTML = `${lc('shield',14)} <strong>Evento futuro:</strong> dados não podem ser preenchidos agora. Publique após a realização.`;
+      dataInput.parentElement.insertAdjacentElement('afterend', n);
+      document.querySelectorAll(disableSelector).forEach(el => { if (el) { el.disabled = true; el.value = 0; } });
+    } else {
+      document.querySelectorAll(disableSelector).forEach(el => { if (el) el.disabled = false; });
+    }
+  };
+  dataInput.addEventListener('change', upd);
+  upd();
+}
+
+/* Evento em Congregação — sem campo de "Participantes" manual */
+window.openEventModal = async function (tipo) {
+  if (!hasPerm('registrar_eventos')) { toast('Sem permissão', 'error'); return; }
+  $('event-menu')?.classList.add('hidden');
+  const info = TIPOS_EVENTO[tipo] || { label: tipo, icon: 'clipboard-list', financeiro: false, evangelismo: false };
+  const { data: mems } = await q('membros').select('id,nome,cargo,frequenta_ebd,papel_ebd').eq('congregacao_id', navState.cong.id).order('nome');
+  let qExt = q('membros').select('id,nome,cargo,congregacao_id').order('nome').neq('congregacao_id', navState.cong.id);
+  if (!canSeeAllSetores() && currentUser?.setor_id) qExt = qExt.eq('setor_id', currentUser.setor_id);
+  const { data: allMems } = await qExt;
+
+  let extraFields = '';
+  if (info.financeiro) {
+    extraFields = `
+    <div class="form-row"><div class="form-group"><label>Horário Início</label><input id="ev-inicio" type="time"/></div><div class="form-group"><label>Horário Fim</label><input id="ev-fim" type="time"/></div></div>
+    <div class="form-group"><label>Conversões</label><input id="ev-conversoes" type="number" min="0" placeholder="0"/></div>
+    ${canSeeFinanceiro() ? `<div class="form-row"><div class="form-group"><label>Ofertas (R$)</label><input id="ev-ofertas" type="number" step="0.01" min="0" placeholder="0"/></div><div class="form-group"><label>Dízimos (R$)</label><input id="ev-dizimos" type="number" step="0.01" min="0" placeholder="0"/></div></div>` : ''}
+    <div class="form-section-title">${lc("book-open", 14)} Campos Espirituais</div>
+    <div class="form-row"><div class="form-group"><label>Almas Salvas</label><input id="ev-almas-salvas" type="number" min="0" placeholder="0"/></div><div class="form-group"><label>Batismo no Espírito</label><input id="ev-batismo-espirito" type="number" min="0" placeholder="0"/></div></div>
+    <div class="form-row"><div class="form-group"><label>Renovo</label><input id="ev-renovo" type="number" min="0" placeholder="0"/></div><div class="form-group"><label>Bênçãos Alcançadas</label><input id="ev-bencaos" type="number" min="0" placeholder="0"/></div></div>
+    <div class="form-row"><div class="form-group"><label>Desviados que Voltaram</label><input id="ev-desviados" type="number" min="0" placeholder="0"/></div><div class="form-group"><label>Literaturas Distribuídas</label><input id="ev-literaturas" type="number" min="0" placeholder="0"/></div></div>`;
+  } else if (info.ebd) {
+    extraFields = `
+    <div class="form-group"><label>Horário</label><input id="ev-inicio" type="time"/></div>
+    <div class="form-group"><label>Tema da Lição *</label><input id="ev-tema-licao" placeholder="Ex: A fé de Abraão"/></div>
+    <div class="form-group"><label>Referência Bíblica</label><input id="ev-referencia" placeholder="Ex: Gênesis 12"/></div>`;
+  } else if (info.evangelismo) {
+    extraFields = `
+    <div class="form-row"><div class="form-group"><label>Horário Início</label><input id="ev-inicio" type="time"/></div><div class="form-group"><label>Horário Fim</label><input id="ev-fim" type="time"/></div></div>
+    <div class="form-group"><label>Evangelizados</label><input id="ev-evangelizados" type="number" min="0" placeholder="0"/></div>
+    <div class="form-group"><label>Vidas Salvas</label><input id="ev-conversoes" type="number" min="0" placeholder="0"/></div>`;
+  }
+
+  const memsParaEBD = info.ebd ? (mems || []).filter(m => m.frequenta_ebd) : (mems || []);
+
+  showModal(`<div class="modal-hdr"><span>${lc(info.icon, 20)}</span><h2>Registrar: ${info.label}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <div class="form-group"><label>Data *</label><input id="ev-data" type="date" value="${new Date().toISOString().slice(0, 10)}"/></div>
+    <div class="form-group"><label>Resumo / Obs.</label><textarea id="ev-resumo" rows="2" style="resize:vertical"></textarea></div>
+    ${extraFields}
+    <div class="form-group"><label>${info.ebd ? 'Alunos/Professores (EBD)' : 'Participantes da Congregação'}</label>
+    <div class="member-select-list" id="ev-mems-local">${memsParaEBD.map(m => `<label class="check-row"><input type="checkbox" class="ev-mem-check" value="${m.id}" data-nome="${escHtml(m.nome)}"/><div class="av av-sm" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><span>${escHtml(m.nome)} <em class="c3">${escHtml(m.cargo)}${m.papel_ebd ? ' · ' + m.papel_ebd : ''}</em></span></label>`).join('') || '<p class="c3 fs-xs">Nenhum membro.</p>'}</div></div>
+    ${!info.ebd ? `<div class="form-group"><label>Externos (mesmo setor)</label><input id="ev-ext-search" placeholder="Buscar..." oninput="filterExtMembers(this.value)" style="margin-bottom:8px"/><div class="member-select-list" id="ev-mems-ext" style="max-height:140px">${(allMems || []).map(m => `<label class="check-row ev-ext-row"><input type="checkbox" class="ev-ext-check" value="${m.id}" data-nome="${escHtml(m.nome)}"/><div class="av av-sm" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><span>${escHtml(m.nome)} <em class="c3">${escHtml(m.cargo)}</em></span></label>`).join('') || '<p class="c3 fs-xs">Sem externos.</p>'}</div></div>` : ''}
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitEvento('${tipo}')">${lc("plus-circle", 14)} Registrar</button></div>`);
+
+  setTimeout(() => pfAplicarFuturo('ev-data', '#ev-conversoes,#ev-ofertas,#ev-dizimos,#ev-evangelizados,#ev-almas-salvas,#ev-batismo-espirito,#ev-renovo,#ev-bencaos,#ev-desviados,#ev-literaturas'), 100);
+};
+
+/* Evento Setorial — mesma lógica de futuro/rascunho e sem campo manual de participantes */
+window.openEventoSetorialModal = async function () {
+  const { data: setores } = await q('setores').select('id,nome').order('nome');
+  const { data: usuarios } = await q('sistema_usuarios').select('id,nome,cargo,setor_id').eq('ativo', true).order('nome');
+  const sid = currentUser?.setor_id || null;
+  const usersSetor = sid ? (usuarios || []).filter(u => u.setor_id === sid) : (usuarios || []);
+
+  showModal(`
+  <div class="modal-hdr"><span>${lc('building-2', 20)}</span><h2>Novo Evento Setorial</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <div class="form-group"><label>Data *</label><input id="es-data" type="date" value="${new Date().toISOString().slice(0, 10)}"/></div>
+    <div class="form-group"><label>Setor</label>
+      <select id="es-setor">
+        ${(setores || []).map(s => `<option value="${s.id}" ${s.id === sid ? 'selected' : ''}>${escHtml(s.nome)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Horário Início</label><input id="es-inicio" type="time"/></div>
+      <div class="form-group"><label>Horário Fim</label><input id="es-fim" type="time"/></div>
+    </div>
+    <div class="form-group"><label>Resumo / Título *</label><input id="es-resumo" placeholder="Ex: Reunião de Líderes do Setor"/></div>
+    <div class="form-group"><label>Conversões</label><input id="es-conversoes" type="number" min="0" placeholder="0"/></div>
+    <div class="form-group"><label>Participantes do Setor</label>
+      <div class="member-select-list" style="max-height:180px">
+        ${usersSetor.map(u => `<label class="check-row"><input type="checkbox" class="es-user-check" value="${u.id}" data-nome="${escHtml(u.nome)}"/>
+        <div class="av av-sm" style="background:${avatarColor(u.nome)}">${initials(u.nome)}</div>
+        <span>${escHtml(u.nome)} <em class="c3">${escHtml(u.cargo || '—')}</em></span></label>`).join('') || '<p class="c3 fs-xs">Nenhum usuário no setor.</p>'}
+      </div>
+    </div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitEventoSetorial()">${lc('plus-circle', 14)} Registrar</button></div>`);
+
+  setTimeout(() => pfAplicarFuturo('es-data', '#es-conversoes'), 100);
+};
+
+window.submitEventoSetorial = async function () {
+  const data = $('es-data')?.value;
+  const resumo = ($('es-resumo')?.value || '').trim();
+  if (!data || !resumo) { toast('Data e resumo são obrigatórios', 'error'); return; }
+  const futuro = data > new Date().toISOString().slice(0,10);
+  const checks = [...document.querySelectorAll('.es-user-check:checked')].map(c => c.value);
+  const payload = {
+    tipo: 'evento_setorial',
+    setor_id: $('es-setor')?.value || currentUser?.setor_id,
+    data, resumo,
+    hora_inicio: $('es-inicio')?.value || null,
+    hora_fim: $('es-fim')?.value || null,
+    participantes: checks.length || 0,
+    conversoes: futuro ? 0 : (parseInt($('es-conversoes')?.value) || 0),
+    participante_ids: checks,
+    congregacao_id: null,
+    ofertas: 0, dizimos: 0, evangelizados: 0,
+    status: futuro ? 'rascunho' : 'pendente',
+  };
+  const { error } = await q('eventos').insert(payload);
+  if (error) { toast(error.message, 'error'); return; }
+  toast(futuro ? 'Evento setorial agendado como rascunho.' : 'Evento setorial registrado!');
+  closeModal(); renderEventosSetoriais();
+};
+
+window.openEditMembro = function (id) {
+  if (!hasPerm('gerenciar_membros')) { toast('Sem permissão', 'error'); return; }
+  showModal(`<div class="modal-hdr"><span>${lc("pencil", 14)}</span><h2>Editar Membro</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="edit-mem-body"><div class="loading-page"><div class="spinner"></div></div></div>`);
+  q('membros').select('*').eq('id', id).single().then(({ data: m }) => {
+    if (!m) return;
+    $('edit-mem-body').innerHTML = `
+    <div class="form-group"><label>Nome</label><input id="em-nome" value="${escHtml(m.nome)}"/></div>
+    <div class="form-group"><label>Vocação</label><textarea id="um-vocacao" rows="2" placeholder="Ex: Pregação, Louvor, Ensino...">${escHtml(u?.vocacao || '')}</textarea></div>
+    <div class="form-row"><div class="form-group"><label>Cargo</label><select id="em-cargo">${CARGOS.map(c => `<option${c === m.cargo ? ' selected' : ''}>${c}</option>`).join('')}</select></div><div class="form-group"><label>Idade</label><input id="em-idade" type="number" value="${m.idade || ''}"/></div></div>
+    <div class="form-group"><label>Telefone</label><input id="em-tel" value="${escHtml(m.telefone || '')}"/></div>
+    <div class="form-group"><label>Email</label><input id="em-email" value="${escHtml(m.email || '')}"/></div>
+    <div class="form-group"><label>Vocação</label><textarea id="em-vocacao" rows="2" placeholder="Ex: Louvor, Ensino, Intercessão...">${escHtml(m.vocacao || '')}</textarea></div>
+    <div class="form-section-title">${lc("book-open", 14)} Escola Bíblica Dominical</div>
+    <div class="form-row">
+      <div class="form-group"><label>Frequenta EBD?</label><select id="em-ebd"><option value="false" ${!m.frequenta_ebd ? 'selected' : ''}>Não</option><option value="true" ${m.frequenta_ebd ? 'selected' : ''}>Sim</option></select></div>
+      <div class="form-group"><label>Papel</label><select id="em-papel-ebd"><option value="" ${!m.papel_ebd ? 'selected' : ''}>—</option><option value="Aluno" ${m.papel_ebd === 'Aluno' ? 'selected' : ''}>Aluno</option><option value="Professor" ${m.papel_ebd === 'Professor' ? 'selected' : ''}>Professor</option><option value="Superintendente" ${m.papel_ebd === 'Superintendente' ? 'selected' : ''}>Superintendente</option></select></div>
+    </div>`;
+    const modal = document.querySelector('.modal');
+    if (modal && !modal.querySelector('.modal-foot')) { const foot = document.createElement('div'); foot.className = 'modal-foot'; foot.innerHTML = `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveMembro('${id}')">${lc("save", 14)} Salvar</button>`; modal.appendChild(foot); }
+  });
+};
+
+window.saveMembro = async function (id) {
+  if (!hasPerm('gerenciar_membros')) { toast('Sem permissão', 'error'); return; }
+  const payload = { nome: ($('em-nome')?.value || '').trim(), cargo: $('em-cargo')?.value, idade: parseInt($('em-idade')?.value) || null, telefone: ($('em-tel')?.value || '').trim(), email: ($('em-email')?.value || '').trim(), vocacao: ($('em-vocacao')?.value || '').trim() || null, frequenta_ebd: $('em-ebd')?.value === 'true', papel_ebd: $('em-papel-ebd')?.value || null };
+  if (!payload.nome) { toast('Nome obrigatório', 'error'); return; }
+  const { error } = await q('membros').update(payload).eq('id', id);
+  if (error) { toast(error.message, 'error'); return; }
+  closeModal(); toast('Membro atualizado!'); if (currentPage === 'setores') renderSetores();
+};
+
+window.openMemberModal = async function (id) {
+  showModal(loadingPage());
+  const { data: m, error } = await q('membros').select('*').eq('id', id).single();
+  if (error || !m) { closeModal(); toast('Erro', 'error'); return; }
+  const ebdInfo = m.frequenta_ebd ? `<div style="background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:10px;padding:12px 16px;margin:0 30px 12px;font-size:.82rem"><div class="fw5" style="color:#38bdf8;margin-bottom:4px">${lc("book-open", 14)} Escola Bíblica Dominical</div><div class="c3">Papel: <strong style="color:var(--txt)">${escHtml(m.papel_ebd || 'Aluno')}</strong></div></div>` : '';
+  const vocacaoInfo = m.vocacao ? `<div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:12px 16px;margin:0 30px 12px;font-size:.82rem"><div class="fw5" style="color:var(--gold);margin-bottom:4px">${lc("sparkles", 14)} Vocação</div><div class="c2">${escHtml(m.vocacao)}</div></div>` : '';
+  showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div class="mem-av-lg" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><div class="mem-modal-name">${escHtml(m.nome)}</div><span class="tag tag-gold">${escHtml(m.cargo)}</span>${m.frequenta_ebd ? `<span class="tag tag-blue" style="margin-left:6px">${lc("book-open", 14)} EBD</span>` : ''}</div><div class="mem-info-grid"><div class="inf-item"><label>Idade</label><span>${m.idade || '—'} anos</span></div><div class="inf-item"><label>Telefone</label><span>${escHtml(m.telefone || '—')}</span></div><div class="inf-item"><label>Email</label><span style="font-size:.78rem">${escHtml(m.email || '—')}</span></div><div class="inf-item"><label>Batismo</label><span>${m.data_batismo ? fmtDate(m.data_batismo) : '—'}</span></div></div>${vocacaoInfo}${ebdInfo}<div class="mem-modal-foot">${m.telefone ? `<a href="https://wa.me/${m.telefone.replace(/\D/g, '')}" target="_blank" class="btn btn-teal">${lc("message-circle", 14)} WhatsApp</a>` : ''} ${hasPerm('gerenciar_membros') ? `<button class="btn btn-secondary" onclick="openEditMembro('${m.id}')">${lc("pencil", 14)} Editar</button>` : ''}<button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
+};
