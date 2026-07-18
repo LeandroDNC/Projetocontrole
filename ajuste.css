@@ -107,3 +107,84 @@
   .overlay { align-items:flex-start !important; padding-top: 24px !important; }
   .modal { margin-top: 12px; }
 }
+
+/* ──────────────────────────────────────────────────────────
+   FIX 3 — Border-radius nos ícones dos cards do dashboard
+   ──────────────────────────────────────────────────────────
+   Os ícones .stat-ico e .shortcut-ico não tinham border-radius
+   definido no CSS base, ficando quadrados. Aqui adicionamos
+   border-radius para manter a identidade visual arredondada.
+════════════════════════════════════════════════════════════ */
+.stat-ico {
+  border-radius: 12px !important;
+}
+
+.shortcut-ico {
+  border-radius: 12px !important;
+}
+
+.fin-card-ico {
+  border-radius: 10px !important;
+}
+
+/* ──────────────────────────────────────────────────────────
+   FIX 4 — Formulário de Cadastro de Usuário cortado no topo
+   ──────────────────────────────────────────────────────────
+   O .modal-body dos modais de usuário não tinha overflow-y:auto
+   suficiente e o padding-top estava sendo mascarado pelo header.
+   Aqui garantimos scroll adequado e padding para o conteúdo
+   não ficar atrás do cabeçalho da modal.
+════════════════════════════════════════════════════════════ */
+#user-modal-body {
+  overflow-y: auto !important;
+  max-height: calc(80vh - 130px) !important;
+  padding: 20px 24px !important;
+  box-sizing: border-box;
+}
+
+/* Garante que o modal de usuário não ultrapasse a tela */
+.modal:has(#user-modal-body) {
+  max-height: 92vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Fallback para browsers sem :has() */
+.modal-hdr + #user-modal-body,
+.modal-body#user-modal-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Itens de evento futuro no dashboard — visual diferenciado */
+.act-item.ev-futuro-item {
+  background: rgba(79, 142, 247, 0.04);
+}
+
+.act-item.ev-futuro-item:hover {
+  background: rgba(79, 142, 247, 0.08);
+}
+/* ----------------------------------------------------------
+   FIX 5 � Textura de Fundo e Refresh Animado
+   ----------------------------------------------------------
+   Adiciona um SVG de noise/textura no background do body para 
+   um visual premium, e a anima��o do bot�o atualizar.
+------------------------------------------------------------ */
+body {
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E") !important;
+  background-attachment: fixed;
+}
+
+[data-theme="dark"] body {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E") !important;
+}
+
+.refresh-btn-animated.spin svg {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

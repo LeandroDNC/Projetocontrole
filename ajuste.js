@@ -170,7 +170,6 @@ window.renderDashboard = async function () {
   let qSet = client.from('setores').select('id', { count: 'exact', head: true });
   let qCong = client.from('congregacoes').select('id', { count: 'exact', head: true });
   let qMem = client.from('membros').select('id', { count: 'exact', head: true });
-  // FIX: removido filtro de status — considera TODO evento registrado
   let qEv = client.from('eventos').select('*').order('data', { ascending: false });
   let qEvM = client.from('eventos').select('*').gte('data', inicioMes).lte('data', fimMes);
   let qAg = client.from('agenda_semana').select('*,congregacoes(nome)').gte('data', hoje).lte('data', em7).order('data');
@@ -192,6 +191,10 @@ window.renderDashboard = async function () {
   const totalFinMes = totalOferMes + totalDizMes;
   const nomeMes = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
+  const hojeStr = new Date().toISOString().slice(0, 10);
+  const eventosFuturos = eventos.filter(e => e.data > hojeStr && e.tipo !== 'evento_setorial');
+  const eventosPassados = eventos.filter(e => e.data <= hojeStr && e.tipo !== 'evento_setorial');
+
   const metaFin = 20000;
   const gaugePct = Math.min(100, Math.round(totalFinMes / metaFin * 100));
   const gaugeR = 56; const gaugeC = Math.PI * gaugeR;
@@ -212,14 +215,13 @@ window.renderDashboard = async function () {
   </div>` : `<div class="dash-setor-locked">${ico('pin', 14)} ${dp.esc((allSetores || []).find(s => s.id === sid)?.nome || 'Meu Setor')}</div>`;
 
   pc.innerHTML = `
-  <!-- HEADER -->
   <div class="dash-header">
     <div style="display:flex;align-items:center;gap:10px">
       <div>
         <h2 class="dash-title">${saudacao}, ${dp.esc((window.currentUser?.nome || '').split(' ')[0])}!</h2>
         <p class="dash-sub">Aqui está o resumo da sua igreja.</p>
       </div>
-      <button class="btn btn-secondary btn-sm" onclick="renderDashboard()" title="Atualizar" style="padding:6px 10px">${ico('refresh', 15)}</button>
+      <button class="btn btn-secondary btn-sm refresh-btn-animated" onclick="this.classList.add('spin'); setTimeout(() => this.classList.remove('spin'), 800); renderDashboard()" title="Atualizar" style="padding:6px 10px">${typeof lc==='function'?lc('refresh-cw',15):ico('refresh', 15)}</button>
     </div>
     <div class="dash-period">
       ${setorSel}
@@ -227,7 +229,6 @@ window.renderDashboard = async function () {
     </div>
   </div>
 
-  <!-- 4 CARDS TOPO -->
   <div class="dash-top-grid">
     <div class="stat-card stat-clickable" onclick="dpNavSetores()">
       <div class="stat-ico ic-gold">${SVG.map}</div>
@@ -279,7 +280,6 @@ window.renderDashboard = async function () {
       <div class="shortcut-ico ic-violet">${SVG.wallet}</div><small>Financeiro</small>
     </div>` : ''}
   </div>
-  <!-- RESUMO DO MÊS -->
   <div class="sec-hdr"><h2>Resumo do Mês</h2><span class="tag tag-primary">Tempo real</span></div>
   <div class="mes-grid">
     <div class="stat-card stat-clickable" onclick="dpScrollEventos()">
@@ -361,6 +361,24 @@ window.renderDashboard = async function () {
   <div class="sec-hdr"><h2>${ico('calendar', 16)} Agenda da Semana</h2><span class="tag">Próximos 7 dias</span></div>
   <div class="agenda-strip" style="margin-bottom:24px">${dpAgendaStrip(agItems || [])}</div>
 
+  ${eventosFuturos.length ? `
+  <div class="sec-hdr">
+    <h2>${ico('calendar', 16)} Eventos Futuros</h2>
+    <span class="tag" style="background:rgba(79,142,247,.15);color:#7eb3ff">Agendados</span>
+  </div>
+  <div class="act-list" style="margin-bottom:24px">
+    ${eventosFuturos.slice(0, 8).map(e => `
+    <div class="act-item" onclick="openEventDetail('${e.id}')" style="cursor:pointer;border-left:3px solid #7eb3ff">
+      <div class="act-dot" style="background:#7eb3ff"></div>
+      <div class="f1">
+        <div class="fw5 fs-sm">${dpTipoLabel(e.tipo)}</div>
+        <div class="fs-xs c3">${dp.esc(e.resumo || '')}</div>
+      </div>
+      <span class="tag" style="background:rgba(79,142,247,.15);color:#7eb3ff">Agendado</span>
+      <span class="act-time">${dp.fmtD(e.data)}</span>
+    </div>`).join('')}
+  </div>` : ''}
+
   ${podeVerEvSetoriais ? `
   <div class="sec-hdr"><h2>${ico('cityHall', 16)} Eventos Setoriais</h2><span class="tag tag-gold">Inclui futuros</span></div>
   <div id="dash-eventos-setoriais" class="act-list" style="margin-bottom:24px">${dpLoadingMini()}</div>` : ''}
@@ -370,8 +388,8 @@ window.renderDashboard = async function () {
     <button class="btn btn-secondary btn-sm" onclick="navigate('relatorios')">Ver todos</button>
   </div>
   <div class="act-list">
-    ${eventos.slice(0, 8).map(e => `
-    <div class="act-item" onclick="openEventDetail('${e.id}')" style="cursor:pointer">
+    ${eventosPassados.slice(0, 8).map(e => `
+    <div class="act-item" onclick="openEventDetail('${e.id}')" style="cursor:pointer;transition:all .2s">
       <div class="act-dot" style="background:${dpTipoColor(e.tipo)}"></div>
       <div class="f1">
         <div class="fw5 fs-sm">${dpTipoLabel(e.tipo)}</div>
@@ -405,19 +423,22 @@ window.renderDashboard = async function () {
     if (esC) {
       try {
         const vetodosSetores = (typeof canSeeAllSetores === 'function' && canSeeAllSetores()) || (typeof isSuperAdmin === 'function' && isSuperAdmin());
-        let qES = client.from('eventos').select('*').eq('tipo', 'evento_setorial').order('data', { ascending: true }).limit(15);
+        let qES = client.from('eventos').select('*').eq('tipo', 'evento_setorial').order('data', { ascending: true }).limit(20);
         if (!vetodosSetores && window.currentUser?.setor_id) qES = qES.eq('setor_id', window.currentUser.setor_id);
         const { data: evS } = await qES;
         const { data: setS } = await client.from('setores').select('id,nome');
         const sN = id => (setS || []).find(s => s.id === id)?.nome || '—';
         const hj = new Date().toISOString().slice(0, 10);
-        esC.innerHTML = (evS || []).length ? (evS || []).map(e => {
+        const setFuturos = (evS || []).filter(e => e.data > hj);
+        const setPassados = (evS || []).filter(e => e.data <= hj).reverse();
+        const evOrdenados = [...setFuturos, ...setPassados];
+        esC.innerHTML = evOrdenados.length ? evOrdenados.map(e => {
           const fut = e.data > hj;
-          return `<div class="act-item" onclick="openEventoSetorialDetail('${e.id}')" style="cursor:pointer">
-            <div class="act-dot" style="background:${fut ? 'var(--primary-l,#7eb3ff)' : 'var(--gold,#f0c060)'}"></div>
+          return `<div class="act-item" onclick="openEventoSetorialDetail('${e.id}')" style="cursor:pointer;transition:all .2s${fut ? ';border-left:3px solid #7eb3ff' : ''}">
+            <div class="act-dot" style="background:${fut ? '#7eb3ff' : 'var(--gold,#f0c060)'}"></div>
             <div class="f1">
               <div class="fw5 fs-sm">${ico('cityHall', 13)} ${dp.esc(e.resumo || 'Evento Setorial')}</div>
-              <div class="fs-xs c3">${dp.esc(sN(e.setor_id))}${fut ? ' · <span style="color:var(--primary-l,#7eb3ff);font-weight:600">Agendado</span>' : ''}</div>
+              <div class="fs-xs c3">${dp.esc(sN(e.setor_id))}${fut ? ' · <span style="color:#7eb3ff;font-weight:600">Agendado</span>' : ''}</div>
             </div>
             <span class="tag">${e.participantes || 0} pess.</span>
             <span class="act-time">${dp.fmtD(e.data)}</span>
@@ -442,7 +463,7 @@ window.submitEvento = async function (tipo) {
   const payload = {
     congregacao_id: navState.cong.id, setor_id: navState.setor.id, tipo, data,
     resumo: ($('ev-resumo')?.value || '').trim(),
-    participantes: parseInt($('ev-participantes')?.value) || participanteIds.length || 0,
+    participantes: participanteIds.length || 0,
     hora_inicio: $('ev-inicio')?.value || null, hora_fim: $('ev-fim')?.value || null,
     conversoes: parseInt($('ev-conversoes')?.value) || 0,
     ofertas: canSeeFinanceiro() ? parseFloat($('ev-ofertas')?.value) || 0 : 0,
@@ -457,8 +478,6 @@ window.submitEvento = async function (tipo) {
     literaturas_distribuidas: parseInt($('ev-literaturas')?.value) || 0,
     tema_licao: ($('ev-tema-licao')?.value || '').trim() || null,
     referencia_biblica: ($('ev-referencia')?.value || '').trim() || null,
-    // Já nasce "pendente" — assim aparece imediatamente no ranking,
-    // gráficos e relatórios, sem depender de um botão "publicar".
     status: 'pendente',
   };
   const { error } = await q('eventos').insert(payload);
@@ -482,7 +501,6 @@ window.renderFrequencia = async function () {
   let congsList = [];
   if (sid) { const { data: cs } = await q('congregacoes').select('id,nome').eq('setor_id', sid).order('nome'); congsList = cs || []; }
 
-  // Base: MEMBROS cadastrados nas congregações (não mais sistema_usuarios)
   let qMembros = q('membros').select('id,nome,cargo,setor_id,congregacao_id,frequenta_ebd,papel_ebd').order('nome');
   if (!canSeeAllSetores() && currentUser?.setor_id) qMembros = qMembros.eq('setor_id', currentUser.setor_id);
   else if (sid) qMembros = qMembros.eq('setor_id', sid);
@@ -497,7 +515,6 @@ window.renderFrequencia = async function () {
 
   const congNomeById = {};
   (congsList || []).forEach(c => congNomeById[c.id] = c.nome);
-  // Se não houver congsList carregada (ex: super admin sem setor selecionado), busca sob demanda
   const congIdsFaltantes = [...new Set(membrosArr.map(m => m.congregacao_id).filter(cId => cId && !congNomeById[cId]))];
   if (congIdsFaltantes.length) {
     const { data: extraCongs } = await q('congregacoes').select('id,nome').in('id', congIdsFaltantes);
@@ -571,7 +588,6 @@ window.renderFrequencia = async function () {
   if (fCtx && top10.length) chartInstances.freq = new Chart(fCtx, { type: 'bar', data: { labels: top10.map(m => m.nome.split(' ')[0]), datasets: [{ label: 'Freq. Geral (%)', data: top10.map(m => m.pctTotal), backgroundColor: top10.map(m => m.pctTotal >= 75 ? 'rgba(20,184,166,.8)' : m.pctTotal >= 50 ? 'rgba(245,158,11,.8)' : 'rgba(244,63,94,.8)'), borderRadius: 8 }, { label: 'Freq. Cultos (%)', data: top10.map(m => m.pctCultos), backgroundColor: 'rgba(201,168,76,.4)', borderRadius: 8 }] }, options: { responsive: true, plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,.03)' } }, y: { min: 0, max: 100, ticks: { color: '#94a3b8', callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,.05)' } } } } });
 };
 
-/* Exports em PDF/Excel também baseados em `membros` */
 window.exportarFrequenciaPDF = async function () {
   if (!hasPerm('exportar_dados')) { toast('Sem permissão', 'error'); return; }
   const { jsPDF } = window.jspdf; if (!jsPDF) { toast('Biblioteca não carregada', 'error'); return; }
@@ -648,7 +664,63 @@ window.openUserModal = function (id) {
   });
 };
 
-/* Helper compartilhado: aviso + trava campos quando data é futura */
+window.userFormHtml = function (u, ROLES, setores = [], congs = []) {
+  const congsFiltradas = u?.setor_id ? (congs || []).filter(c => c.setor_id === u.setor_id) : (congs || []);
+  return `
+  <div class="form-group"><label>Nome Completo *</label><input id="um-name" value="${escHtml(u?.nome || '')}" placeholder="Nome completo"/></div>
+  <div class="form-group"><label>Username *</label><input id="um-username" value="${escHtml(u?.username || '')}"/></div>
+  <div class="form-group"><label>Senha ${!u ? '*' : '(vazio = manter)'}</label><input id="um-pass" type="password"/></div>
+  <div class="form-row">
+    <div class="form-group"><label>Idade</label><input id="um-age" type="number" value="${u?.idade || ''}"/></div>
+    <div class="form-group"><label>Tipo de Acesso</label><select id="um-role">${ROLES.map(r => `<option value="${r}" ${r === (u?.role || 'usuario') ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+  </div>
+  <div class="form-group"><label>Setor *</label>
+    <select id="um-setor">
+      <option value="">— Selecione —</option>
+      ${setores.map(s => `<option value="${s.id}" ${s.id === u?.setor_id ? 'selected' : ''}>${escHtml(s.nome)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="form-group"><label>Congregação (select)</label>
+    <select id="um-cong-sel">
+      <option value="">— Sem vínculo —</option>
+      ${congsFiltradas.map(c => `<option value="${c.id}" ${c.id === u?.congregacao_id ? 'selected' : ''}>${escHtml(c.nome)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="form-group"><label>Cargo</label><select id="um-cargo">${(typeof CARGOS !== 'undefined' ? CARGOS : ['Pastor Local','Presbítero','Diácono','Dirigente','Membro']).map(c => `<option ${c === (u?.cargo || 'Membro') ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+  <div class="form-group"><label>Status</label><select id="um-ativo"><option value="true" ${u?.ativo !== false ? 'selected' : ''}>Ativo</option><option value="false" ${u?.ativo === false ? 'selected' : ''}>Inativo</option></select></div>
+  <div class="form-group"><label>Vocação</label><textarea id="um-vocacao" rows="2" placeholder="Ex: Evangelismo, Misericórdia...">${escHtml(u?.vocacao || '')}</textarea></div>
+  <div class="form-section-title">${lc("book-open", 14)} EBD</div>
+  <div class="form-row">
+    <div class="form-group"><label>Frequenta EBD?</label><select id="um-ebd"><option value="false" ${!u?.frequenta_ebd ? 'selected' : ''}>Não</option><option value="true" ${u?.frequenta_ebd ? 'selected' : ''}>Sim</option></select></div>
+    <div class="form-group"><label>Papel na EBD</label><select id="um-papel-ebd"><option value="" ${!u?.papel_ebd ? 'selected' : ''}>—</option><option value="Aluno" ${u?.papel_ebd === 'Aluno' ? 'selected' : ''}>Aluno</option><option value="Professor" ${u?.papel_ebd === 'Professor' ? 'selected' : ''}>Professor</option><option value="Superintendente" ${u?.papel_ebd === 'Superintendente' ? 'selected' : ''}>Superintendente</option></select></div>
+  </div>`;
+};
+
+window.saveUser = async function (id) {
+  const nome = ($('um-name')?.value || '').trim(), username = ($('um-username')?.value || '').trim(), senha = ($('um-pass')?.value || '').trim();
+  if (!nome || !username) { toast('Nome e username obrigatórios', 'error'); return; }
+  if (!id && !senha) { toast('Senha obrigatória', 'error'); return; }
+  const congId = $('um-cong-sel')?.value || null;
+  const congNomeVal = (typeof allCongsCache !== 'undefined' ? allCongsCache : []).find(c => c.id === congId)?.nome || '';
+  const payload = {
+    nome, username,
+    role: $('um-role').value,
+    cargo: $('um-cargo').value,
+    congregacao: congNomeVal,
+    congregacao_id: congId,
+    idade: parseInt($('um-age')?.value) || null,
+    ativo: $('um-ativo').value === 'true',
+    setor_id: $('um-setor')?.value || null,
+    frequenta_ebd: $('um-ebd')?.value === 'true',
+    papel_ebd: $('um-papel-ebd')?.value || null,
+    vocacao: ($('um-vocacao')?.value || '').trim() || null,
+  };
+  if (senha) payload.senha = senha;
+  const { error } = id ? await q('sistema_usuarios').update(payload).eq('id', id) : await q('sistema_usuarios').insert(payload);
+  if (error) { toast(error.message, 'error'); return; }
+  closeModal(); toast(id ? 'Usuário atualizado!' : 'Usuário criado!'); renderUsuarios();
+};
+
 function pfAplicarFuturo(dateInputId, disableSelector) {
   const dataInput = document.getElementById(dateInputId);
   if (!dataInput) return;
@@ -669,7 +741,6 @@ function pfAplicarFuturo(dateInputId, disableSelector) {
   upd();
 }
 
-/* Evento em Congregação — sem campo de "Participantes" manual */
 window.openEventModal = async function (tipo) {
   if (!hasPerm('registrar_eventos')) { toast('Sem permissão', 'error'); return; }
   $('event-menu')?.classList.add('hidden');
@@ -709,7 +780,8 @@ window.openEventModal = async function (tipo) {
     <div class="form-group"><label>Resumo / Obs.</label><textarea id="ev-resumo" rows="2" style="resize:vertical"></textarea></div>
     ${extraFields}
     <div class="form-group"><label>${info.ebd ? 'Alunos/Professores (EBD)' : 'Participantes da Congregação'}</label>
-    <div class="member-select-list" id="ev-mems-local">${memsParaEBD.map(m => `<label class="check-row"><input type="checkbox" class="ev-mem-check" value="${m.id}" data-nome="${escHtml(m.nome)}"/><div class="av av-sm" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><span>${escHtml(m.nome)} <em class="c3">${escHtml(m.cargo)}${m.papel_ebd ? ' · ' + m.papel_ebd : ''}</em></span></label>`).join('') || '<p class="c3 fs-xs">Nenhum membro.</p>'}</div></div>
+    <p class="fs-xs c3" style="margin-bottom:6px">Marque os presentes — o total será calculado automaticamente.</p>
+    <div class="member-select-list" id="ev-mems-local">${memsParaEBD.map(m => `<label class="check-row"><input type="checkbox" class="ev-mem-check" value="${m.id}" data-nome="${escHtml(m.nome)}"/><div class="av av-sm" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><span>${escHtml(m.nome)} <em class="c3">${escHtml(m.cargo)}${m.papel_ebd ? ' · ' + m.papel_ebd : ''}</em></span></label>`).join('') || '<p class="c3 fs-xs">Nenhum membro cadastrado.</p>'}</div></div>
     ${!info.ebd ? `<div class="form-group"><label>Externos (mesmo setor)</label><input id="ev-ext-search" placeholder="Buscar..." oninput="filterExtMembers(this.value)" style="margin-bottom:8px"/><div class="member-select-list" id="ev-mems-ext" style="max-height:140px">${(allMems || []).map(m => `<label class="check-row ev-ext-row"><input type="checkbox" class="ev-ext-check" value="${m.id}" data-nome="${escHtml(m.nome)}"/><div class="av av-sm" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><span>${escHtml(m.nome)} <em class="c3">${escHtml(m.cargo)}</em></span></label>`).join('') || '<p class="c3 fs-xs">Sem externos.</p>'}</div></div>` : ''}
   </div>
   <div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitEvento('${tipo}')">${lc("plus-circle", 14)} Registrar</button></div>`);
@@ -717,7 +789,6 @@ window.openEventModal = async function (tipo) {
   setTimeout(() => pfAplicarFuturo('ev-data', '#ev-conversoes,#ev-ofertas,#ev-dizimos,#ev-evangelizados,#ev-almas-salvas,#ev-batismo-espirito,#ev-renovo,#ev-bencaos,#ev-desviados,#ev-literaturas'), 100);
 };
 
-/* Evento Setorial — mesma lógica de futuro/rascunho e sem campo manual de participantes */
 window.openEventoSetorialModal = async function () {
   const { data: setores } = await q('setores').select('id,nome').order('nome');
   const { data: usuarios } = await q('sistema_usuarios').select('id,nome,cargo,setor_id').eq('ativo', true).order('nome');
@@ -740,6 +811,7 @@ window.openEventoSetorialModal = async function () {
     <div class="form-group"><label>Resumo / Título *</label><input id="es-resumo" placeholder="Ex: Reunião de Líderes do Setor"/></div>
     <div class="form-group"><label>Conversões</label><input id="es-conversoes" type="number" min="0" placeholder="0"/></div>
     <div class="form-group"><label>Participantes do Setor</label>
+      <p class="fs-xs c3" style="margin-bottom:6px">Marque os presentes — o total será calculado automaticamente.</p>
       <div class="member-select-list" style="max-height:180px">
         ${usersSetor.map(u => `<label class="check-row"><input type="checkbox" class="es-user-check" value="${u.id}" data-nome="${escHtml(u.nome)}"/>
         <div class="av av-sm" style="background:${avatarColor(u.nome)}">${initials(u.nome)}</div>
@@ -784,11 +856,10 @@ window.openEditMembro = function (id) {
     if (!m) return;
     $('edit-mem-body').innerHTML = `
     <div class="form-group"><label>Nome</label><input id="em-nome" value="${escHtml(m.nome)}"/></div>
-    <div class="form-group"><label>Vocação</label><textarea id="um-vocacao" rows="2" placeholder="Ex: Pregação, Louvor, Ensino...">${escHtml(u?.vocacao || '')}</textarea></div>
     <div class="form-row"><div class="form-group"><label>Cargo</label><select id="em-cargo">${CARGOS.map(c => `<option${c === m.cargo ? ' selected' : ''}>${c}</option>`).join('')}</select></div><div class="form-group"><label>Idade</label><input id="em-idade" type="number" value="${m.idade || ''}"/></div></div>
     <div class="form-group"><label>Telefone</label><input id="em-tel" value="${escHtml(m.telefone || '')}"/></div>
     <div class="form-group"><label>Email</label><input id="em-email" value="${escHtml(m.email || '')}"/></div>
-    <div class="form-group"><label>Vocação</label><textarea id="em-vocacao" rows="2" placeholder="Ex: Louvor, Ensino, Intercessão...">${escHtml(m.vocacao || '')}</textarea></div>
+    <div class="form-group"><label>Vocação</label><textarea id="em-vocacao" rows="2" placeholder="Ex: Evangelismo, Misericórdia...">${escHtml(m.vocacao || '')}</textarea></div>
     <div class="form-section-title">${lc("book-open", 14)} Escola Bíblica Dominical</div>
     <div class="form-row">
       <div class="form-group"><label>Frequenta EBD?</label><select id="em-ebd"><option value="false" ${!m.frequenta_ebd ? 'selected' : ''}>Não</option><option value="true" ${m.frequenta_ebd ? 'selected' : ''}>Sim</option></select></div>
@@ -801,7 +872,16 @@ window.openEditMembro = function (id) {
 
 window.saveMembro = async function (id) {
   if (!hasPerm('gerenciar_membros')) { toast('Sem permissão', 'error'); return; }
-  const payload = { nome: ($('em-nome')?.value || '').trim(), cargo: $('em-cargo')?.value, idade: parseInt($('em-idade')?.value) || null, telefone: ($('em-tel')?.value || '').trim(), email: ($('em-email')?.value || '').trim(), vocacao: ($('em-vocacao')?.value || '').trim() || null, frequenta_ebd: $('em-ebd')?.value === 'true', papel_ebd: $('em-papel-ebd')?.value || null };
+  const payload = {
+    nome: ($('em-nome')?.value || '').trim(),
+    cargo: $('em-cargo')?.value,
+    idade: parseInt($('em-idade')?.value) || null,
+    telefone: ($('em-tel')?.value || '').trim(),
+    email: ($('em-email')?.value || '').trim(),
+    vocacao: ($('em-vocacao')?.value || '').trim() || null,
+    frequenta_ebd: $('em-ebd')?.value === 'true',
+    papel_ebd: $('em-papel-ebd')?.value || null
+  };
   if (!payload.nome) { toast('Nome obrigatório', 'error'); return; }
   const { error } = await q('membros').update(payload).eq('id', id);
   if (error) { toast(error.message, 'error'); return; }
@@ -816,3 +896,248 @@ window.openMemberModal = async function (id) {
   const vocacaoInfo = m.vocacao ? `<div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:12px 16px;margin:0 30px 12px;font-size:.82rem"><div class="fw5" style="color:var(--gold);margin-bottom:4px">${lc("sparkles", 14)} Vocação</div><div class="c2">${escHtml(m.vocacao)}</div></div>` : '';
   showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div class="mem-av-lg" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><div class="mem-modal-name">${escHtml(m.nome)}</div><span class="tag tag-gold">${escHtml(m.cargo)}</span>${m.frequenta_ebd ? `<span class="tag tag-blue" style="margin-left:6px">${lc("book-open", 14)} EBD</span>` : ''}</div><div class="mem-info-grid"><div class="inf-item"><label>Idade</label><span>${m.idade || '—'} anos</span></div><div class="inf-item"><label>Telefone</label><span>${escHtml(m.telefone || '—')}</span></div><div class="inf-item"><label>Email</label><span style="font-size:.78rem">${escHtml(m.email || '—')}</span></div><div class="inf-item"><label>Batismo</label><span>${m.data_batismo ? fmtDate(m.data_batismo) : '—'}</span></div></div>${vocacaoInfo}${ebdInfo}<div class="mem-modal-foot">${m.telefone ? `<a href="https://wa.me/${m.telefone.replace(/\D/g, '')}" target="_blank" class="btn btn-teal">${lc("message-circle", 14)} WhatsApp</a>` : ''} ${hasPerm('gerenciar_membros') ? `<button class="btn btn-secondary" onclick="openEditMembro('${m.id}')">${lc("pencil", 14)} Editar</button>` : ''}<button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
 };
+/* ──────────────────────────────────────────────────────────
+   FIX 6 — Menu Global de Membros
+   ──────────────────────────────────────────────────────────
+   Adiciona a permissão, o item na sidebar e as telas de gestão
+   globais de Membros.
+════════════════════════════════════════════════════════════ */
+
+if (typeof PERM_DESC !== 'undefined') {
+  PERM_DESC['visualizar_membros'] = { label: 'Visualizar Membros', desc: 'Acessar o menu e visualizar todos os membros' };
+}
+
+setTimeout(() => {
+  if ((typeof hasPerm === 'function' && hasPerm('visualizar_membros')) || window.activeRole === 'admin') {
+    const nav = document.querySelector('.sidebar .nav');
+    if (nav && !nav.querySelector('[data-page="todos_membros"]')) {
+      const div = document.createElement('div');
+      div.className = 'nav-item'; div.dataset.page = 'todos_membros';
+      div.innerHTML = `<span class="nav-icon">${typeof lc === 'function' ? lc('users-2', 20) || '👥' : '👥'}</span><span class="nav-lbl">Membros</span>`;
+      div.addEventListener('click', () => {
+        if (typeof navigate === 'function') navigate('todos_membros');
+        if (typeof toggleMobile === 'function') toggleMobile(false);
+      });
+      // Inserir após "Usuários" se existir
+      const items = [...nav.querySelectorAll('.nav-item')];
+      const usersItem = items.find(el => el.dataset.page === 'usuarios');
+      if (usersItem) nav.insertBefore(div, usersItem.nextSibling);
+      else nav.appendChild(div);
+    }
+  }
+}, 500);
+
+// Substitui ou intercepta o navigate original caso 'todos_membros' seja chamado
+const originalNavigate = window.navigate;
+if (typeof originalNavigate === 'function' && !window._navigatePatchedMembros) {
+  window._navigatePatchedMembros = true;
+  window.navigate = function(page) {
+    if (page === 'dashboard') {
+      window.dashSetorFiltro = window.currentUser?.setor_id || null;
+      window.dashSetorFiltroManual = false;
+      window.dashCongFiltro = null;
+    }
+    if (page === 'relatorios') {
+      window.relSetorFiltro = window.currentUser?.setor_id || null;
+      window.relCongFiltro = null;
+    }
+    if (page === 'todos_membros') {
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === 'todos_membros'));
+      if (window.navState) window.navState.page = 'todos_membros';
+      renderTodosMembros();
+      return;
+    }
+    originalNavigate(page);
+  };
+}
+
+window.renderTodosMembros = async function() {
+  const pc = document.getElementById('page-content');
+  if (!pc) return;
+  if (!hasPerm('visualizar_membros')) {
+    pc.innerHTML = `<div class="empty"><div class="empty-ico">${typeof lc === 'function' ? lc('shield-off', 44) : '🚫'}</div><p>Sem permissão.</p></div>`;
+    return;
+  }
+  
+  pc.innerHTML = loadingPage();
+  
+  let qMems = q('membros').select('*, congregacoes(nome), setores(nome)').order('nome');
+  if (!canSeeAllSetores() && currentUser?.setor_id) {
+    qMems = qMems.eq('setor_id', currentUser.setor_id);
+  }
+  
+  const { data: mems, error } = await qMems;
+  if (error) {
+    pc.innerHTML = `<div class="empty"><div class="empty-ico">${typeof lc === 'function' ? lc('alert-triangle', 44) : '⚠️'}</div><p>${error.message}</p></div>`;
+    return;
+  }
+  
+  const canManage = hasPerm('gerenciar_membros');
+  
+  window._allMembrosCache = mems || [];
+  
+  pc.innerHTML = `
+  <div class="sec-hdr">
+    <h2>Membros ${canSeeAllSetores() ? '(Global)' : '(Meu Setor)'} <span class="count-badge">${(mems || []).length}</span></h2>
+    <div class="sec-actions">
+      ${canManage ? `<button class="btn btn-primary btn-sm" onclick="openAddMembroGlobal()">+ Novo Membro</button>` : ''}
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div style="padding:16px;border-bottom:1px solid var(--bdr);display:flex;gap:12px;align-items:center;">
+      <div class="search-box" style="flex:1">
+        ${typeof lc === 'function' ? lc('search', 16) : '🔍'}
+        <input type="text" id="membros-global-search" placeholder="Buscar membro por nome..." oninput="filterTodosMembros(this.value)">
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="table" id="membros-global-table">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Cargo</th>
+            <th>Congregação</th>
+            ${canSeeAllSetores() ? '<th>Setor</th>' : ''}
+            <th width="100">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${renderMembrosGlobalRows(window._allMembrosCache)}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  `;
+  
+  refreshLucide();
+};
+
+window.renderMembrosGlobalRows = function(membros) {
+  if (!membros || !membros.length) return '<tr><td colspan="5" style="text-align:center;color:var(--c3);padding:24px">Nenhum membro encontrado.</td></tr>';
+  return membros.map(m => {
+    const act = `<button class="action-btn" title="Ver Perfil" onclick="openMemberModal('${m.id}')">${typeof lc === 'function' ? lc('eye', 14) : '👁️'}</button> ${hasPerm('gerenciar_membros') ? `<button class="action-btn" title="Editar" onclick="openEditMembro('${m.id}')">${typeof lc === 'function' ? lc('pencil', 14) : '✏️'}</button> <button class="action-btn" style="color:var(--red)" title="Excluir" onclick="delMembro('${m.id}')">${typeof lc === 'function' ? lc('trash', 14) : '🗑️'}</button>` : ''}`;
+    return `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="av av-sm" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div>
+          <span class="fw5">${escHtml(m.nome)}</span>
+        </div>
+      </td>
+      <td><span class="tag tag-gold">${escHtml(m.cargo)}</span></td>
+      <td>${m.congregacoes ? escHtml(m.congregacoes.nome) : '—'}</td>
+      ${canSeeAllSetores() ? `<td>${m.setores ? escHtml(m.setores.nome) : '—'}</td>` : ''}
+      <td>${act}</td>
+    </tr>`;
+  }).join('');
+};
+
+window.filterTodosMembros = function(qStr) {
+  const t = qStr.toLowerCase();
+  const arr = (window._allMembrosCache || []).filter(m => m.nome.toLowerCase().includes(t));
+  const tb = document.querySelector('#membros-global-table tbody');
+  if (tb) {
+    tb.innerHTML = renderMembrosGlobalRows(arr);
+    refreshLucide();
+  }
+};
+
+window.openAddMembroGlobal = async function() {
+  if (!hasPerm('gerenciar_membros')) return toast('Sem permissão', 'error');
+  
+  showModal(`<div class="modal-hdr"><span>+</span><h2>Novo Membro</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="add-membro-global-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitAddMembroGlobal()">${typeof lc === 'function' ? lc('save', 14) : '💾'} Salvar</button></div>`);
+  
+  let qSetores = q('setores').select('id,nome').order('nome');
+  if (!canSeeAllSetores() && currentUser?.setor_id) qSetores = qSetores.eq('id', currentUser.setor_id);
+  const [{ data: setores }, { data: congs }] = await Promise.all([
+    qSetores,
+    q('congregacoes').select('id,nome,setor_id').order('nome')
+  ]);
+  
+  window._cacheCongsGlobal = congs || [];
+  
+  const setorOpts = (setores || []).map(s => `<option value="${s.id}">${escHtml(s.nome)}</option>`).join('');
+  
+  const bd = document.getElementById('add-membro-global-body');
+  if (!bd) return;
+  
+  bd.innerHTML = `
+    <div class="form-group"><label>Nome Completo *</label><input id="amg-nome"/></div>
+    <div class="form-row">
+      <div class="form-group"><label>Setor *</label><select id="amg-setor" onchange="updateCongsGlobal()">${canSeeAllSetores() ? '<option value="">— Selecione —</option>' : ''}${setorOpts}</select></div>
+      <div class="form-group"><label>Congregação *</label><select id="amg-cong"><option value="">— Selecione Setor —</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Cargo</label><select id="amg-cargo">${(typeof CARGOS !== 'undefined' ? CARGOS : ['Pastor Local','Presbítero','Diácono','Dirigente','Membro']).map(c => `<option>${c}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Idade</label><input id="amg-idade" type="number"/></div>
+    </div>
+    <div class="form-group"><label>Telefone</label><input id="amg-tel"/></div>
+    <div class="form-group"><label>Email</label><input id="amg-email" type="email"/></div>
+    <div class="form-group"><label>Vocação</label><textarea id="amg-vocacao" rows="2" placeholder="Ex: Evangelismo, Misericórdia..."></textarea></div>
+    <div class="form-section-title">${typeof lc === 'function' ? lc('book-open', 14) : '📖'} EBD</div>
+    <div class="form-row">
+      <div class="form-group"><label>Frequenta EBD?</label><select id="amg-ebd"><option value="false">Não</option><option value="true">Sim</option></select></div>
+      <div class="form-group"><label>Papel na EBD</label><select id="amg-papel-ebd"><option value="">—</option><option value="Aluno">Aluno</option><option value="Professor">Professor</option><option value="Superintendente">Superintendente</option></select></div>
+    </div>
+  `;
+  setTimeout(() => window.updateCongsGlobal(), 50);
+};
+
+window.updateCongsGlobal = function() {
+  const sid = document.getElementById('amg-setor')?.value;
+  const cSel = document.getElementById('amg-cong');
+  if (!cSel) return;
+  if (!sid) { cSel.innerHTML = '<option value="">— Selecione Setor —</option>'; return; }
+  const cgs = (window._cacheCongsGlobal || []).filter(c => c.setor_id === sid);
+  cSel.innerHTML = cgs.map(c => `<option value="${c.id}">${escHtml(c.nome)}</option>`).join('') || '<option value="">Nenhuma congregação</option>';
+};
+
+window.submitAddMembroGlobal = async function() {
+  const nome = (document.getElementById('amg-nome')?.value || '').trim();
+  const setor_id = document.getElementById('amg-setor')?.value;
+  const congregacao_id = document.getElementById('amg-cong')?.value;
+  
+  if (!nome || !setor_id || !congregacao_id) return toast('Preencha Nome, Setor e Congregação', 'error');
+  
+  const payload = {
+    nome,
+    setor_id,
+    congregacao_id,
+    cargo: document.getElementById('amg-cargo')?.value,
+    idade: parseInt(document.getElementById('amg-idade')?.value) || null,
+    telefone: (document.getElementById('amg-tel')?.value || '').trim() || null,
+    email: (document.getElementById('amg-email')?.value || '').trim() || null,
+    vocacao: (document.getElementById('amg-vocacao')?.value || '').trim() || null,
+    frequenta_ebd: document.getElementById('amg-ebd')?.value === 'true',
+    papel_ebd: document.getElementById('amg-papel-ebd')?.value || null
+  };
+  
+  const { error } = await q('membros').insert(payload);
+  if (error) return toast(error.message, 'error');
+  
+  toast('Membro adicionado!');
+  closeModal();
+  renderTodosMembros(); // recarrega a tabela global
+};
+
+/* ──────────────────────────────────────────────────────────
+   FIX 7 — Bloquear Scroll de Fundo ao Abrir Modais
+   ──────────────────────────────────────────────────────────
+   Intercepta as funções globais de modal para travar o body
+════════════════════════════════════════════════════════════ */
+const _origShowModal = window.showModal;
+const _origCloseModal = window.closeModal;
+
+if (typeof _origShowModal === 'function' && !window._modalScrollPatched) {
+  window._modalScrollPatched = true;
+  window.showModal = function(html) {
+    document.body.style.overflow = 'hidden';
+    _origShowModal(html);
+  };
+  window.closeModal = function() {
+    document.body.style.overflow = '';
+    _origCloseModal();
+  };
+}
+
+/* --- FIM DO PATCH --- */
