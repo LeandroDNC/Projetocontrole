@@ -160,13 +160,19 @@ window.renderDashboard = async function () {
   if (!window.dashSetorFiltroManual) {
     window.dashSetorFiltro = window.currentUser?.setor_id || null;
   }
-  const sid = window.dashSetorFiltro || null;
+  let sid = window.dashSetorFiltro || null;
   const cid = window.dashCongFiltro || null;
   const canFin = typeof canSeeFinanceiro === 'function' ? canSeeFinanceiro() : false;
   const podeVerEvSetoriais = (typeof hasPerm === 'function' && hasPerm('visualizar_eventos_setoriais_dash')) || (typeof isSuperAdmin === 'function' && isSuperAdmin());
 
   const [{ data: allSetores }] = await Promise.all([client.from('setores').select('id,nome').order('nome')]);
-
+// Corrige mismatch: se não há setor definido mas o <select> vai exibir o
+// primeiro item da lista como selecionado (comportamento padrão do navegador),
+// sincroniza sid com esse mesmo primeiro setor para que filtro e exibição batam.
+if (!sid && canFS && (allSetores || []).length) {
+  sid = allSetores[0].id;
+  window.dashSetorFiltro = sid;
+}
   let qSet = client.from('setores').select('id', { count: 'exact', head: true });
   let qCong = client.from('congregacoes').select('id', { count: 'exact', head: true });
   let qMem = client.from('membros').select('id', { count: 'exact', head: true });
