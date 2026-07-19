@@ -165,7 +165,11 @@ window.renderDashboard = async function () {
   const canFin = typeof canSeeFinanceiro === 'function' ? canSeeFinanceiro() : false;
   const podeVerEvSetoriais = (typeof hasPerm === 'function' && hasPerm('visualizar_eventos_setoriais_dash')) || (typeof isSuperAdmin === 'function' && isSuperAdmin());
 
-  const [{ data: allSetores }] = await Promise.all([client.from('setores').select('id,nome').order('nome')]);
+ const [{ data: allSetores }] = await Promise.all([client.from('setores').select('id,nome').order('nome')]);
+
+  const canFS = typeof canFilterSetores === 'function' ? canFilterSetores() : false;
+  const canFC = typeof canFilterCong === 'function' ? canFilterCong() : false;
+
 // Corrige mismatch: se não há setor definido mas o <select> vai exibir o
 // primeiro item da lista como selecionado (comportamento padrão do navegador),
 // sincroniza sid com esse mesmo primeiro setor para que filtro e exibição batam.
@@ -182,9 +186,6 @@ if (!sid && canFS && (allSetores || []).length) {
 
   if (sid) { qSet = qSet.eq('id', sid); qCong = qCong.eq('setor_id', sid); qMem = qMem.eq('setor_id', sid); qEv = qEv.eq('setor_id', sid); qEvM = qEvM.eq('setor_id', sid); qAg = qAg.eq('setor_id', sid); }
   if (cid) { qCong = qCong.eq('id', cid); qMem = qMem.eq('congregacao_id', cid); qEv = qEv.eq('congregacao_id', cid); qEvM = qEvM.eq('congregacao_id', cid); qAg = qAg.eq('congregacao_id', cid); }
-
-  const canFS = typeof canFilterSetores === 'function' ? canFilterSetores() : false;
-  const canFC = typeof canFilterCong === 'function' ? canFilterCong() : false;
   const congsList = sid ? (await client.from('congregacoes').select('id,nome').eq('setor_id', sid).order('nome')).data || [] : [];
   const [rSet, rCong, rMem, rEv, rEvM, { data: agItems }] = await Promise.all([qSet, qCong, qMem, qEv, qEvM, qAg.limit(10)]);
 
