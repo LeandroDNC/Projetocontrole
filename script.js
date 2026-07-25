@@ -522,3 +522,5 @@ window.delLicenca = async function(id) {
   });
   observer.observe(app, { attributes: true, attributeFilter: ['class'] });
 })();
+
+

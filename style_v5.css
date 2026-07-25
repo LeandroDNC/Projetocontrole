@@ -1571,8 +1571,8 @@ textarea:focus {
   transition: var(--ease);
   flex: 1;
   
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05), 0 5px 10px rgba(10, 105, 189, .38);
 }
+
 
 .shortcut-btn:hover {
   border-color: rgba(201, 168, 76, .3);
@@ -1721,7 +1721,6 @@ textarea:focus {
   gap: 14px;
   transition: var(--ease);
   animation: fadeUp .4s ease both;
-  box-shadow: 0 5px 10px rgba(10, 105, 189, 0.38);
 } 
 
 .stat-card:hover {

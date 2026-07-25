@@ -477,7 +477,7 @@ window.renderDashboard = async function(){
 <div class="sec-hdr"><h2>${ico('calendar', 16)} Próximos Eventos</h2><span class="tag tag-gold">Agendados</span></div>
 <div class="act-list" style="margin-bottom:24px">
   ${eventosFuturos.slice(0, 8).map(e => `
-  <div class="act-item" onclick="openEventDetail('${e.id}')" style="cursor:pointer;border-left:3px solid var(--primary-l,#7eb3ff)">
+ <div class="act-item ${fut?'evento-futuro':''}" onclick="openEventDetail('${e.id}')" style="cursor:pointer;border-left:3px solid var(--primary-l,#7eb3ff)">
     <div class="act-dot" style="background:${dpTipoColor(e.tipo)}"></div>
     <div class="f1">
       <div class="fw5 fs-sm">${dpTipoLabel(e.tipo)}</div>
@@ -491,32 +491,94 @@ window.renderDashboard = async function(){
   <div class="sec-hdr"><h2>${ico('calendar',16)} Agenda da Semana</h2><span class="tag">Próximos 7 dias</span></div>
   <div class="agenda-strip" style="margin-bottom:24px">${dpAgendaStrip(agItems||[])}</div>
 
-  <!-- EVENTOS SETORIAIS -->
-  ${podeVerEvSetoriais?`
-  <div class="sec-hdr"><h2>${ico('cityHall',16)} Eventos Setoriais</h2><span class="tag tag-gold">Inclui futuros</span></div>
-  <div id="dash-eventos-setoriais" class="act-list" style="margin-bottom:24px">${dpLoadingMini()}</div>`:''}
+<!-- EVENTOS SETORIAIS -->
+${podeVerEvSetoriais?`
+<div class="sec-hdr">
+  <h2>${ico('cityHall',16)} Eventos Setoriais</h2>
+  <span class="tag tag-gold">Inclui futuros</span>
+</div>
+
+<div class="eventos-wrapper">
+
+  <div id="dash-eventos-setoriais" class="act-list eventos-lista">
+    ${dpLoadingMini()}
+  </div>
+
+  <div class="eventos-toggle">
+    <button class="btn-expand-eventos" onclick="toggleEventosSetoriais()">
+      Ver todos os eventos
+      <i data-lucide="chevrons-down"></i>
+    </button>
+  </div>
+
+</div>
+` : ''}
 
   <!-- EVENTOS RECENTES -->
   <div class="sec-hdr" id="dash-eventos-section">
     <h2>Eventos Recentes</h2>
     <button class="btn btn-secondary btn-sm" onclick="navigate('relatorios')">Ver todos</button>
   </div>
-  <div class="act-list">
-    ${eventosPassados.slice(0,8).map(e=>`
-    <div class="act-item" onclick="openEventDetail('${e.id}')" style="cursor:pointer;transition:all .2s">
+  <div class="eventos-wrapper recentes">
+
+  <div id="dash-eventos-recentes" class="act-list eventos-limitados">
+    ${eventosPassados.slice(0,5).map(e=>`
+    
+    <div class="act-item evento-card" onclick="openEventDetail('${e.id}')">
+
       <div class="act-dot" style="background:${dpTipoColor(e.tipo)}"></div>
+
       <div class="f1">
-        <div class="fw5 fs-sm">${dpTipoLabel(e.tipo)}</div>
-        <div class="fs-xs c3">${dp.esc(e.resumo||'')}</div>
+        <div class="fw5 fs-sm">
+          ${dpTipoLabel(e.tipo)}
+        </div>
+
+        <div class="fs-xs c3">
+          ${dp.esc(e.resumo||'')}
+        </div>
       </div>
-      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
-        <span class="tag">${ico('people',11)} ${e.participantes||0}</span>
-        ${e.conversoes?`<span class="tag tag-teal">${ico('cross',10)} ${e.conversoes}</span>`:''}
-        ${canFin&&e.ofertas?`<span class="tag tag-gold">${dp.fmtM(e.ofertas)}</span>`:''}
+
+
+      <div class="evento-info">
+        <span class="tag">
+          ${ico('people',11)} ${e.participantes||0}
+        </span>
+
+        ${e.conversoes?
+        `<span class="tag tag-teal">
+          ${ico('cross',10)} ${e.conversoes}
+        </span>`:''}
+
+        ${canFin&&e.ofertas?
+        `<span class="tag tag-gold">
+          ${dp.fmtM(e.ofertas)}
+        </span>`:''}
       </div>
-      <span class="act-time">${dp.fmtD(e.data)}</span>
-    </div>`).join('')||'<p class="c3" style="padding:16px">Nenhum evento publicado.</p>'}
-  </div>`;
+
+
+      <span class="act-time">
+        ${dp.fmtD(e.data)}
+      </span>
+
+    </div>
+
+    `).join('') || 
+    '<p class="c3" style="padding:16px">Nenhum evento publicado.</p>'}
+  </div>
+
+
+  ${eventosPassados.length > 5 ? `
+  <div class="eventos-toggle">
+      <button 
+        class="btn-expand-eventos"
+        onclick="expandEventosRecentes(this)">
+        Ver todos os eventos
+        ${ico('chevrons-down',15)}
+      </button>
+  </div>
+  `:''}
+
+</div>`;
 
   // Charts
   if(typeof Chart!=='undefined'){
@@ -539,13 +601,13 @@ window.renderDashboard = async function(){
     if(esC){
       try{
         const vetodosSetores=(typeof canSeeAllSetores==='function'&&canSeeAllSetores())||(typeof isSuperAdmin==='function'&&isSuperAdmin());
-        let qES=client.from('eventos').select('*').eq('tipo','evento_setorial').order('data',{ascending:true}).limit(15);
+        let qES=client.from('eventos').select('*').eq('tipo','evento_setorial').order('data',{ascending:true}).limit(5);
         if(!vetodosSetores&&window.currentUser?.setor_id) qES=qES.eq('setor_id',window.currentUser.setor_id);
         const {data:evS}=await qES;
         const {data:setS}=await client.from('setores').select('id,nome');
         const sN=id=>(setS||[]).find(s=>s.id===id)?.nome||'—';
         const hj=new Date().toISOString().slice(0,10);
-        esC.innerHTML=(evS||[]).length?(evS||[]).map(e=>{
+       const eventosSetoriaisHtml=(evS||[]).length?(evS||[]).map(e=>{
           const fut=e.data>hj;
           return `<div class="act-item" onclick="openEventoSetorialDetail('${e.id}')" style="cursor:pointer;transition:all .2s">
             <div class="act-dot" style="background:${fut?'var(--primary-l,#7eb3ff)':'var(--gold,#f0c060)'}"></div>
@@ -556,8 +618,10 @@ window.renderDashboard = async function(){
             <span class="tag">${e.participantes||0} pess.</span>
             <span class="act-time">${dp.fmtD(e.data)}</span>
           </div>`;
-        }).join(''):'<p class="c3" style="padding:16px;text-align:center">Nenhum evento setorial.</p>';
-      }catch(err){ esC.innerHTML='<p class="c3" style="padding:16px;text-align:center">Erro ao carregar.</p>'; }
+     }).join(''):'<p class="c3">Nenhum evento setorial.</p>';
+
+esC.innerHTML = eventosSetoriaisHtml;
+      }catch(err){ esC.innerHTML='<p class="c3">Erro ao carregar.</p>'; }
     }
   }
 };
@@ -704,3 +768,52 @@ window.renderCongregacao=async function(pc){
 };
 
 console.log('[dashboard_patch v2.0] carregado ✓');
+
+window.toggleEventosSetoriais=function(){
+
+  const lista=document.getElementById('dash-eventos-setoriais');
+  const btn=document.querySelector('.btn-expand-eventos');
+
+  if(!lista || !btn) return;
+
+  lista.classList.toggle('expandido');
+
+  if(lista.classList.contains('expandido')){
+      btn.innerHTML=`Recolher eventos <i data-lucide="chevrons-up"></i>`;
+  }else{
+      btn.innerHTML=`Ver todos os eventos <i data-lucide="chevrons-down"></i>`;
+  }
+
+  if(typeof refreshLucide==='function')
+      refreshLucide();
+};
+
+window.expandEventosRecentes=function(btn){
+
+ const box=document.getElementById('dash-eventos-recentes');
+
+ if(!box)return;
+
+
+ if(box.classList.contains('expandido')){
+
+    box.classList.remove('expandido');
+
+    btn.innerHTML=
+    'Ver todos os eventos '+
+    ico('chevrons-down',15);
+
+ }
+ else{
+
+    box.classList.add('expandido');
+
+    btn.innerHTML=
+    'Mostrar menos '+
+    ico('chevrons-up',15);
+
+ }
+
+ refreshLucide();
+
+}

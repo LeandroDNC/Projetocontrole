@@ -86,7 +86,6 @@ const REGIOES = ['Abreu e Lima', 'Afogados da Ingazeira', 'Afrânio', 'Agrestina
 const TIPOS_EVENTO = {
   'culto': { label: 'Culto', grupo: 'Principal', icon: 'church', financeiro: true, evangelismo: false },
   'ebd': { label: 'Escola Bíblica Dominical', grupo: 'Principal', icon: 'book-open', financeiro: false, evangelismo: false, ebd: true },
-  'evento': { label: 'Evento Genérico', grupo: 'Principal', icon: 'calendar-check', financeiro: false, evangelismo: false },
   'saida': { label: 'Saída Evangelística', grupo: 'Principal', icon: 'footprints', financeiro: false, evangelismo: true },
   'evento_setorial': { label: 'Evento Setorial', grupo: 'Principal', icon: 'building-2', financeiro: false, evangelismo: false, setorial: true },
   'visita_enfermos': { label: 'Visita aos Enfermos', grupo: 'Visitas', icon: 'heart-pulse', financeiro: false, evangelismo: false },
@@ -94,10 +93,6 @@ const TIPOS_EVENTO = {
   'visita_detidos': { label: 'Visita aos Detidos', grupo: 'Visitas', icon: 'lock', financeiro: false, evangelismo: false },
   'visita_convertidos': { label: 'Visita aos Novos Convertidos', grupo: 'Visitas', icon: 'cross', financeiro: false, evangelismo: false },
   'visita_umadalpe': { label: 'Visita a outras UMADALPE', grupo: 'Visitas', icon: 'handshake', financeiro: false, evangelismo: false },
-  'visita_recebida_umadalpe': { label: 'Visitas Recebidas de UMADALPE', grupo: 'Visitas', icon: 'home', financeiro: false, evangelismo: false },
-  'visita_coordenacao': { label: 'Visita da Coordenação do Setor', grupo: 'Visitas', icon: 'clipboard-list', financeiro: false, evangelismo: false },
-  'visita_superintendencia': { label: 'Visita da Superintendência', grupo: 'Visitas', icon: 'briefcase', financeiro: false, evangelismo: false },
-  'visita_obreiro': { label: 'Visita do Obreiro da Congregação', grupo: 'Visitas', icon: 'church', financeiro: false, evangelismo: false },
   'visita_ministerio': { label: 'Visitas do Ministério', grupo: 'Visitas', icon: 'book-open', financeiro: false, evangelismo: false },
   'desviados_voltaram': { label: 'Desviados que Voltaram', grupo: 'Espiritual', icon: 'heart-handshake', financeiro: false, evangelismo: false },
   'culto_ar_livre': { label: 'Culto ao Ar Livre', grupo: 'Evangelismo', icon: 'sun', financeiro: false, evangelismo: true },

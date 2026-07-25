@@ -1080,14 +1080,29 @@ window.openAddMembroGlobal = async function() {
     </div>
     <div class="form-group"><label>Telefone</label><input id="amg-tel"/></div>
     <div class="form-group"><label>Email</label><input id="amg-email" type="email"/></div>
-    <div class="form-group"><label>Vocação</label><textarea id="amg-vocacao" rows="2" placeholder="Ex: Evangelismo, Misericórdia..."></textarea></div>
-    <div class="form-section-title">${typeof lc === 'function' ? lc('book-open', 14) : '📖'} EBD</div>
+   <div class="form-group">
+  <label>Vocação</label>
+  <textarea id="amg-vocacao" rows="2" placeholder="Ex: Evangelismo, Misericórdia..."></textarea>
+</div>
+
+<div class="form-section-title">
+  ${typeof lc === 'function' ? lc('shield', 14) : '🛡️'} Atuação
+</div>
+
+${pfAtuacaoSelectHtml('amg', '', '')}
+
+<div class="form-section-title">
+  ${typeof lc === 'function' ? lc('book-open', 14) : '📖'} EBD
+</div>
     <div class="form-row">
       <div class="form-group"><label>Frequenta EBD?</label><select id="amg-ebd"><option value="false">Não</option><option value="true">Sim</option></select></div>
       <div class="form-group"><label>Papel na EBD</label><select id="amg-papel-ebd"><option value="">—</option><option value="Aluno">Aluno</option><option value="Professor">Professor</option><option value="Superintendente">Superintendente</option></select></div>
     </div>
   `;
-  setTimeout(() => window.updateCongsGlobal(), 50);
+  setTimeout(() => {
+    window.updateCongsGlobal();
+    pfAtualizarEspecifico('amg');
+}, 50);
 };
 
 window.updateCongsGlobal = function() {
@@ -1106,7 +1121,7 @@ window.submitAddMembroGlobal = async function() {
   
   if (!nome || !setor_id || !congregacao_id) return toast('Preencha Nome, Setor e Congregação', 'error');
   
-  const payload = {
+const payload = {
     nome,
     setor_id,
     congregacao_id,
@@ -1115,16 +1130,12 @@ window.submitAddMembroGlobal = async function() {
     telefone: (document.getElementById('amg-tel')?.value || '').trim() || null,
     email: (document.getElementById('amg-email')?.value || '').trim() || null,
     vocacao: (document.getElementById('amg-vocacao')?.value || '').trim() || null,
+
+    atuacao: document.getElementById('amg-atuacao')?.value || null,
+    atuacao_especifico: document.getElementById('amg-especifico')?.value || null,
+
     frequenta_ebd: document.getElementById('amg-ebd')?.value === 'true',
     papel_ebd: document.getElementById('amg-papel-ebd')?.value || null
-  };
-  
-  const { error } = await q('membros').insert(payload);
-  if (error) return toast(error.message, 'error');
-  
-  toast('Membro adicionado!');
-  closeModal();
-  renderTodosMembros(); // recarrega a tabela global
 };
 
 /* ──────────────────────────────────────────────────────────
