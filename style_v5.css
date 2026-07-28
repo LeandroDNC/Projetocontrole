@@ -49,6 +49,7 @@
   /* 🔥 ALTERE AQUI */
   --bg-side: #ffffff;
   --side-text: #0f172a;
+ 
 
 
 
@@ -511,6 +512,7 @@ a {
   text-decoration: none;
   color: inherit
 }
+
 
 button {
   cursor: pointer;
@@ -1319,7 +1321,8 @@ textarea:focus {
 .nav-icon i {
   width: 18px;
   height: 18px;
-  stroke-width: 1.8
+  stroke-width: 1.8;
+  color: var(--txt2);
 }
 
 /* ─ LUCIDE ICON SYSTEM ─ */
@@ -1382,7 +1385,7 @@ textarea:focus {
   white-space: nowrap;
   overflow: hidden;
   transition: var(--ease);
-  color: var(--side-text)
+  color:var(--txt2);
 }
 
 ;
