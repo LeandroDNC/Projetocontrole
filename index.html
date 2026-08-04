@@ -15,8 +15,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-  <link rel="stylesheet" href="style_v5.css">
-  <link rel="stylesheet" href="ajuste.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
@@ -25,8 +24,45 @@
   <div id="screen-login">
     <div class="login-orb orb-a"></div>
     <div class="login-orb orb-b"></div>
+
+    <!-- Rede de setores/congregações conectados — só decorativo, aria-hidden -->
+    <svg class="login-network" viewBox="0 0 600 600" aria-hidden="true" focusable="false">
+      <g class="login-network-lines">
+        <line x1="120" y1="140" x2="300" y2="90" />
+        <line x1="300" y1="90" x2="470" y2="150" />
+        <line x1="120" y1="140" x2="90" y2="320" />
+        <line x1="300" y1="90" x2="300" y2="300" />
+        <line x1="470" y1="150" x2="500" y2="330" />
+        <line x1="90" y1="320" x2="300" y2="300" />
+        <line x1="300" y1="300" x2="500" y2="330" />
+        <line x1="90" y1="320" x2="150" y2="480" />
+        <line x1="300" y1="300" x2="320" y2="500" />
+        <line x1="500" y1="330" x2="460" y2="490" />
+        <line x1="150" y1="480" x2="320" y2="500" />
+        <line x1="320" y1="500" x2="460" y2="490" />
+      </g>
+      <g class="login-network-nodes">
+        <circle cx="120" cy="140" r="4" />
+        <circle cx="300" cy="90" r="5" />
+        <circle cx="470" cy="150" r="4" />
+        <circle cx="90" cy="320" r="4" />
+        <circle cx="300" cy="300" r="6" class="login-node-main" />
+        <circle cx="500" cy="330" r="4" />
+        <circle cx="150" cy="480" r="4" />
+        <circle cx="320" cy="500" r="4" />
+        <circle cx="460" cy="490" r="4" />
+      </g>
+    </svg>
+
     <div class="login-card">
       <div class="login-logo">
+        <div class="login-emblem" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none">
+            <path d="M24 4v10M18 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M9 44V21l15-11 15 11v23H9z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M19 44V30h10v14" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </div>
         <h1>EclesiaSync</h1>
         <p>Sistema de Gestão Eclesiástica</p>
       </div>
@@ -49,6 +85,7 @@
         <i data-lucide="log-in" class="btn-icon"></i>
         <span>Entrar no Sistema</span>
       </button>
+      <p class="login-foot-note">Acesso restrito à administração e liderança</p>
     </div>
   </div>
 
@@ -130,12 +167,6 @@
   <script src="adicao.js"></script>
   <script src="ajuste.js"></script>
   <script src="patch_umadalpe_eventos.js"></script>
-  <script src="patch_jovens_fora_umadalpe.js"></script>
-  <script src="patch_menu_fix.js"></script>
-<<<<<<< HEAD
-  <script src="patch_frequencia_membros.js"></script>
-=======
->>>>>>> 4bd3df785f73d1ae05559aee1cffd6acd663d85c
 
   <script>
     // Inicializa ícones Lucide após todos os scripts carregarem

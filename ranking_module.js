@@ -5,7 +5,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 /* ── helpers locais ─────────────────────────────────────── */
-function rkEsc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function rkEsc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function rkFmtD(d){ return d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'—'; }
 function rkDb(){ return typeof db!=='undefined'?db:window.db||null; }
 function rkToast(m,i='success'){ if(typeof toast==='function') toast(m,i); }

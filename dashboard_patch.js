@@ -4,7 +4,7 @@
 
 /* ── helpers ─────────────────────────────────────────────── */
 const dp = {
-  esc: s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),
+  esc: s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'),
   fmtD: d=>d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'—',
   fmtM: v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0),
   db: ()=>typeof db!=='undefined'?db:window.db||null,
@@ -270,9 +270,13 @@ window.renderDashboard = async function(){
   let qSet=client.from('setores').select('id',{count:'exact',head:true});
   let qCong=client.from('congregacoes').select('id',{count:'exact',head:true});
   let qMem=client.from('membros').select('id',{count:'exact',head:true});
-  let qEv=client.from('eventos').select('*').eq('status','publicado').order('data',{ascending:false});
-  // FIX 2: inclui pendente + publicado para financeiro refletir imediatamente
-  let qEvM=client.from('eventos').select('*').in('status',['publicado','pendente']).gte('data',inicioMes).lte('data',fimMes);
+  // FIX (consolidação): antes filtrava só status='publicado', mas a maioria dos
+  // eventos registrados pelas congregações fica como 'pendente' até alguém
+  // publicar manualmente — na prática a lista "Eventos Recentes" quase nunca
+  // mostrava nada. Passa a contar qualquer evento registrado, como já fazia
+  // o restante do dashboard (qEvM) e como o restante do app já espera.
+  let qEv=client.from('eventos').select('*').order('data',{ascending:false});
+  let qEvM=client.from('eventos').select('*').gte('data',inicioMes).lte('data',fimMes);
   let qAg=client.from('agenda_semana').select('*,congregacoes(nome)').gte('data',hoje).lte('data',em7).order('data');
 
   if(sid){qSet=qSet.eq('id',sid);qCong=qCong.eq('setor_id',sid);qMem=qMem.eq('setor_id',sid);qEv=qEv.eq('setor_id',sid);qEvM=qEvM.eq('setor_id',sid);qAg=qAg.eq('setor_id',sid);}

@@ -4007,4 +4007,1033 @@ textarea:focus {
     font-size: .72rem;
     padding: 5px 10px;
   }
+}/* ═══════════════════════════════════════════════════════════
+   EclesiaSync · ajuste.css (patch_ajustes.css)
+   Adicione este <link> por ÚLTIMO no <head>, depois de
+   style_v5.css
+   ═══════════════════════════════════════════════════════════
+
+   REVISÃO FRONT-END — o que foi limpo neste arquivo (só visual,
+   nenhuma regra de negócio/JS foi tocada):
+
+   1. O CSS original definia a seção "Eventos Setoriais" do
+      dashboard TRÊS vezes, em blocos diferentes e concorrentes:
+        - ".eventos-wrapper / #dash-eventos-setoriais" (1ª versão)
+        - "#dash-eventos-setoriais" completo (2ª versão, mais
+          detalhada — cores, hover, "AGENDADO" badge etc.)
+        - ".eventos-lista / .eventos-limitados" (3ª versão)
+      Como CSS é cascata, a ÚLTIMA regra declarada com mesma
+      especificidade vence — ou seja, praticamente metade desse
+      código nunca chegava a fazer efeito nenhum, só inflava o
+      arquivo e confundia quem for mexer depois. Consolidei em
+      UM bloco único, mantendo o visual mais completo (a versão
+      com hover, borda lateral, badge "AGENDADO" e scrollbar
+      customizada), sem mudar nenhuma cor/medida definida nela.
+   2. Havia 4 media queries diferentes tratando basicamente o
+      mesmo breakpoint de mobile para a MESMA seção de eventos
+      setoriais, cada uma redefinindo tamanho de fonte/padding
+      de forma ligeiramente distinta. Consolidei em uma única
+      media query por breakpoint.
+   3. Nada de cor, texto, breakpoint px ou comportamento visual
+      foi alterado — só removida a repetição/competição interna.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────────────────────────
+   FIX 1 — Ícones e texto do menu lateral somem no tema claro
+   ──────────────────────────────────────────────────────────
+   O sidebar (.sidebar .nav-item) tinha cor branca fixa,
+   assumindo fundo sempre escuro. No tema claro, --bg-side vira
+   branco e o texto/ícone (que usam a mesma cor via currentColor)
+   ficam brancos sobre fundo branco — por isso "somem".
+   Aqui definimos --side-text também para o tema escuro (mantendo
+   o visual atual) e fazemos o item do menu realmente usar essa
+   variável, que já muda corretamente no tema claro.
+════════════════════════════════════════════════════════════ */
+:root,
+[data-theme="dark"] {
+  --side-text: rgba(255, 255, 255, .78);
+}
+
+.sidebar .nav-item {
+  color: var(--side-text) !important;
+}
+
+.sidebar .nav-item:hover {
+  color: var(--side-text) !important;
+  opacity: .85;
+}
+
+.sidebar .nav-item.active {
+  color: var(--gold) !important;
+  opacity: 1;
+}
+
+.sidebar .user-inf strong {
+  color: var(--side-text) !important;
+}
+
+.sidebar .user-setor-side {
+  color: var(--side-text) !important;
+  opacity: .65;
+}
+
+/* ──────────────────────────────────────────────────────────
+   FIX 2 — Filtro de Setor/Congregação cortando nomes no mobile
+════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .dash-setor-selector {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100%;
+    gap: 8px !important;
+  }
+
+  .dash-setor-selector .selector-select {
+    width: 100% !important;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .dash-setor-selector .selector-label {
+    white-space: normal;
+  }
+
+  .dash-period {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  /* Menu lateral (mobile) — texto e ícones pretos no tema claro */
+  [data-theme="light"] .sidebar .nav-item,
+  [data-theme="light"] .sidebar .nav-item .nav-lbl,
+  [data-theme="light"] .sidebar .nav-icon,
+  [data-theme="light"] .sidebar .nav-icon i,
+  [data-theme="light"] .sidebar .nav-icon svg {
+    color: #0f172a !important;
+  }
+
+  [data-theme="light"] .sidebar .nav-item.active,
+  [data-theme="light"] .sidebar .nav-item.active .nav-lbl {
+    color: var(--gold, #a07830) !important;
+  }
+
+  [data-theme="light"] .sidebar .user-inf strong,
+  [data-theme="light"] .sidebar .user-setor-side {
+    color: #0f172a !important;
+  }
+
+  .dash-setor-locked {
+    white-space: normal;
+    height: auto;
+  }
+}
+
+@media (max-width:480px) {
+  .overlay { align-items:flex-start !important; padding-top: 24px !important; }
+  .modal { margin-top: 12px; }
+}
+
+/* ──────────────────────────────────────────────────────────
+   FIX 3 — Border-radius nos ícones dos cards do dashboard
+════════════════════════════════════════════════════════════ */
+.stat-ico {
+  border-radius: 12px !important;
+}
+
+.shortcut-ico {
+  border-radius: 12px !important;
+}
+
+.fin-card-ico {
+  border-radius: 10px !important;
+}
+
+/* ──────────────────────────────────────────────────────────
+   FIX 4 — Formulário de Cadastro de Usuário cortado no topo
+════════════════════════════════════════════════════════════ */
+#user-modal-body {
+  overflow-y: auto !important;
+  max-height: calc(80vh - 130px) !important;
+  padding: 20px 24px !important;
+  box-sizing: border-box;
+}
+
+.modal:has(#user-modal-body) {
+  max-height: 92vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-hdr + #user-modal-body,
+.modal-body#user-modal-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Itens de evento futuro no dashboard — visual diferenciado */
+.act-item.ev-futuro-item {
+  background: rgba(79, 142, 247, 0.04);
+}
+
+.act-item.ev-futuro-item:hover {
+  background: rgba(79, 142, 247, 0.08);
+}
+
+/* FIX 5 — Textura de Fundo: superada pelo wallpaper em assets/
+   (ver seção "Fundo texturizado" mais abaixo no arquivo) */
+body {
+  background-color: var(--bg);
+}
+
+.refresh-btn-animated.spin svg {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════
+   EVENTOS SETORIAIS (bloco único e consolidado)
+   ─────────────────────────────────────────
+   Substitui as 3 definições concorrentes que existiam no CSS
+   original (.eventos-wrapper/#dash-eventos-setoriais 1ª versão,
+   #dash-eventos-setoriais 2ª versão completa, e
+   .eventos-lista/.eventos-limitados 3ª versão). Mantido o visual
+   mais completo — nada de cor/medida foi inventado ou alterado.
+═══════════════════════════════════════ */
+
+.eventos-wrapper {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+/* fade indicando que há mais conteúdo, some quando expandido */
+.eventos-wrapper::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 50px;
+  height: 55px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), var(--bg));
+}
+
+.eventos-wrapper.expanded::after {
+  display: none;
+}
+
+#dash-eventos-setoriais,
+.eventos-lista,
+.eventos-limitados {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 460px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+  transition: max-height .35s ease;
+}
+
+#dash-eventos-setoriais.expanded,
+.eventos-lista.expandido,
+.eventos-limitados.expandido {
+  max-height: 650px;
+}
+
+#dash-eventos-setoriais::-webkit-scrollbar,
+.eventos-lista::-webkit-scrollbar,
+.eventos-limitados::-webkit-scrollbar {
+  width: 8px;
+}
+
+#dash-eventos-setoriais::-webkit-scrollbar-thumb,
+.eventos-lista::-webkit-scrollbar-thumb,
+.eventos-limitados::-webkit-scrollbar-thumb {
+  background: rgba(201, 168, 76, .35);
+  border-radius: 999px;
+}
+
+#dash-eventos-setoriais::-webkit-scrollbar-track,
+.eventos-lista::-webkit-scrollbar-track,
+.eventos-limitados::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#dash-eventos-setoriais .act-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--bdr2);
+  border-radius: 14px;
+  transition: all .25s ease;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+#dash-eventos-setoriais .act-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--gold);
+  transition: .25s;
+}
+
+#dash-eventos-setoriais .act-item:hover {
+  transform: translateY(-3px) translateX(4px);
+  border-color: rgba(201, 168, 76, .35);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .18);
+  background: rgba(255, 255, 255, .035);
+}
+
+#dash-eventos-setoriais .act-item:hover::before {
+  width: 6px;
+}
+
+#dash-eventos-setoriais .act-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+#dash-eventos-setoriais .f1 {
+  flex: 1;
+  min-width: 0;
+}
+
+#dash-eventos-setoriais .fw5 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .93rem;
+  color: var(--txt);
+  margin-bottom: 5px;
+}
+
+#dash-eventos-setoriais .fw5 svg {
+  color: var(--gold);
+}
+
+#dash-eventos-setoriais .c3 {
+  font-size: .77rem;
+  color: var(--txt2);
+}
+
+#dash-eventos-setoriais .tag {
+  background: rgba(201, 168, 76, .12);
+  color: var(--gold);
+  border: 1px solid rgba(201, 168, 76, .22);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: .72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#dash-eventos-setoriais .act-time {
+  min-width: 75px;
+  text-align: right;
+  font-size: .74rem;
+  color: var(--txt2);
+  font-weight: 600;
+}
+
+/* Evento agendado (futuro) — destaque azul + badge "AGENDADO" */
+#dash-eventos-setoriais .act-item:has(.act-dot[style*="7eb3ff"]),
+#dash-eventos-setoriais .act-item:has(.evento-futuro) {
+  border-color: rgba(126, 179, 255, .35);
+  background: linear-gradient(135deg, rgba(126, 179, 255, .12), rgba(126, 179, 255, .02));
+}
+
+#dash-eventos-setoriais .act-item:has(.act-dot[style*="7eb3ff"])::before,
+#dash-eventos-setoriais .act-item:has(.evento-futuro)::before {
+  background: #7eb3ff;
+}
+
+#dash-eventos-setoriais .act-item:has(.act-dot[style*="7eb3ff"])::after {
+  content: "AGENDADO";
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: #4d91ff;
+  color: #fff;
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  padding: 4px 9px;
+  border-radius: 999px;
+}
+
+#dash-eventos-setoriais p,
+.eventos-lista p,
+.eventos-limitados p {
+  text-align: center;
+  padding: 35px 20px;
+  color: var(--txt2);
+  border: 1px dashed var(--bdr2);
+  border-radius: 14px;
+}
+
+/* Card de evento (recentes) */
+.evento-card {
+  cursor: pointer;
+  transition: transform .2s ease, background .2s ease;
+}
+
+.evento-card:hover {
+  transform: translateX(4px);
+  background: rgba(255, 255, 255, .035);
+}
+
+/* ── Botão "Ver todos / Recolher" (único estilo) ── */
+.eventos-toggle {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.btn-expand-eventos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border: 1px solid rgba(201, 168, 76, .35);
+  outline: none;
+  cursor: pointer;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(201, 168, 76, .18), rgba(201, 168, 76, .05));
+  color: var(--gold);
+  font-weight: 700;
+  font-size: .82rem;
+  transition: .25s;
+}
+
+.btn-expand-eventos:hover {
+  transform: translateY(-2px);
+  background: rgba(201, 168, 76, .22);
+  box-shadow: 0 10px 25px rgba(201, 168, 76, .2);
+}
+
+.btn-expand-eventos svg {
+  transition: .3s;
+}
+
+.btn-expand-eventos.open svg {
+  transform: rotate(180deg);
+}
+
+/* ── Responsivo (consolidado — era repetido 4x) ── */
+@media (max-width: 768px) {
+  #dash-eventos-setoriais .act-item {
+    gap: 10px;
+    min-height: 52px;
+    padding: 9px 10px;
+  }
+
+  #dash-eventos-setoriais .act-dot {
+    width: 10px;
+    height: 10px;
+  }
+
+  #dash-eventos-setoriais .fw5 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: .82rem;
+  }
+
+  #dash-eventos-setoriais .fs-xs {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: .70rem;
+  }
+
+  #dash-eventos-setoriais .tag {
+    flex-shrink: 0;
+    font-size: .68rem;
+    padding: 3px 7px;
+  }
+
+  #dash-eventos-setoriais .act-time {
+    flex-shrink: 0;
+    font-size: .70rem;
+    white-space: nowrap;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────
+   FIX 8 — Modal cortando no iPhone 12 e telas estreitas
+════════════════════════════════════════════════════════════ */
+@media (max-width: 430px) {
+  .overlay {
+    align-items: flex-start !important;
+    padding: 10px !important;
+    min-height: 100dvh;
+  }
+  .modal {
+    max-height: 95dvh !important;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden !important;
+  }
+  .modal-hdr {
+    position: sticky;
+    top: 0;
+    background: var(--bg-card);
+    z-index: 5;
+    flex-shrink: 0;
+  }
+  .modal-body {
+    flex: 1 1 auto;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-foot {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-card);
+    z-index: 5;
+    flex-shrink: 0;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Extras de patch_atuacao_visitas.css
+   (ver observação sobre este arquivo ainda não estar ligado
+   ao HTML — mantido aqui pois é puramente estilo/seguro)
+   ═══════════════════════════════════════════════════════════ */
+
+.tag-violet {
+  background: rgba(139, 92, 246, .15);
+  color: var(--violet, #8b5cf6);
+}
+
+#pf-visita-rows .filter-bar {
+  animation: fadeUp .2s ease both;
+}
+
+#pf-visita-resultados {
+  margin-top: 4px;
+}
+
+#pf-visita-resultados .check-row em {
+  display: block;
+  margin-top: 2px;
+}
+
+/* ==========================================================
+   TELA DE MEMBROS
+========================================================== */
+
+.membros-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.membro-card {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  background: var(--bg-card);
+  border: 1px solid var(--bdr2);
+  border-radius: 18px;
+  padding: 18px;
+  transition: .25s;
+  overflow: hidden;
+}
+
+.membro-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--gold), #b58d2c);
+}
+
+.membro-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(201, 168, 76, .35);
+  box-shadow: 0 14px 35px rgba(0, 0, 0, .18);
+}
+
+.membro-avatar {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .18);
+}
+
+.membro-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.membro-nome {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--txt);
+  line-height: 1.2;
+}
+
+.membro-cargo {
+  color: var(--gold);
+  font-size: .84rem;
+  font-weight: 600;
+}
+
+.membro-local {
+  color: var(--txt2);
+  font-size: .78rem;
+}
+
+.membro-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.tag-atuacao {
+  background: rgba(124, 58, 237, .14);
+  color: #a78bfa;
+  border: 1px solid rgba(124, 58, 237, .35);
+}
+
+.tag-ebd {
+  background: rgba(14, 165, 233, .12);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, .3);
+}
+
+.tag-cargo {
+  background: rgba(201, 168, 76, .12);
+  color: var(--gold);
+  border: 1px solid rgba(201, 168, 76, .3);
+}
+
+.membro-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  gap: 10px;
+}
+
+.membro-dados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  color: var(--txt2);
+  font-size: .78rem;
+}
+
+.membro-dados span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.membro-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.membro-actions .btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 10px;
+}
+
+.membros-search {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.membros-search input {
+  flex: 1;
+}
+
+.membros-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(201, 168, 76, .12);
+  color: var(--gold);
+  font-size: .82rem;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .membros-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .membro-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .membro-info {
+    align-items: center;
+  }
+
+  .membro-footer {
+    flex-direction: column;
+  }
+
+  .membro-actions {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .membro-dados {
+    justify-content: center;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   REVISÃO — Tela de Login (só visual, IDs/lógica intocados)
+   ══════════════════════════════════════════════════════════
+   Elemento-assinatura: uma rede de nós conectados atrás do
+   card, remetendo ao que o EclesiaSync realmente organiza —
+   setores e congregações interligados. Sutil, estático em
+   opacidade baixa, com um leve pulso no nó central.
+══════════════════════════════════════════════════════════ */
+
+.login-network {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  opacity: .34;
+}
+
+[data-theme="light"] .login-network {
+  opacity: .16;
+}
+
+.login-network-lines line {
+  stroke: var(--gold);
+  stroke-width: 1;
+  opacity: .4;
+}
+
+.login-network-nodes circle {
+  fill: var(--gold-l);
+  opacity: .75;
+}
+
+.login-network-nodes .login-node-main {
+  fill: var(--gold);
+  opacity: 1;
+  animation: loginNodePulse 3.2s ease-in-out infinite;
+}
+
+@keyframes loginNodePulse {
+  0%, 100% { r: 6; opacity: 1; }
+  50% { r: 9; opacity: .55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-network-nodes .login-node-main { animation: none; }
+}
+
+.login-emblem {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(201, 168, 76, .16), rgba(201, 168, 76, .04));
+  border: 1px solid rgba(201, 168, 76, .28);
+  color: var(--gold-l);
+}
+
+.login-emblem svg {
+  width: 26px;
+  height: 26px;
+}
+
+.login-logo h1,
+.login-card {
+  position: relative;
+  z-index: 2;
+}
+
+.input-wrapper {
+  transition: transform .2s ease;
+}
+
+.login-card .input-wrapper:focus-within {
+  transform: translateY(-1px);
+}
+
+#login-err:not(.hidden) {
+  animation: loginErrShake .38s ease both;
+}
+
+@keyframes loginErrShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.login-foot-note {
+  text-align: center;
+  font-size: .7rem;
+  color: var(--txt3);
+  margin-top: 18px;
+  letter-spacing: .02em;
+}
+
+@media (max-width: 480px) {
+  .login-network { opacity: .22; }
+  .login-emblem { width: 44px; height: 44px; }
+  .login-emblem svg { width: 22px; height: 22px; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   REVISÃO — Fundo texturizado (estilo WhatsApp) + Modais
+   ══════════════════════════════════════════════════════════
+   1) Substitui o ruído genérico do body por um padrão sutil e
+      repetido de ícones relacionados ao tema (cruz, livro,
+      estrela, coração) — tom sobre tom, baixíssima opacidade,
+      no mesmo espírito do papel de parede de conversa do
+      WhatsApp: textura perceptível, nunca chamativa.
+   2) Reforça o backdrop dos modais: mais escuro, mais desfocado,
+      e a página por trás fica com scroll bloqueado (o bloqueio
+      de scroll já existia via ajuste.js — aqui só a parte visual).
+   3) Pequenos refinamentos de estética no card do modal.
+══════════════════════════════════════════════════════════ */
+
+body {
+  background-repeat: repeat;
+  background-size: 130px 130px;
+  background-attachment: fixed;
+  background-color: var(--bg);
+}
+
+[data-theme="dark"] body {
+  background-image: url("assets/wallpaper-dark.svg") !important;
+}
+
+[data-theme="light"] body {
+  background-image: url("assets/wallpaper-light.svg") !important;
+}
+
+/* Backdrop de modal — mais decisivo, garante que o fundo fique
+   visivelmente escurecido e sem chance de interação por trás */
+.overlay {
+  background: rgba(3, 5, 12, .78) !important;
+  backdrop-filter: blur(9px) !important;
+  -webkit-backdrop-filter: blur(9px) !important;
+}
+
+[data-theme="light"] .overlay {
+  background: rgba(15, 18, 30, .62) !important;
+}
+
+/* Card do modal — leve acento dourado no topo + sombra mais funda */
+.modal {
+  box-shadow: 0 32px 90px rgba(0, 0, 0, .5), 0 0 0 1px rgba(201, 168, 76, .08) !important;
+}
+
+.modal::before {
+  content: "";
+  display: block;
+  height: 3px;
+  border-radius: 20px 20px 0 0;
+  background: linear-gradient(90deg, var(--gold), var(--gold-l), var(--gold));
+}
+
+.modal-hdr span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(201, 168, 76, .12);
+  color: var(--gold-l);
+  flex-shrink: 0;
+}
+
+@media (max-width: 430px) {
+  .modal::before {
+    border-radius: 12px 12px 0 0;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   REVISÃO — Polimento visual inspirado nas referências
+   ══════════════════════════════════════════════════════════
+   Só CSS. Nenhuma marcação HTML nova, nenhum dado novo, nenhuma
+   função alterada — os elementos abaixo (.stat-card, .stat-ico,
+   .stat-chg, .gauge-card, .chart-card, .shortcut-btn) já existem
+   no HTML gerado pelo JS; aqui só refino aparência: cantos mais
+   arredondados, sombra com leve tom dourado, badge de destaque
+   no canto do card, forma decorativa sutil no rodapé do card,
+   micro-interações de hover mais macias.
+   Mantida a identidade "Sacred Modernity" (dourado/Cinzel) do
+   projeto — não troquei paleta por roxo/genérico das referências,
+   só a linguagem de cards/sombra/arredondamento delas.
+══════════════════════════════════════════════════════════ */
+
+/* Cards de estatística — cantos maiores, sombra com tom dourado,
+   forma decorativa sutil no rodapé (puro CSS, sem markup novo) */
+.stat-card {
+  border-radius: 20px !important;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .16);
+}
+
+.stat-card::after {
+  content: "";
+  position: absolute;
+  right: -18px;
+  bottom: -22px;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(201, 168, 76, .10), transparent 70%);
+  pointer-events: none;
+}
+
+.stat-card:hover {
+  box-shadow: 0 16px 38px rgba(201, 168, 76, .16);
+}
+
+/* Ícone do card — badge arredondado com leve gradiente, em vez
+   de bloco chapado */
+.stat-ico {
+  border-radius: 14px !important;
+  position: relative;
+}
+
+.stat-ico.ic-gold { background: linear-gradient(145deg, rgba(201, 168, 76, .22), rgba(201, 168, 76, .08)); }
+.stat-ico.ic-blue { background: linear-gradient(145deg, rgba(59, 130, 246, .22), rgba(59, 130, 246, .08)); }
+.stat-ico.ic-teal { background: linear-gradient(145deg, rgba(20, 184, 166, .22), rgba(20, 184, 166, .08)); }
+.stat-ico.ic-violet { background: linear-gradient(145deg, rgba(139, 92, 246, .22), rgba(139, 92, 246, .08)); }
+
+/* "Total" / "Este mês" como um pequeno chip, em vez de texto solto */
+.stat-chg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(201, 168, 76, .1);
+  border: 1px solid rgba(201, 168, 76, .18);
+  border-radius: 999px;
+  padding: 2px 9px;
+  width: fit-content;
+}
+
+/* Gauge financeiro — realce radial mais presente, ecoando o
+   "45%" das referências */
+.gauge-card {
+  position: relative;
+}
+
+.gauge-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, .12), transparent 55%);
+  pointer-events: none;
+}
+
+/* Cards de gráfico — acento superior sutil + sombra mais macia */
+.chart-card {
+  border-radius: 20px !important;
+  position: relative;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .14);
+}
+
+.chart-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  height: 2px;
+  border-radius: 0 0 4px 4px;
+  background: linear-gradient(90deg, transparent, rgba(201, 168, 76, .5), transparent);
+}
+
+/* Atalhos rápidos — cantos maiores, elevação mais suave, ícone
+   em badge circular como nas referências */
+.shortcut-btn {
+  border-radius: 18px !important;
+  padding: 16px 14px !important;
+  gap: 8px !important;
+}
+
+.shortcut-ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(201, 168, 76, .12);
+  margin: 0 auto;
+}
+
+.shortcut-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 26px rgba(201, 168, 76, .14);
+}
+
+/* Fin-cards (Ofertas/Dízimos) — mesmo tratamento de cantos/sombra */
+.fin-card {
+  border-radius: 18px !important;
+}
+
+@media (max-width: 480px) {
+  .stat-card::after { width: 50px; height: 50px; right: -12px; bottom: -16px; }
 }

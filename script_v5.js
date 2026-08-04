@@ -38,7 +38,7 @@ const q = t => db.from(t);
 const AVATAR_COLORS = ['#3b82f6', '#8b5cf6', '#14b8a6', '#f43f5e', '#f59e0b', '#06b6d4', '#ec4899', '#10b981'];
 const avatarColor = n => AVATAR_COLORS[(n || 'A').charCodeAt(0) % AVATAR_COLORS.length];
 const initials = n => (n || '?').trim().split(/\s+/).slice(0, 2).map(x => x[0]).join('').toUpperCase();
-const escHtml = s => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const escHtml = s => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const fmtMoney = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
 const toast = (msg, icon = 'success') => Swal.fire({
@@ -227,7 +227,7 @@ async function checkLicenca(userId) {
             <div style="font-size:48px;margin-bottom:16px">${lc('lock', 48)}</div>
             <h2 style="font-family:'Cinzel',serif;color:#f43f5e;margin-bottom:10px">Acesso Bloqueado</h2>
             <p style="color:#94a3b8;margin-bottom:24px;font-size:.9rem">Realize o pagamento para continuar usando o sistema.</p>
-            <a href="https://wa.me/5581999999999?text=Olá,%20preciso%20renovar%20minha%20licença%20EclesiaSync" target="_blank"
+            <a href="https://wa.me/5581999999999?text=Olá,%20preciso%20renovar%20minha%20licença%20EclesiaSync" target="_blank" rel="noopener noreferrer"
                style="display:inline-flex;align-items:center;gap:8px;background:#25d366;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600;font-size:.9rem">
               ${lc('message-circle', 16)} Falar no WhatsApp
             </a>
@@ -254,7 +254,13 @@ async function doLogin() {
   errEl.classList.add('hidden');
   $('btn-login').disabled = true;
   $('btn-login').innerHTML = '<span class="login-spinner"></span> Entrando...';
-  const { data: user, error } = await q('sistema_usuarios').select('*').eq('username', username).eq('senha', pass).eq('ativo', true).single();
+  // SEGURANÇA: select() explícito sem a coluna 'senha' — antes usava select('*'),
+  // o que trazia a senha em texto puro para dentro do objeto salvo em
+  // localStorage (ecclesia_user), legível por qualquer um com acesso ao
+  // navegador (DevTools, extensão maliciosa, outro XSS). O filtro .eq('senha', pass)
+  // continua no WHERE para autenticar — a comparação ainda acontece no banco,
+  // só o valor não volta mais para o cliente.
+  const { data: user, error } = await q('sistema_usuarios').select('id,nome,username,role,cargo,idade,congregacao,congregacao_id,setor_id,ativo,frequenta_ebd,papel_ebd,vocacao').eq('username', username).eq('senha', pass).eq('ativo', true).single();
   if (error || !user) {
     errEl.textContent = 'Usuário ou senha inválidos'; errEl.classList.remove('hidden');
     $('btn-login').disabled = false; $('btn-login').innerHTML = `${lc('log-in', 18, 'btn-icon')} Entrar no Sistema`; refreshLucide(); return;
@@ -292,8 +298,37 @@ function startApp(user) {
   injectFinanceiroMenu();
   // Injeta item Eventos Setoriais se tiver permissão
   injectEventoSetorialMenu();
+  // Injeta itens "Membros" e "Jovens (Fora UMADALPE)" — preso ao evento real
+  // de login concluído (não a um setTimeout de tempo fixo) para garantir que
+  // currentUser e permissionsCache já estejam carregados nesse momento.
+  setTimeout(pfInjetarMenusExtras, 50);
 
   navigate('dashboard');
+}
+
+function pfInjetarMenusExtras() {
+  const nav = document.querySelector('.sidebar-nav');
+  if (!nav) return;
+
+  if (!nav.querySelector('[data-page="todos_membros"]') && typeof canVerMembros === 'function' && canVerMembros()) {
+    const div = document.createElement('div');
+    div.className = 'nav-item'; div.dataset.page = 'todos_membros';
+    div.innerHTML = `<span class="nav-icon"><i data-lucide="users-round"></i></span><span class="nav-lbl">Membros</span>`;
+    div.addEventListener('click', () => { navigate('todos_membros'); if (typeof toggleMobile === 'function') toggleMobile(false); });
+    const usersItem = nav.querySelector('[data-page="usuarios"]');
+    if (usersItem) nav.insertBefore(div, usersItem.nextSibling); else nav.appendChild(div);
+  }
+
+  if (!nav.querySelector('[data-page="jovens_fora_umadalpe"]') && typeof canVerJovensFU === 'function' && canVerJovensFU()) {
+    const div2 = document.createElement('div');
+    div2.className = 'nav-item'; div2.dataset.page = 'jovens_fora_umadalpe';
+    div2.innerHTML = `<span class="nav-icon"><i data-lucide="user-round-search"></i></span><span class="nav-lbl">Jovens (Fora UMADALPE)</span>`;
+    div2.addEventListener('click', () => { navigate('jovens_fora_umadalpe'); if (typeof toggleMobile === 'function') toggleMobile(false); });
+    const membrosItem = nav.querySelector('[data-page="todos_membros"]');
+    if (membrosItem) nav.insertBefore(div2, membrosItem.nextSibling); else nav.appendChild(div2);
+  }
+
+  if (typeof refreshLucide === 'function') refreshLucide();
 }
 
 function injectFinanceiroMenu() {
@@ -1471,7 +1506,7 @@ async function openMemberModal(id) {
   const { data: m, error } = await q('membros').select('*').eq('id', id).single();
   if (error || !m) { closeModal(); toast('Erro', 'error'); return; }
   const ebdInfo = m.frequenta_ebd ? `<div style="background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:10px;padding:12px 16px;margin:0 30px 12px;font-size:.82rem"><div class="fw5" style="color:#38bdf8;margin-bottom:4px">${lc("book-open", 14)} Escola Bíblica Dominical</div><div class="c3">Papel: <strong style="color:var(--txt)">${escHtml(m.papel_ebd || 'Aluno')}</strong></div></div>` : '';
-  showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div class="mem-av-lg" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><div class="mem-modal-name">${escHtml(m.nome)}</div><span class="tag tag-gold">${escHtml(m.cargo)}</span>${m.frequenta_ebd ? `<span class="tag tag-blue" style="margin-left:6px">${lc("book-open", 14)} EBD</span>` : ''}</div><div class="mem-info-grid"><div class="inf-item"><label>Idade</label><span>${m.idade || '—'} anos</span></div><div class="inf-item"><label>Telefone</label><span>${escHtml(m.telefone || '—')}</span></div><div class="inf-item"><label>Email</label><span style="font-size:.78rem">${escHtml(m.email || '—')}</span></div><div class="inf-item"><label>Batismo</label><span>${m.data_batismo ? fmtDate(m.data_batismo) : '—'}</span></div></div>${ebdInfo}<div class="mem-modal-foot">${m.telefone ? `<a href="https://wa.me/${m.telefone.replace(/\D/g, '')}" target="_blank" class="btn btn-teal">${lc("message-circle", 14)} WhatsApp</a>` : ''} ${hasPerm('gerenciar_membros') ? `<button class="btn btn-secondary" onclick="openEditMembro('${m.id}')">${lc("pencil", 14)} Editar</button>` : ''}<button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
+  showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div class="mem-av-lg" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><div class="mem-modal-name">${escHtml(m.nome)}</div><span class="tag tag-gold">${escHtml(m.cargo)}</span>${m.frequenta_ebd ? `<span class="tag tag-blue" style="margin-left:6px">${lc("book-open", 14)} EBD</span>` : ''}</div><div class="mem-info-grid"><div class="inf-item"><label>Idade</label><span>${m.idade || '—'} anos</span></div><div class="inf-item"><label>Telefone</label><span>${escHtml(m.telefone || '—')}</span></div><div class="inf-item"><label>Email</label><span style="font-size:.78rem">${escHtml(m.email || '—')}</span></div><div class="inf-item"><label>Batismo</label><span>${m.data_batismo ? fmtDate(m.data_batismo) : '—'}</span></div></div>${ebdInfo}<div class="mem-modal-foot">${m.telefone ? `<a href="https://wa.me/${m.telefone.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer" class="btn btn-teal">${lc("message-circle", 14)} WhatsApp</a>` : ''} ${hasPerm('gerenciar_membros') ? `<button class="btn btn-secondary" onclick="openEditMembro('${m.id}')">${lc("pencil", 14)} Editar</button>` : ''}<button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
 }
 
 function openEditMembro(id) {
@@ -1827,34 +1862,60 @@ async function exportarPDF() {
 /* ════════════════════════════════════════════════════════════
    FREQUÊNCIA
 ════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   Frequência — base: tabela `membros` (não sistema_usuarios).
+   Consolidado a partir de patch_frequencia_membros.js, que era
+   carregado por último e por isso já era a versão realmente
+   ativa no sistema; nenhuma lógica foi alterada aqui.
+   ═══════════════════════════════════════════════════════════ */
 async function renderFrequencia() {
-  if (!hasPerm('ver_frequencia_usuarios')) { $('page-content').innerHTML = `<div class="empty"><div class="empty-ico">${lc("shield-off", 14)}</div><p>Sem permissão.</p></div>`; return; }
+  if (!hasPerm('ver_frequencia_usuarios')) { $('page-content').innerHTML = `<div class="empty"><div class="empty-ico">${lc("shield-off", 44)}</div><p>Sem permissão.</p></div>`; return; }
   $('page-content').innerHTML = loadingPage();
+
   const now = new Date();
   if (!freqFiltroInicio) freqFiltroInicio = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   if (!freqFiltroFim) freqFiltroFim = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+
   const { data: setores } = await q('setores').select('id,nome').order('nome');
   if (!freqSetorFiltro) freqSetorFiltro = currentUser?.setor_id || '';
   const sid = freqSetorFiltro || currentUser?.setor_id || null;
   const cid = freqCongFiltro || null;
+
   let congsList = [];
   if (sid) { const { data: cs } = await q('congregacoes').select('id,nome').eq('setor_id', sid).order('nome'); congsList = cs || []; }
-  let qUsuarios = q('sistema_usuarios').select('id,nome,role,cargo,setor_id,congregacao,ativo,frequenta_ebd,papel_ebd').eq('ativo', true).order('nome');
-  if (!canSeeAllSetores() && currentUser?.setor_id) qUsuarios = qUsuarios.eq('setor_id', currentUser.setor_id);
-  else if (sid) qUsuarios = qUsuarios.eq('setor_id', sid);
+
+  // Base: MEMBROS cadastrados nas congregações (NUNCA sistema_usuarios)
+  let qMembros = q('membros').select('id,nome,cargo,setor_id,congregacao_id,frequenta_ebd,papel_ebd,atuacao,atuacao_especifico').order('nome');
+  if (!canSeeAllSetores() && currentUser?.setor_id) qMembros = qMembros.eq('setor_id', currentUser.setor_id);
+  else if (sid) qMembros = qMembros.eq('setor_id', sid);
+  if (cid) qMembros = qMembros.eq('congregacao_id', cid);
+
   const qEventos = q('eventos').select('id,tipo,data,participante_ids,setor_id,congregacao_id,resumo').gte('data', freqFiltroInicio).lte('data', freqFiltroFim);
-  const [{ data: usuarios }, { data: eventos }] = await Promise.all([qUsuarios, qEventos]);
-  const usuariosList = usuarios || [], eventosList = eventos || [];
+  const [{ data: membrosList, error: errMem }, { data: eventos }] = await Promise.all([qMembros, qEventos]);
+  if (errMem) { $('page-content').innerHTML = `<div class="empty"><div class="empty-ico">${lc('alert-triangle', 44)}</div><p>${errMem.message}</p></div>`; return; }
+
+  const membrosArr = membrosList || [], eventosList = eventos || [];
   const eventosSetor = sid ? eventosList.filter(e => e.setor_id === sid) : eventosList;
   const eventosBase = cid ? eventosSetor.filter(e => e.congregacao_id === cid) : eventosSetor;
-  const totalEventos = eventosBase.length, totalCultos = eventosBase.filter(e => e.tipo === 'culto').length;
-  const freqData = usuariosList.map(u => {
-    const evParticipou = eventosBase.filter(e => (e.participante_ids || []).includes(u.id));
-    const cultosParticipou = evParticipou.filter(e => e.tipo === 'culto').length;
+  const totalEventos = eventosBase.length;
+  const totalCultos = eventosBase.filter(e => ['culto', 'evangelismo', 'saida', 'culto_ar_livre', 'ponto_pregacao', 'oracao'].includes(e.tipo)).length;
+
+  const congNomeById = {};
+  (congsList || []).forEach(c => congNomeById[c.id] = c.nome);
+  const congIdsFaltantes = [...new Set(membrosArr.map(m => m.congregacao_id).filter(cId => cId && !congNomeById[cId]))];
+  if (congIdsFaltantes.length) {
+    const { data: extraCongs } = await q('congregacoes').select('id,nome').in('id', congIdsFaltantes);
+    (extraCongs || []).forEach(c => congNomeById[c.id] = c.nome);
+  }
+
+  const freqData = membrosArr.map(m => {
+    const evParticipou = eventosBase.filter(e => (e.participante_ids || []).includes(m.id));
+    const cultosParticipou = evParticipou.filter(e => ['culto', 'evangelismo', 'saida', 'culto_ar_livre', 'ponto_pregacao', 'oracao'].includes(e.tipo)).length;
     const pctTotal = totalEventos > 0 ? Math.round((evParticipou.length / totalEventos) * 100) : 0;
     const pctCultos = totalCultos > 0 ? Math.round((cultosParticipou / totalCultos) * 100) : 0;
-    const setorNome = (setores || []).find(s => s.id === u.setor_id)?.nome || '—';
-    return { ...u, evParticipou, cultosParticipou, totalParticipou: evParticipou.length, pctTotal, pctCultos, setorNome };
+    const setorNome = (setores || []).find(s => s.id === m.setor_id)?.nome || '—';
+    const congNome = congNomeById[m.congregacao_id] || '—';
+    return { ...m, evParticipou, cultosParticipou, totalParticipou: evParticipou.length, pctTotal, pctCultos, setorNome, congNome };
   }).sort((a, b) => b.pctTotal - a.pctTotal);
 
   const canFilterS = canFilterSetores() && canSeeAllSetores();
@@ -1863,7 +1924,7 @@ async function renderFrequencia() {
 
   $('page-content').innerHTML = `
   <div class="sec-hdr">
-    <h2>Frequência <span class="count-badge">${usuariosList.length} usuários</span></h2>
+    <h2>Frequência <span class="count-badge">${membrosArr.length} membros</span></h2>
     <div class="sec-actions">
       ${backBtn()}
       ${hasPerm('exportar_dados') ? `<button class="btn btn-primary btn-sm" onclick="exportarFrequenciaPDF()">📄 PDF</button><button class="btn btn-secondary btn-sm" onclick="exportarFrequenciaExcel()">${lc("bar-chart-3", 14)} Excel</button>` : ''}
@@ -1889,110 +1950,101 @@ async function renderFrequencia() {
     </div>
   </div>
   <div class="stats-grid stats-4" style="margin-bottom:24px">
-    ${statCard(lc("clipboard-list",14), 'ic-gold', totalEventos, 'Eventos', '')}${statCard(lc("church",14), 'ic-blue', totalCultos, 'Cultos', '')}${statCard(lc("users",18), 'ic-teal', usuariosList.length, 'Usuários', '')}${statCard(lc("trending-up",14), 'ic-violet', freqData.length > 0 ? `${freqData[0]?.pctTotal || 0}%` : '—', 'Maior Freq.', freqData[0]?.nome?.split(' ')[0] || '')}
+    ${statCard(lc("clipboard-list", 14), 'ic-gold', totalEventos, 'Eventos', '')}${statCard(lc("church", 14), 'ic-blue', totalCultos, 'Cultos/Evangelismo', '')}${statCard(lc("users", 18), 'ic-teal', membrosArr.length, 'Membros', '')}${statCard(lc("trending-up", 14), 'ic-violet', freqData.length > 0 ? `${freqData[0]?.pctTotal || 0}%` : '—', 'Maior Freq.', freqData[0]?.nome?.split(' ')[0] || '')}
   </div>
   <div class="freq-legend"><span class="freq-leg-item"><span class="freq-dot" style="background:#14b8a6"></span>≥75%</span><span class="freq-leg-item"><span class="freq-dot" style="background:#f59e0b"></span>50–74%</span><span class="freq-leg-item"><span class="freq-dot" style="background:#f43f5e"></span>&lt;50%</span></div>
   <div class="freq-list">
-    ${freqData.length ? freqData.map(u => {
-    const corG = u.pctTotal >= 75 ? '#14b8a6' : u.pctTotal >= 50 ? '#f59e0b' : '#f43f5e';
-    const corC = u.pctCultos >= 75 ? '#14b8a6' : u.pctCultos >= 50 ? '#f59e0b' : '#f43f5e';
-    return `<div class="freq-item">
-        <div class="freq-item-user"><div class="av av-sm" style="background:${avatarColor(u.nome)}">${initials(u.nome)}</div><div><div class="fw5 fs-sm">${escHtml(u.nome)}</div><div class="fs-xs c3">${escHtml(u.cargo || '—')} · ${escHtml(u.congregacao || '—')}</div>${u.frequenta_ebd ? `<span class="tag tag-blue" style="font-size:.6rem">${lc("book-open", 14)} EBD ${u.papel_ebd ? '· ' + u.papel_ebd : ''}</span>` : ''}</div></div>
+    ${freqData.length ? freqData.map(m => {
+      const corG = m.pctTotal >= 75 ? '#14b8a6' : m.pctTotal >= 50 ? '#f59e0b' : '#f43f5e';
+      const corC = m.pctCultos >= 75 ? '#14b8a6' : m.pctCultos >= 50 ? '#f59e0b' : '#f43f5e';
+      return `<div class="freq-item">
+        <div class="freq-item-user"><div class="av av-sm" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><div><div class="fw5 fs-sm">${escHtml(m.nome)}</div><div class="fs-xs c3">${escHtml(m.cargo || '—')} · ${escHtml(m.congNome || '—')}</div>${m.atuacao ? `<span class="tag tag-violet" style="font-size:.6rem">${lc("shield", 12)} ${escHtml(m.atuacao)}</span>` : ''}${m.frequenta_ebd ? `<span class="tag tag-blue" style="font-size:.6rem">${lc("book-open", 14)} EBD ${m.papel_ebd ? '· ' + m.papel_ebd : ''}</span>` : ''}</div></div>
         <div class="freq-item-bars">
-          <div class="freq-bar-row"><span class="freq-bar-label">Geral</span><div class="freq-bar-wrap"><div class="freq-bar" style="width:${u.pctTotal}%;background:${corG}"></div></div><span class="freq-pct" style="color:${corG}">${u.pctTotal}%</span></div>
-          <div class="freq-bar-row"><span class="freq-bar-label">Cultos</span><div class="freq-bar-wrap"><div class="freq-bar" style="width:${u.pctCultos}%;background:${corC}"></div></div><span class="freq-pct" style="color:${corC}">${u.pctCultos}%</span></div>
+          <div class="freq-bar-row"><span class="freq-bar-label">Geral</span><div class="freq-bar-wrap"><div class="freq-bar" style="width:${m.pctTotal}%;background:${corG}"></div></div><span class="freq-pct" style="color:${corG}">${m.pctTotal}%</span></div>
+          <div class="freq-bar-row"><span class="freq-bar-label">Cultos</span><div class="freq-bar-wrap"><div class="freq-bar" style="width:${m.pctCultos}%;background:${corC}"></div></div><span class="freq-pct" style="color:${corC}">${m.pctCultos}%</span></div>
         </div>
-        <div class="freq-item-info"><span class="tag fs-xs">${u.totalParticipou}/${totalEventos} ev.</span><span class="tag fs-xs">${u.cultosParticipou}/${totalCultos} cul.</span></div>
-        <button class="btn btn-secondary btn-sm" onclick="openFreqDetalhe('${u.id}','${escHtml(u.nome)}')">Ver ${lc("arrow-right", 14)}</button>
+        <div class="freq-item-info"><span class="tag fs-xs">${m.totalParticipou}/${totalEventos} ev.</span><span class="tag fs-xs">${m.cultosParticipou}/${totalCultos} cul.</span></div>
+        <button class="btn btn-secondary btn-sm" onclick="openFreqDetalhe('${m.id}','${escHtml(m.nome)}')">Ver ${lc("arrow-right", 14)}</button>
       </div>`;
-  }).join('') : `<div class="empty"><div class="empty-ico">${lc("trending-up", 14)}</div><p>Nenhum dado encontrado.</p></div>`}
+    }).join('') : `<div class="empty"><div class="empty-ico">${lc("trending-up", 44)}</div><p>Nenhum membro encontrado.</p></div>`}
   </div>
-  <div class="chart-card" style="margin-bottom:28px"><h3>Top Usuários por Frequência</h3><canvas id="chart-freq" height="80"></canvas></div>`;
+  <div class="chart-card" style="margin-bottom:28px"><h3>Top Membros por Frequência</h3><canvas id="chart-freq" height="80"></canvas></div>`;
 
   const top10 = freqData.slice(0, 10);
   const fCtx = document.getElementById('chart-freq');
-  if (fCtx && top10.length) chartInstances.freq = new Chart(fCtx, { type: 'bar', data: { labels: top10.map(u => u.nome.split(' ')[0]), datasets: [{ label: 'Freq. Geral (%)', data: top10.map(u => u.pctTotal), backgroundColor: top10.map(u => u.pctTotal >= 75 ? 'rgba(20,184,166,.8)' : u.pctTotal >= 50 ? 'rgba(245,158,11,.8)' : 'rgba(244,63,94,.8)'), borderRadius: 8 }, { label: 'Freq. Cultos (%)', data: top10.map(u => u.pctCultos), backgroundColor: 'rgba(201,168,76,.4)', borderRadius: 8 }] }, options: { responsive: true, plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,.03)' } }, y: { min: 0, max: 100, ticks: { color: '#94a3b8', callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,.05)' } } } } });
-}
+  if (fCtx && top10.length) chartInstances.freq = new Chart(fCtx, { type: 'bar', data: { labels: top10.map(m => m.nome.split(' ')[0]), datasets: [{ label: 'Freq. Geral (%)', data: top10.map(m => m.pctTotal), backgroundColor: top10.map(m => m.pctTotal >= 75 ? 'rgba(20,184,166,.8)' : m.pctTotal >= 50 ? 'rgba(245,158,11,.8)' : 'rgba(244,63,94,.8)'), borderRadius: 8 }, { label: 'Freq. Cultos (%)', data: top10.map(m => m.pctCultos), backgroundColor: 'rgba(201,168,76,.4)', borderRadius: 8 }] }, options: { responsive: true, plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,.03)' } }, y: { min: 0, max: 100, ticks: { color: '#94a3b8', callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,.05)' } } } } });
+  refreshLucide();
+};
 
-function setFreqFiltro(tipo) {
-  const now = new Date(), ano = now.getFullYear(), mes = now.getMonth() + 1;
-  const mesStr = String(mes).padStart(2, '0'), ultimoDia = new Date(ano, mes, 0).getDate();
-  switch (tipo) {
-    case 'mes': freqFiltroInicio = `${ano}-${mesStr}-01`; freqFiltroFim = `${ano}-${mesStr}-${ultimoDia}`; break;
-    case 'quinzena1': freqFiltroInicio = `${ano}-${mesStr}-01`; freqFiltroFim = `${ano}-${mesStr}-15`; break;
-    case 'quinzena2': freqFiltroInicio = `${ano}-${mesStr}-16`; freqFiltroFim = `${ano}-${mesStr}-${ultimoDia}`; break;
-    case 'semana': { const d = new Date(); d.setDate(d.getDate() - d.getDay()); const f = new Date(d); f.setDate(d.getDate() + 6); freqFiltroInicio = d.toISOString().slice(0, 10); freqFiltroFim = f.toISOString().slice(0, 10); break; }
-    case 'ano': freqFiltroInicio = `${ano}-01-01`; freqFiltroFim = `${ano}-12-31`; break;
-  }
-  renderFrequencia();
-}
-
-async function openFreqDetalhe(userId, userName) {
-  showModal(`<div class="modal-hdr"><span>${lc("trending-up", 14)}</span><h2>Frequência — ${escHtml(userName)}</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="freq-detalhe-body"><div class="loading-page"><div class="spinner"></div></div></div>`);
-  const sid = freqSetorFiltro || currentUser?.setor_id || null; const cid = freqCongFiltro || null;
-  const { data: eventos } = await q('eventos').select('id,tipo,data,resumo,congregacao_id,setor_id,participante_ids').gte('data', freqFiltroInicio).lte('data', freqFiltroFim);
-  const eventosBase = (sid ? (eventos || []).filter(e => e.setor_id === sid) : (eventos || []));
-  const eventosFiltered = cid ? eventosBase.filter(e => e.congregacao_id === cid) : eventosBase;
-  const eventosDoUsuario = eventosFiltered.filter(e => (e.participante_ids || []).includes(userId));
-  const congIds = [...new Set(eventosFiltered.map(e => e.congregacao_id).filter(Boolean))];
-  const { data: congs } = congIds.length ? await q('congregacoes').select('id,nome').in('id', congIds) : { data: [] };
-  const congNome = id => (congs || []).find(c => c.id === id)?.nome || '—';
-  const totalEv = eventosFiltered.length, partEv = eventosDoUsuario.length;
-  const pct = totalEv > 0 ? Math.round((partEv / totalEv) * 100) : 0;
-  $('freq-detalhe-body').innerHTML = `
-  <div style="text-align:center;margin-bottom:20px">
-    <div class="stat-val" style="font-size:2.5rem;color:${pct >= 75 ? 'var(--teal)' : pct >= 50 ? '#f59e0b' : 'var(--rose)'}">${pct}%</div>
-    <div class="fs-sm c2">Frequência geral</div><div class="fs-xs c3">${partEv} de ${totalEv} eventos</div>
+/* ───────────────────────────────────────────────────────────
+   Detalhe do membro (lista de eventos em que participou)
+   ─────────────────────────────────────────────────────────── */
+async function openFreqDetalhe(membroId, nome) {
+  showModal(loadingPage());
+  const { data: eventos } = await q('eventos').select('id,tipo,data,resumo,participante_ids').gte('data', freqFiltroInicio).lte('data', freqFiltroFim).order('data', { ascending: false });
+  const participou = (eventos || []).filter(e => (e.participante_ids || []).includes(membroId));
+  showModal(`<div class="modal-hdr"><span>${lc('user', 20)}</span><h2>${escHtml(nome)}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <p class="fs-xs c3" style="margin-bottom:10px">${participou.length} evento(s) no período de ${fmtDate(freqFiltroInicio)} a ${fmtDate(freqFiltroFim)}</p>
+    <div class="act-list">
+      ${participou.length ? participou.map(e => `<div class="act-item"><div class="act-dot" style="background:${dpTipoColor ? dpTipoColor(e.tipo) : '#4f8ef7'}"></div><div class="f1"><div class="fw5 fs-sm">${tipoLabel(e.tipo)}</div><div class="fs-xs c3">${escHtml(e.resumo || '')}</div></div><span class="act-time">${fmtDate(e.data)}</span></div>`).join('') : '<p class="c3" style="padding:16px">Nenhum evento no período.</p>'}
+    </div>
   </div>
-  <div style="border-bottom:1px solid var(--bdr2);margin-bottom:14px;padding-bottom:10px">
-    <div class="fs-xs c3 fw6" style="text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Participou de:</div>
-    ${eventosDoUsuario.length ? eventosDoUsuario.map(e => `<div class="act-item" style="margin-bottom:6px"><div class="act-dot" style="background:${tipoColor(e.tipo)}"></div><div class="f1"><div class="fw5 fs-sm">${tipoIcon(e.tipo)} ${tipoLabel(e.tipo)}</div><div class="fs-xs c3">${escHtml(congNome(e.congregacao_id))}</div></div><span class="act-time">${fmtDate(e.data)}</span></div>`).join('') : '<p class="c3 fs-sm" style="text-align:center;padding:12px">Nenhuma participação.</p>'}
-  </div>
-  <div class="fs-xs c3 fw6" style="text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Ausências:</div>
-  ${eventosFiltered.filter(e => !(e.participante_ids || []).includes(userId)).map(e => `<div class="act-item" style="margin-bottom:6px;opacity:.45"><div class="act-dot" style="background:#475569"></div><div class="f1"><div class="fw5 fs-sm">${tipoIcon(e.tipo)} ${tipoLabel(e.tipo)}</div><div class="fs-xs c3">${escHtml(congNome(e.congregacao_id))}</div></div><span class="act-time">${fmtDate(e.data)}</span></div>`).join('') || '<p class="c3 fs-sm">Sem ausências.</p>'}`;
-}
+  <div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
+};
 
+/* ───────────────────────────────────────────────────────────
+   Exportações — também baseadas em `membros`
+   ─────────────────────────────────────────────────────────── */
 async function exportarFrequenciaPDF() {
   if (!hasPerm('exportar_dados')) { toast('Sem permissão', 'error'); return; }
   const { jsPDF } = window.jspdf; if (!jsPDF) { toast('Biblioteca não carregada', 'error'); return; }
   toast('Gerando PDF...', 'info');
   const sid = freqSetorFiltro || currentUser?.setor_id || null;
-  let qU = q('sistema_usuarios').select('id,nome,role,cargo,setor_id,congregacao,ativo').eq('ativo', true).order('nome');
-  if (!canSeeAllSetores() && currentUser?.setor_id) qU = qU.eq('setor_id', currentUser.setor_id);
-  else if (sid) qU = qU.eq('setor_id', sid);
-  const [{ data: usuarios }, { data: eventos }, { data: setores }] = await Promise.all([qU, q('eventos').select('id,tipo,data,participante_ids,setor_id').gte('data', freqFiltroInicio).lte('data', freqFiltroFim), q('setores').select('id,nome')]);
+  let qM = q('membros').select('id,nome,cargo,setor_id,congregacao_id').order('nome');
+  if (!canSeeAllSetores() && currentUser?.setor_id) qM = qM.eq('setor_id', currentUser.setor_id);
+  else if (sid) qM = qM.eq('setor_id', sid);
+  const [{ data: membros }, { data: eventos }, { data: setores }, { data: congs }] = await Promise.all([
+    qM,
+    q('eventos').select('id,tipo,data,participante_ids,setor_id').gte('data', freqFiltroInicio).lte('data', freqFiltroFim),
+    q('setores').select('id,nome'),
+    q('congregacoes').select('id,nome'),
+  ]);
   const eventosBase = sid ? (eventos || []).filter(e => e.setor_id === sid) : (eventos || []);
-  const totalEv = eventosBase.length, totalCultos = eventosBase.filter(e => e.tipo === 'culto').length;
-  const freqData = (usuarios || []).map(u => { const evP = eventosBase.filter(e => (e.participante_ids || []).includes(u.id)); const pctTotal = totalEv > 0 ? Math.round((evP.length / totalEv) * 100) : 0; const pctCultos = totalCultos > 0 ? Math.round((evP.filter(e => e.tipo === 'culto').length / totalCultos) * 100) : 0; return { nome: u.nome, cargo: u.cargo || '—', setorNome: (setores || []).find(s => s.id === u.setor_id)?.nome || '—', congregacao: u.congregacao || '—', partTotal: evP.length, cultosPart: evP.filter(e => e.tipo === 'culto').length, pctTotal, pctCultos }; }).sort((a, b) => b.pctTotal - a.pctTotal);
+  const totalEv = eventosBase.length, totalCultos = eventosBase.filter(e => ['culto', 'evangelismo', 'saida', 'culto_ar_livre', 'ponto_pregacao', 'oracao'].includes(e.tipo)).length;
+  const congNome = id => (congs || []).find(c => c.id === id)?.nome || '—';
+  const freqData = (membros || []).map(m => { const evP = eventosBase.filter(e => (e.participante_ids || []).includes(m.id)); const pctTotal = totalEv > 0 ? Math.round((evP.length / totalEv) * 100) : 0; const pctCultos = totalCultos > 0 ? Math.round((evP.filter(e => ['culto', 'evangelismo', 'saida', 'culto_ar_livre', 'ponto_pregacao', 'oracao'].includes(e.tipo)).length / totalCultos) * 100) : 0; return { nome: m.nome, cargo: m.cargo || '—', setorNome: (setores || []).find(s => s.id === m.setor_id)?.nome || '—', congregacao: congNome(m.congregacao_id), partTotal: evP.length, cultosPart: evP.filter(e => ['culto', 'evangelismo', 'saida', 'culto_ar_livre', 'ponto_pregacao', 'oracao'].includes(e.tipo)).length, pctTotal, pctCultos }; }).sort((a, b) => b.pctTotal - a.pctTotal);
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }); const W = 210, margin = 16; let y = 20;
-  doc.setFillColor(9, 12, 24); doc.rect(0, 0, W, 44, 'F'); doc.setTextColor(201, 168, 76); doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.text('EclesiaSync', margin, 18); doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(148, 163, 184); doc.text('Relatório de Frequência', margin, 25); doc.text(`Período: ${fmtDate(freqFiltroInicio)} a ${fmtDate(freqFiltroFim)}`, margin, 31); doc.text(`Gerado por: ${currentUser?.nome || '—'} · ${new Date().toLocaleDateString('pt-BR')}`, margin, 37); y = 54;
-  doc.setFontSize(13); doc.setTextColor(201, 168, 76); doc.setFont('helvetica', 'bold'); doc.text('Frequência por Usuário', margin, y); y += 8;
-  doc.autoTable({ startY: y, margin: { left: margin, right: margin }, head: [['Usuário', 'Cargo', 'Setor', 'Freq. Geral', 'Freq. Cultos', 'Part./Total', 'Cultos/Total']], body: freqData.map(u => [u.nome, u.cargo, u.setorNome, `${u.pctTotal}%`, `${u.pctCultos}%`, `${u.partTotal}/${totalEv}`, `${u.cultosPart}/${totalCultos}`]), theme: 'grid', headStyles: { fillColor: [9, 12, 24], textColor: [201, 168, 76], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [245, 245, 250] }, styles: { fontSize: 8.5 }, didParseCell: function (data) { if (data.section === 'body' && data.column.index === 3) { const p = parseInt(data.cell.text[0]); data.cell.styles.textColor = p >= 75 ? [20, 184, 166] : p >= 50 ? [245, 158, 11] : [244, 63, 94]; } } });
+  doc.setFillColor(9, 12, 24); doc.rect(0, 0, W, 44, 'F'); doc.setTextColor(201, 168, 76); doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.text('EclesiaSync', margin, 18); doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(148, 163, 184); doc.text('Relatório de Frequência (Membros)', margin, 25); doc.text(`Período: ${fmtDate(freqFiltroInicio)} a ${fmtDate(freqFiltroFim)}`, margin, 31); doc.text(`Gerado por: ${currentUser?.nome || '—'} · ${new Date().toLocaleDateString('pt-BR')}`, margin, 37); y = 54;
+  doc.setFontSize(13); doc.setTextColor(201, 168, 76); doc.setFont('helvetica', 'bold'); doc.text('Frequência por Membro', margin, y); y += 8;
+  doc.autoTable({ startY: y, margin: { left: margin, right: margin }, head: [['Membro', 'Cargo', 'Congregação', 'Freq. Geral', 'Freq. Cultos', 'Part./Total', 'Cultos/Total']], body: freqData.map(m => [m.nome, m.cargo, m.congregacao, `${m.pctTotal}%`, `${m.pctCultos}%`, `${m.partTotal}/${totalEv}`, `${m.cultosPart}/${totalCultos}`]), theme: 'grid', headStyles: { fillColor: [9, 12, 24], textColor: [201, 168, 76], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [245, 245, 250] }, styles: { fontSize: 8.5 }, didParseCell: function (data) { if (data.section === 'body' && data.column.index === 3) { const p = parseInt(data.cell.text[0]); data.cell.styles.textColor = p >= 75 ? [20, 184, 166] : p >= 50 ? [245, 158, 11] : [244, 63, 94]; } } });
   doc.save(`EclesiaSync-Frequencia-${freqFiltroInicio}-${freqFiltroFim}.pdf`); toast('PDF gerado!');
-}
+};
 
 async function exportarFrequenciaExcel() {
   if (!hasPerm('exportar_dados')) { toast('Sem permissão', 'error'); return; }
   toast('Gerando Excel...', 'info');
   const sid = freqSetorFiltro || currentUser?.setor_id || null;
-  let qU = q('sistema_usuarios').select('id,nome,role,cargo,setor_id,congregacao,ativo').eq('ativo', true).order('nome');
-  if (!canSeeAllSetores() && currentUser?.setor_id) qU = qU.eq('setor_id', currentUser.setor_id);
-  else if (sid) qU = qU.eq('setor_id', sid);
-  const [{ data: usuarios }, { data: eventos }, { data: setores }] = await Promise.all([qU, q('eventos').select('id,tipo,data,participante_ids,setor_id,resumo').gte('data', freqFiltroInicio).lte('data', freqFiltroFim), q('setores').select('id,nome')]);
+  let qM = q('membros').select('id,nome,cargo,setor_id,congregacao_id').order('nome');
+  if (!canSeeAllSetores() && currentUser?.setor_id) qM = qM.eq('setor_id', currentUser.setor_id);
+  else if (sid) qM = qM.eq('setor_id', sid);
+  const [{ data: membros }, { data: eventos }, { data: setores }, { data: congs }] = await Promise.all([
+    qM,
+    q('eventos').select('id,tipo,data,participante_ids,setor_id,resumo').gte('data', freqFiltroInicio).lte('data', freqFiltroFim),
+    q('setores').select('id,nome'),
+    q('congregacoes').select('id,nome'),
+  ]);
   const eventosBase = sid ? (eventos || []).filter(e => e.setor_id === sid) : (eventos || []);
-  const totalEv = eventosBase.length, totalCultos = eventosBase.filter(e => e.tipo === 'culto').length;
-  const rows = [['EclesiaSync — Frequência'], ['Período:', `${fmtDate(freqFiltroInicio)} a ${fmtDate(freqFiltroFim)}`], ['Gerado em:', new Date().toLocaleString('pt-BR')], [], ['Usuário', 'Cargo', 'Setor', 'Congregação', 'Freq. Geral (%)', 'Freq. Cultos (%)', 'Participações', 'Cultos', 'Total Eventos', 'Total Cultos']];
-  (usuarios || []).forEach(u => { const evP = eventosBase.filter(e => (e.participante_ids || []).includes(u.id)); const pctTotal = totalEv > 0 ? Math.round((evP.length / totalEv) * 100) : 0; const pctCultos = totalCultos > 0 ? Math.round((evP.filter(e => e.tipo === 'culto').length / totalCultos) * 100) : 0; rows.push([u.nome, u.cargo || '—', (setores || []).find(s => s.id === u.setor_id)?.nome || '—', u.congregacao || '—', pctTotal, pctCultos, evP.length, evP.filter(e => e.tipo === 'culto').length, totalEv, totalCultos]); });
+  const totalEv = eventosBase.length, totalCultos = eventosBase.filter(e => ['culto', 'evangelismo', 'saida', 'culto_ar_livre', 'ponto_pregacao', 'oracao'].includes(e.tipo)).length;
+  const congNome = id => (congs || []).find(c => c.id === id)?.nome || '—';
+  const rows = [['EclesiaSync — Frequência (Membros)'], ['Período:', `${fmtDate(freqFiltroInicio)} a ${fmtDate(freqFiltroFim)}`], ['Gerado em:', new Date().toLocaleString('pt-BR')], [], ['Membro', 'Cargo', 'Setor', 'Congregação', 'Freq. Geral (%)', 'Freq. Cultos (%)', 'Participações', 'Cultos', 'Total Eventos', 'Total Cultos']];
+  (membros || []).forEach(m => { const evP = eventosBase.filter(e => (e.participante_ids || []).includes(m.id)); const pctTotal = totalEv > 0 ? Math.round((evP.length / totalEv) * 100) : 0; const pctCultos = totalCultos > 0 ? Math.round((evP.filter(e => ['culto', 'evangelismo', 'saida', 'culto_ar_livre', 'ponto_pregacao', 'oracao'].includes(e.tipo)).length / totalCultos) * 100) : 0; rows.push([m.nome, m.cargo || '—', (setores || []).find(s => s.id === m.setor_id)?.nome || '—', congNome(m.congregacao_id), pctTotal, pctCultos, evP.length, evP.filter(e => ['culto', 'evangelismo', 'saida', 'culto_ar_livre', 'ponto_pregacao', 'oracao'].includes(e.tipo)).length, totalEv, totalCultos]); });
   rows.push([]); rows.push(['Data', 'Tipo', 'Resumo', 'Participantes']);
-  eventosBase.forEach(e => { const nomes = (e.participante_ids || []).map(uid => { const u = (usuarios || []).find(x => x.id === uid); return u ? u.nome : '(ext)'; }).join('; '); rows.push([fmtDate(e.data), tipoLabel(e.tipo), e.resumo || '—', nomes || 'Nenhum']); });
+  eventosBase.forEach(e => { const nomes = (e.participante_ids || []).map(mid => { const m = (membros || []).find(x => x.id === mid); return m ? m.nome : '(ext)'; }).join('; '); rows.push([fmtDate(e.data), tipoLabel(e.tipo), e.resumo || '—', nomes || 'Nenhum']); });
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `EclesiaSync-Frequencia-${freqFiltroInicio}-${freqFiltroFim}.csv`; a.click(); URL.revokeObjectURL(url); toast('Excel gerado!');
-}
-
-/* ════════════════════════════════════════════════════════════
-   PERMISSÕES
-════════════════════════════════════════════════════════════ */
+};
 async function renderPermissoes() {
   if (!isSuperAdmin() && !hasPerm('editar_permissoes')) { $('page-content').innerHTML = `<div class="empty"><div class="empty-ico">${lc("shield-off", 14)}</div><p>Sem permissão.</p></div>`; return; }
   $('page-content').innerHTML = loadingPage();
@@ -2177,3 +2229,251 @@ function closeModal() { const mc = $('modal-container'); const ov = mc.querySele
     observer.observe(document.body, { childList: true, subtree: true });
   });
 })();
+
+
+/* ══════════════ patch_jovens_fora_umadalpe (consolidado) ══════════════ */
+
+if (typeof PERM_DESC !== 'undefined') {
+  PERM_DESC['visualizar_jovens_fora_umadalpe'] = { label: 'Visualizar Jovens (Fora UMADALPE)', desc: 'Ver a lista de jovens que ainda não estão matriculados na UMADALPE. A permissão "Ver Todos os Setores" libera também um filtro de setor nesta tela.' };
+  PERM_DESC['gerenciar_jovens_fora_umadalpe'] = { label: 'Gerenciar Jovens (Fora UMADALPE)', desc: 'Adicionar, editar e excluir jovens fora da UMADALPE.' };
+}
+
+const canVerJovensFU = () => (typeof isSuperAdmin === 'function' && isSuperAdmin()) || (typeof hasPerm === 'function' && (hasPerm('visualizar_jovens_fora_umadalpe') || hasPerm('gerenciar_jovens_fora_umadalpe')));
+const canGerJovensFU = () => (typeof isSuperAdmin === 'function' && isSuperAdmin()) || (typeof hasPerm === 'function' && hasPerm('gerenciar_jovens_fora_umadalpe'));
+
+/* Menu lateral */
+setTimeout(() => {
+  const nav = document.querySelector('.sidebar-nav');
+  if (nav && !nav.querySelector('[data-page="jovens_fora_umadalpe"]') && canVerJovensFU()) {
+    const div = document.createElement('div');
+    div.className = 'nav-item'; div.dataset.page = 'jovens_fora_umadalpe';
+    div.innerHTML = `<span class="nav-icon"><i data-lucide="user-round-search"></i></span><span class="nav-lbl">Jovens (Fora UMADALPE)</span>`;
+    div.addEventListener('click', () => { navigate('jovens_fora_umadalpe'); if (typeof toggleMobile === 'function') toggleMobile(false); });
+    const membrosItem = nav.querySelector('[data-page="todos_membros"]');
+    if (membrosItem) nav.insertBefore(div, membrosItem.nextSibling); else nav.appendChild(div);
+    if (typeof refreshLucide === 'function') refreshLucide();
+  }
+}, 750);
+
+const _origNavigate3 = window.navigate;
+if (typeof _origNavigate3 === 'function' && !window._navPatchedJovensFU) {
+  window._navPatchedJovensFU = true;
+  window.navigate = function (page) {
+    if (page === 'jovens_fora_umadalpe') {
+      if (currentPage) pushHistory({ page: currentPage, navState: JSON.parse(JSON.stringify(navState)) });
+      currentPage = 'jovens_fora_umadalpe';
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === 'jovens_fora_umadalpe'));
+      $('page-title').textContent = 'Jovens (Fora UMADALPE)';
+      renderJovensForaUmadalpe();
+      return;
+    }
+    _origNavigate3(page);
+  };
+}
+
+window._jfuSetorFiltro = window._jfuSetorFiltro || '';
+
+window.renderJovensForaUmadalpe = async function () {
+  const pc = $('page-content'); if (!pc) return;
+  if (!canVerJovensFU()) { pc.innerHTML = `<div class="empty"><div class="empty-ico">${lc('shield-off', 44)}</div><p>Sem permissão.</p></div>`; return; }
+  pc.innerHTML = loadingPage();
+
+  const podeTodosSetores = canSeeAllSetores();
+  const sidFiltro = podeTodosSetores ? (window._jfuSetorFiltro || '') : (currentUser?.setor_id || '');
+  const { data: setoresAll } = podeTodosSetores ? await q('setores').select('id,nome').order('nome') : { data: [] };
+
+  let qJ = q('jovens_fora_umadalpe').select('*, congregacoes(nome), setores(nome)').order('nome');
+  if (sidFiltro) qJ = qJ.eq('setor_id', sidFiltro);
+  else if (!podeTodosSetores && currentUser?.setor_id) qJ = qJ.eq('setor_id', currentUser.setor_id);
+
+  const { data: jovens, error } = await qJ;
+  if (error) { pc.innerHTML = `<div class="empty"><div class="empty-ico">${lc('alert-triangle', 44)}</div><p>${error.message}</p></div>`; return; }
+
+  window._jfuCache = jovens || [];
+  const canManage = canGerJovensFU();
+
+  const filtroSetorHtml = podeTodosSetores ? `
+  <div class="form-group" style="margin:0">
+    <label>Setor</label>
+    <select id="jfu-setor-filtro" onchange="window._jfuSetorFiltro=this.value;renderJovensForaUmadalpe()" style="min-width:180px">
+      <option value="">Todos os setores</option>
+      ${(setoresAll || []).map(s => `<option value="${s.id}" ${s.id === sidFiltro ? 'selected' : ''}>${escHtml(s.nome)}</option>`).join('')}
+    </select>
+  </div>` : '';
+
+  pc.innerHTML = `
+  <div class="sec-hdr">
+    <h2>Jovens (Fora UMADALPE) <span class="count-badge">${(jovens || []).length}</span></h2>
+    <div class="sec-actions">
+      ${backBtn()}
+      ${canManage ? `<button class="btn btn-primary btn-sm" onclick="openAddJovemFU()">+ Novo Jovem</button>` : ''}
+    </div>
+  </div>
+  ${podeTodosSetores ? `<div class="filter-bar"><div class="filter-title">${lc('map-pin', 14)} Filtro</div><div class="filter-fields">${filtroSetorHtml}</div></div>` : ''}
+  <input type="text" id="jfu-search" placeholder="Buscar por nome..." oninput="filterJovensFU(this.value)" style="margin-bottom:12px;max-width:320px"/>
+  <div id="jfu-list">${renderJovensFUCards(window._jfuCache)}</div>`;
+  refreshLucide();
+};
+
+function renderJovensFUCards(jovens) {
+  if (!jovens || !jovens.length) return `<div class="empty"><div class="empty-ico">${lc('user-round-search', 44)}</div><p>Nenhum jovem cadastrado.</p></div>`;
+  const canManage = canGerJovensFU();
+  return `<div style="display:flex;flex-direction:column;gap:8px">${jovens.map(j => `
+    <div class="user-card">
+      <div class="user-card-main">
+        <div class="av av-sm" style="background:${avatarColor(j.nome)}">${initials(j.nome)}</div>
+        <div class="user-card-info">
+          <div class="fw5 fs-sm">${escHtml(j.nome)}</div>
+          <div class="fs-xs c3">${j.sexo ? escHtml(j.sexo) + ' · ' : ''}${j.congregacoes ? escHtml(j.congregacoes.nome) : '—'}${j.setores ? ' · ' + escHtml(j.setores.nome) : ''}</div>
+          ${j.responsavel ? `<div class="fs-xs c3">${lc('user', 11)} Responsável: ${escHtml(j.responsavel)}</div>` : ''}
+        </div>
+      </div>
+      <div class="user-card-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openViewJovemFU('${j.id}')">${lc('eye', 14)}</button>
+        ${canManage ? `<button class="btn btn-secondary btn-sm" onclick="openEditJovemFU('${j.id}')">${lc('pencil', 14)}</button>` : ''}
+        ${canManage ? `<button class="btn btn-danger btn-sm" onclick="delJovemFU('${j.id}','${escHtml(j.nome)}')">${lc('trash-2', 14)}</button>` : ''}
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+window.filterJovensFU = function (qStr) {
+  const t = (qStr || '').toLowerCase();
+  const arr = (window._jfuCache || []).filter(j => j.nome.toLowerCase().includes(t));
+  const list = document.getElementById('jfu-list');
+  if (list) list.innerHTML = renderJovensFUCards(arr);
+};
+
+function jfuFormFields(j) {
+  j = j || {};
+  return `
+  <div class="form-group"><label>Nome Completo *</label><input id="jfu-nome" value="${escHtml(j.nome || '')}"/></div>
+  <div class="form-row">
+    <div class="form-group"><label>Sexo</label><select id="jfu-sexo"><option value="">—</option><option value="Masculino" ${j.sexo === 'Masculino' ? 'selected' : ''}>Masculino</option><option value="Feminino" ${j.sexo === 'Feminino' ? 'selected' : ''}>Feminino</option></select></div>
+    <div class="form-group"><label>Data de Nascimento</label><input id="jfu-nasc" type="date" value="${j.data_nascimento || ''}"/></div>
+  </div>
+  <div class="form-group"><label>Telefone</label><input id="jfu-tel" value="${escHtml(j.telefone || '')}"/></div>
+  <div class="form-group"><label>Responsável</label><input id="jfu-resp" value="${escHtml(j.responsavel || '')}" placeholder="Nome do responsável (se menor de idade)"/></div>
+  <div class="form-group"><label>Endereço</label><input id="jfu-end" value="${escHtml(j.endereco || '')}"/></div>
+  <div class="form-row">
+    <div class="form-group"><label>Bairro</label><input id="jfu-bairro" value="${escHtml(j.bairro || '')}"/></div>
+    <div class="form-group"><label>Cidade</label><input id="jfu-cidade" value="${escHtml(j.cidade || '')}"/></div>
+  </div>
+  <div class="form-group"><label>Estado</label><input id="jfu-estado" value="${escHtml(j.estado || '')}" maxlength="2" placeholder="PE"/></div>
+  <div class="form-group"><label>Observações</label><textarea id="jfu-obs" rows="2">${escHtml(j.observacoes || '')}</textarea></div>`;
+}
+
+window.openAddJovemFU = async function () {
+  if (!canGerJovensFU()) { toast('Sem permissão', 'error'); return; }
+  showModal(`<div class="modal-hdr"><span>${lc('plus-circle', 14)}</span><h2>Novo Jovem (Fora UMADALPE)</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="jfu-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitAddJovemFU()">${lc('save', 14)} Salvar</button></div>`);
+  let qSetores = q('setores').select('id,nome').order('nome');
+  if (!canSeeAllSetores() && currentUser?.setor_id) qSetores = qSetores.eq('id', currentUser.setor_id);
+  const [{ data: setores }, { data: congs }] = await Promise.all([qSetores, q('congregacoes').select('id,nome,setor_id').order('nome')]);
+  window._cacheCongsJFU = congs || [];
+  $('jfu-body').innerHTML = `
+  ${jfuFormFields()}
+  <div class="form-row">
+    <div class="form-group"><label>Setor</label><select id="jfu-setor" onchange="updateCongsJFU()"><option value="">— Selecione —</option>${(setores || []).map(s => `<option value="${s.id}">${escHtml(s.nome)}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Congregação (referência)</label><select id="jfu-cong"><option value="">— Selecione Setor —</option></select></div>
+  </div>`;
+  setTimeout(() => window.updateCongsJFU(), 50);
+};
+
+window.updateCongsJFU = function () {
+  const sid = document.getElementById('jfu-setor')?.value;
+  const cSel = document.getElementById('jfu-cong');
+  if (!cSel) return;
+  if (!sid) { cSel.innerHTML = '<option value="">— Selecione Setor —</option>'; return; }
+  const cgs = (window._cacheCongsJFU || []).filter(c => c.setor_id === sid);
+  cSel.innerHTML = '<option value="">— Nenhuma —</option>' + cgs.map(c => `<option value="${c.id}">${escHtml(c.nome)}</option>`).join('');
+};
+
+window.submitAddJovemFU = async function () {
+  const nome = (document.getElementById('jfu-nome')?.value || '').trim();
+  if (!nome) return toast('Nome é obrigatório', 'error');
+  const payload = {
+    nome,
+    sexo: document.getElementById('jfu-sexo')?.value || null,
+    data_nascimento: document.getElementById('jfu-nasc')?.value || null,
+    telefone: (document.getElementById('jfu-tel')?.value || '').trim() || null,
+    responsavel: (document.getElementById('jfu-resp')?.value || '').trim() || null,
+    endereco: (document.getElementById('jfu-end')?.value || '').trim() || null,
+    bairro: (document.getElementById('jfu-bairro')?.value || '').trim() || null,
+    cidade: (document.getElementById('jfu-cidade')?.value || '').trim() || null,
+    estado: (document.getElementById('jfu-estado')?.value || '').trim() || null,
+    observacoes: (document.getElementById('jfu-obs')?.value || '').trim() || null,
+    setor_id: document.getElementById('jfu-setor')?.value || null,
+    congregacao_id: document.getElementById('jfu-cong')?.value || null,
+  };
+  const { error } = await q('jovens_fora_umadalpe').insert(payload);
+  if (error) return toast(error.message, 'error');
+  toast('Jovem cadastrado!'); closeModal(); renderJovensForaUmadalpe();
+};
+
+window.openEditJovemFU = async function (id) {
+  if (!canGerJovensFU()) { toast('Sem permissão', 'error'); return; }
+  showModal(`<div class="modal-hdr"><span>${lc('pencil', 14)}</span><h2>Editar Jovem</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="jfu-edit-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitEditJovemFU('${id}')">${lc('save', 14)} Salvar</button></div>`);
+  const [{ data: j }, { data: setores }, { data: congs }] = await Promise.all([
+    q('jovens_fora_umadalpe').select('*').eq('id', id).single(),
+    q('setores').select('id,nome').order('nome'),
+    q('congregacoes').select('id,nome,setor_id').order('nome'),
+  ]);
+  if (!j) return;
+  window._cacheCongsJFU = congs || [];
+  $('jfu-edit-body').innerHTML = `
+  ${jfuFormFields(j)}
+  <div class="form-row">
+    <div class="form-group"><label>Setor</label><select id="jfu-setor" onchange="updateCongsJFU()">${(setores || []).map(s => `<option value="${s.id}" ${s.id === j.setor_id ? 'selected' : ''}>${escHtml(s.nome)}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Congregação (referência)</label><select id="jfu-cong"></select></div>
+  </div>`;
+  setTimeout(() => { window.updateCongsJFU(); const sel = document.getElementById('jfu-cong'); if (sel && j.congregacao_id) sel.value = j.congregacao_id; }, 50);
+};
+
+window.submitEditJovemFU = async function (id) {
+  const nome = (document.getElementById('jfu-nome')?.value || '').trim();
+  if (!nome) return toast('Nome é obrigatório', 'error');
+  const payload = {
+    nome,
+    sexo: document.getElementById('jfu-sexo')?.value || null,
+    data_nascimento: document.getElementById('jfu-nasc')?.value || null,
+    telefone: (document.getElementById('jfu-tel')?.value || '').trim() || null,
+    responsavel: (document.getElementById('jfu-resp')?.value || '').trim() || null,
+    endereco: (document.getElementById('jfu-end')?.value || '').trim() || null,
+    bairro: (document.getElementById('jfu-bairro')?.value || '').trim() || null,
+    cidade: (document.getElementById('jfu-cidade')?.value || '').trim() || null,
+    estado: (document.getElementById('jfu-estado')?.value || '').trim() || null,
+    observacoes: (document.getElementById('jfu-obs')?.value || '').trim() || null,
+    setor_id: document.getElementById('jfu-setor')?.value || null,
+    congregacao_id: document.getElementById('jfu-cong')?.value || null,
+  };
+  const { error } = await q('jovens_fora_umadalpe').update(payload).eq('id', id);
+  if (error) return toast(error.message, 'error');
+  toast('Jovem atualizado!'); closeModal(); renderJovensForaUmadalpe();
+};
+
+window.openViewJovemFU = async function (id) {
+  showModal(loadingPage());
+  const { data: j, error } = await q('jovens_fora_umadalpe').select('*, congregacoes(nome), setores(nome)').eq('id', id).single();
+  if (error || !j) { closeModal(); toast('Erro', 'error'); return; }
+  showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div class="mem-av-lg" style="background:${avatarColor(j.nome)}">${initials(j.nome)}</div><div class="mem-modal-name">${escHtml(j.nome)}</div>${j.sexo ? `<span class="tag tag-blue">${escHtml(j.sexo)}</span>` : ''}</div>
+  <div class="mem-info-grid">
+    <div class="inf-item"><label>Nascimento</label><span>${j.data_nascimento ? fmtDate(j.data_nascimento) : '—'}</span></div>
+    <div class="inf-item"><label>Telefone</label><span>${escHtml(j.telefone || '—')}</span></div>
+    <div class="inf-item"><label>Setor</label><span>${j.setores ? escHtml(j.setores.nome) : '—'}</span></div>
+    <div class="inf-item"><label>Congregação</label><span>${j.congregacoes ? escHtml(j.congregacoes.nome) : '—'}</span></div>
+  </div>
+  ${j.responsavel ? `<div style="padding:0 30px 12px;font-size:.82rem" class="c2"><strong>Responsável:</strong> ${escHtml(j.responsavel)}</div>` : ''}
+  ${j.endereco || j.bairro || j.cidade ? `<div style="padding:0 30px 12px;font-size:.82rem" class="c2"><strong>Endereço:</strong> ${escHtml([j.endereco, j.bairro, j.cidade, j.estado].filter(Boolean).join(', '))}</div>` : ''}
+  ${j.observacoes ? `<div style="padding:0 30px 12px;font-size:.82rem" class="c2"><strong>Obs.:</strong> ${escHtml(j.observacoes)}</div>` : ''}
+  <div class="mem-modal-foot">${j.telefone ? `<a href="https://wa.me/${j.telefone.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer" class="btn btn-teal">${lc("message-circle", 14)} WhatsApp</a>` : ''} ${canGerJovensFU() ? `<button class="btn btn-secondary" onclick="openEditJovemFU('${j.id}')">${lc("pencil", 14)} Editar</button>` : ''}<button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
+};
+
+window.delJovemFU = async function (id, nome) {
+  if (!canGerJovensFU()) { toast('Sem permissão', 'error'); return; }
+  const r = await confirmDialog('Excluir jovem?', `Isso removerá "${nome}" permanentemente.`);
+  if (!r.isConfirmed) return;
+  const { error } = await q('jovens_fora_umadalpe').delete().eq('id', id);
+  if (error) return toast(error.message, 'error');
+  toast('Jovem excluído!'); renderJovensForaUmadalpe();
+};
+
+console.log('[patch_jovens_fora_umadalpe] carregado ✓');

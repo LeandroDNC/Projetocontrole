@@ -137,7 +137,12 @@ window.apurarRanking = async function (silencioso = false) {
 /* ───────────────────────────────────────────────────────────
    3) DASHBOARD — considerar QUALQUER evento (não só "publicado")
    ─────────────────────────────────────────────────────────── */
-window.renderDashboard = async function () {
+/* CONSOLIDAÇÃO: esta redefinição de renderDashboard foi desativada — ela
+   sobrescrevia (por ordem de carregamento) a versão mais completa definida
+   em dashboard_patch.js, que já recebeu a mesma correção de status que esta
+   versão trazia (contar eventos além de só 'publicado'). Função preservada
+   abaixo, só não é mais atribuída a window.renderDashboard. */
+window._renderDashboardDesativado_ajuste = async function () {
   if (typeof hasPerm === 'function' && !hasPerm('visualizar_dashboard') && !(typeof isSuperAdmin === 'function' && isSuperAdmin())) {
     document.getElementById('page-content').innerHTML = `<div class="empty"><div class="empty-ico">${ico('shield', 40)}</div><p>Sem permissão para acessar o dashboard.</p></div>`;
     return;
@@ -856,7 +861,7 @@ window.submitEventoSetorial = async function () {
   closeModal(); renderEventosSetoriais();
 };
 
-window.openEditMembro = function (id) {
+window._openEditMembroDesativado_ajuste = function (id) {
   if (!hasPerm('gerenciar_membros')) { toast('Sem permissão', 'error'); return; }
   showModal(`<div class="modal-hdr"><span>${lc("pencil", 14)}</span><h2>Editar Membro</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="edit-mem-body"><div class="loading-page"><div class="spinner"></div></div></div>`);
   q('membros').select('*').eq('id', id).single().then(({ data: m }) => {
@@ -877,7 +882,7 @@ window.openEditMembro = function (id) {
   });
 };
 
-window.saveMembro = async function (id) {
+window._saveMembroDesativado_ajuste = async function (id) {
   if (!hasPerm('gerenciar_membros')) { toast('Sem permissão', 'error'); return; }
   const payload = {
     nome: ($('em-nome')?.value || '').trim(),
@@ -895,19 +900,27 @@ window.saveMembro = async function (id) {
   closeModal(); toast('Membro atualizado!'); if (currentPage === 'setores') renderSetores();
 };
 
-window.openMemberModal = async function (id) {
+window._openMemberModalDesativado_ajuste = async function (id) {
   showModal(loadingPage());
   const { data: m, error } = await q('membros').select('*').eq('id', id).single();
   if (error || !m) { closeModal(); toast('Erro', 'error'); return; }
   const ebdInfo = m.frequenta_ebd ? `<div style="background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:10px;padding:12px 16px;margin:0 30px 12px;font-size:.82rem"><div class="fw5" style="color:#38bdf8;margin-bottom:4px">${lc("book-open", 14)} Escola Bíblica Dominical</div><div class="c3">Papel: <strong style="color:var(--txt)">${escHtml(m.papel_ebd || 'Aluno')}</strong></div></div>` : '';
   const vocacaoInfo = m.vocacao ? `<div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:12px 16px;margin:0 30px 12px;font-size:.82rem"><div class="fw5" style="color:var(--gold);margin-bottom:4px">${lc("sparkles", 14)} Vocação</div><div class="c2">${escHtml(m.vocacao)}</div></div>` : '';
-  showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div class="mem-av-lg" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><div class="mem-modal-name">${escHtml(m.nome)}</div><span class="tag tag-gold">${escHtml(m.cargo)}</span>${m.frequenta_ebd ? `<span class="tag tag-blue" style="margin-left:6px">${lc("book-open", 14)} EBD</span>` : ''}</div><div class="mem-info-grid"><div class="inf-item"><label>Idade</label><span>${m.idade || '—'} anos</span></div><div class="inf-item"><label>Telefone</label><span>${escHtml(m.telefone || '—')}</span></div><div class="inf-item"><label>Email</label><span style="font-size:.78rem">${escHtml(m.email || '—')}</span></div><div class="inf-item"><label>Batismo</label><span>${m.data_batismo ? fmtDate(m.data_batismo) : '—'}</span></div></div>${vocacaoInfo}${ebdInfo}<div class="mem-modal-foot">${m.telefone ? `<a href="https://wa.me/${m.telefone.replace(/\D/g, '')}" target="_blank" class="btn btn-teal">${lc("message-circle", 14)} WhatsApp</a>` : ''} ${hasPerm('gerenciar_membros') ? `<button class="btn btn-secondary" onclick="openEditMembro('${m.id}')">${lc("pencil", 14)} Editar</button>` : ''}<button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
+  showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div class="mem-av-lg" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><div class="mem-modal-name">${escHtml(m.nome)}</div><span class="tag tag-gold">${escHtml(m.cargo)}</span>${m.frequenta_ebd ? `<span class="tag tag-blue" style="margin-left:6px">${lc("book-open", 14)} EBD</span>` : ''}</div><div class="mem-info-grid"><div class="inf-item"><label>Idade</label><span>${m.idade || '—'} anos</span></div><div class="inf-item"><label>Telefone</label><span>${escHtml(m.telefone || '—')}</span></div><div class="inf-item"><label>Email</label><span style="font-size:.78rem">${escHtml(m.email || '—')}</span></div><div class="inf-item"><label>Batismo</label><span>${m.data_batismo ? fmtDate(m.data_batismo) : '—'}</span></div></div>${vocacaoInfo}${ebdInfo}<div class="mem-modal-foot">${m.telefone ? `<a href="https://wa.me/${m.telefone.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer" class="btn btn-teal">${lc("message-circle", 14)} WhatsApp</a>` : ''} ${hasPerm('gerenciar_membros') ? `<button class="btn btn-secondary" onclick="openEditMembro('${m.id}')">${lc("pencil", 14)} Editar</button>` : ''}<button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
 };
 /* ──────────────────────────────────────────────────────────
    FIX 6 — Menu Global de Membros
    ──────────────────────────────────────────────────────────
    Adiciona a permissão, o item na sidebar e as telas de gestão
    globais de Membros.
+
+   CONSOLIDAÇÃO: as funções de RENDERIZAÇÃO desta seção (tabela
+   simples) foram desativadas abaixo — elas sobrescreviam (por
+   ordem de carregamento) a versão em cards, mais completa, que
+   já existe em adicao.js (mesma filtragem por setor, e ainda
+   com um filtro extra de setor para quem vê todos). O restante
+   deste bloco (menu lateral, wrapper de navigate, permissão
+   'visualizar_membros') continua ativo normalmente.
 ════════════════════════════════════════════════════════════ */
 
 if (typeof PERM_DESC !== 'undefined') {
@@ -958,7 +971,7 @@ if (typeof originalNavigate === 'function' && !window._navigatePatchedMembros) {
   };
 }
 
-window.renderTodosMembros = async function() {
+window._renderTodosMembrosDesativado_ajuste = async function() {
   const pc = document.getElementById('page-content');
   if (!pc) return;
   if (!hasPerm('visualizar_membros')) {
@@ -1019,7 +1032,7 @@ window.renderTodosMembros = async function() {
   refreshLucide();
 };
 
-window.renderMembrosGlobalRows = function(membros) {
+window._renderMembrosGlobalRowsDesativado_ajuste = function(membros) {
   if (!membros || !membros.length) return '<tr><td colspan="5" style="text-align:center;color:var(--c3);padding:24px">Nenhum membro encontrado.</td></tr>';
   return membros.map(m => {
     const act = `<button class="action-btn" title="Ver Perfil" onclick="openMemberModal('${m.id}')">${typeof lc === 'function' ? lc('eye', 14) : '👁️'}</button> ${hasPerm('gerenciar_membros') ? `<button class="action-btn" title="Editar" onclick="openEditMembro('${m.id}')">${typeof lc === 'function' ? lc('pencil', 14) : '✏️'}</button> <button class="action-btn" style="color:var(--red)" title="Excluir" onclick="delMembro('${m.id}')">${typeof lc === 'function' ? lc('trash', 14) : '🗑️'}</button>` : ''}`;
@@ -1039,7 +1052,7 @@ window.renderMembrosGlobalRows = function(membros) {
   }).join('');
 };
 
-window.filterTodosMembros = function(qStr) {
+window._filterTodosMembrosDesativado_ajuste = function(qStr) {
   const t = qStr.toLowerCase();
   const arr = (window._allMembrosCache || []).filter(m => m.nome.toLowerCase().includes(t));
   const tb = document.querySelector('#membros-global-table tbody');
@@ -1049,7 +1062,7 @@ window.filterTodosMembros = function(qStr) {
   }
 };
 
-window.openAddMembroGlobal = async function() {
+window._openAddMembroGlobalDesativado_ajuste = async function() {
   if (!hasPerm('gerenciar_membros')) return toast('Sem permissão', 'error');
   
   showModal(`<div class="modal-hdr"><span>+</span><h2>Novo Membro</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="add-membro-global-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitAddMembroGlobal()">${typeof lc === 'function' ? lc('save', 14) : '💾'} Salvar</button></div>`);
@@ -1105,7 +1118,7 @@ ${pfAtuacaoSelectHtml('amg', '', '')}
 }, 50);
 };
 
-window.updateCongsGlobal = function() {
+window._updateCongsGlobalDesativado_ajuste = function() {
   const sid = document.getElementById('amg-setor')?.value;
   const cSel = document.getElementById('amg-cong');
   if (!cSel) return;
@@ -1114,7 +1127,7 @@ window.updateCongsGlobal = function() {
   cSel.innerHTML = cgs.map(c => `<option value="${c.id}">${escHtml(c.nome)}</option>`).join('') || '<option value="">Nenhuma congregação</option>';
 };
 
-window.submitAddMembroGlobal = async function() {
+window._submitAddMembroGlobalDesativado_ajuste = async function() {
   const nome = (document.getElementById('amg-nome')?.value || '').trim();
   const setor_id = document.getElementById('amg-setor')?.value;
   const congregacao_id = document.getElementById('amg-cong')?.value;
@@ -1136,6 +1149,11 @@ const payload = {
 
     frequenta_ebd: document.getElementById('amg-ebd')?.value === 'true',
     papel_ebd: document.getElementById('amg-papel-ebd')?.value || null
+};
+
+  const { error } = await q('membros').insert(payload);
+  if (error) return toast(error.message, 'error');
+  toast('Membro adicionado!'); closeModal(); renderTodosMembros();
 };
 
 /* ──────────────────────────────────────────────────────────

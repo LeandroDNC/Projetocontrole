@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <title>Calendário UMADALPE 2026</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style/calendar.css">
-    <link rel="stylesheet" href="style/modal.css">
+    <link rel="stylesheet" href="assets/calendar.css">
+    <link rel="stylesheet" href="assets/modal.css">
 
 
 </head>
@@ -701,11 +701,11 @@
             const query = encodeURIComponent(event.location);
             return `
       <div class="transport-icons">
-        <a href="https://m.uber.com/ul/?action=setPickup&dropoff[formatted_address]=${query}" target="_blank"><img src="./assets/uber.svg" alt="Uber"></a>
-        <a href="https://99app.com/launch?dropoff=${query}" target="_blank"><img src="./assets/99.svg" alt="99"></a>
-        <a href="https://waze.com/ul?q=${query}&navigate=yes" target="_blank"><img src="./assets/waze.svg" alt="Waze"></a>
-        <a href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank"><img src="./assets/maps.svg" alt="Google Maps"></a>
-        <a href="https://moovitapp.com/?to=${query}" target="_blank"><img src="./assets/movit.svg" alt="Moovit"></a>
+        <a href="https://m.uber.com/ul/?action=setPickup&dropoff[formatted_address]=${query}" target="_blank" rel="noopener noreferrer"><img src="./assets/uber.svg" alt="Uber"></a>
+        <a href="https://99app.com/launch?dropoff=${query}" target="_blank" rel="noopener noreferrer"><img src="./assets/99.svg" alt="99"></a>
+        <a href="https://waze.com/ul?q=${query}&navigate=yes" target="_blank" rel="noopener noreferrer"><img src="./assets/waze.svg" alt="Waze"></a>
+        <a href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" rel="noopener noreferrer"><img src="./assets/maps.svg" alt="Google Maps"></a>
+        <a href="https://moovitapp.com/?to=${query}" target="_blank" rel="noopener noreferrer"><img src="./assets/movit.svg" alt="Moovit"></a>
       </div>
     `;
         }

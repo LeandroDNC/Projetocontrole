@@ -19,7 +19,7 @@ function fmtD(d) {
   return d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
 }
 function escH(s) {
-  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 function avHtml(nome) {
   const colors = ['#3b82f6','#8b5cf6','#14b8a6','#f43f5e','#f59e0b'];
@@ -69,7 +69,7 @@ window.checkLicenca = async function(userId) {
             Sua licença expirou. Realize o pagamento para continuar usando o sistema.
           </p>
           <a href="https://wa.me/${WHATSAPP_ADMIN}?text=${encodeURIComponent('Olá! Preciso renovar minha licença do EclesiaSync.')}"
-            target="_blank"
+            target="_blank" rel="noopener noreferrer"
             style="display:inline-flex;align-items:center;gap:8px;background:#25d366;
               color:#fff;padding:13px 28px;border-radius:12px;text-decoration:none;
               font-weight:600;font-size:.9rem">
