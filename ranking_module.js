@@ -16,12 +16,16 @@ function rkBack(){ return typeof backBtn==='function'?backBtn():''; }
 function rkLoading(){ return `<div class="loading-page"><div class="spinner"></div><span>Carregando...</span></div>`; }
 
 const NIVEL_COR   = { verde:'#14b8a6', amarelo:'#f59e0b', vermelho:'#f43f5e' };
-const NIVEL_EMOJI = { verde:'🟢', amarelo:'🟡', vermelho:'🔴' };
 const NIVEL_LABEL = { verde:'Verde', amarelo:'Amarelo', vermelho:'Vermelho' };
+
+function nivelDot(nivel, size = 10){
+  const cor = NIVEL_COR[nivel] || '#64748b';
+  return `<span style="display:inline-block;width:${size}px;height:${size}px;border-radius:50%;background:${cor};vertical-align:middle"></span>`;
+}
 
 function nivelBadge(nivel){
   const cor = NIVEL_COR[nivel]||'#64748b';
-  return `<span style="background:${cor}22;color:${cor};border:1px solid ${cor}44;border-radius:99px;padding:2px 10px;font-size:.72rem;font-weight:700">${NIVEL_EMOJI[nivel]||'⚪'} ${NIVEL_LABEL[nivel]||nivel}</span>`;
+  return `<span style="background:${cor}22;color:${cor};border:1px solid ${cor}44;border-radius:99px;padding:2px 10px;font-size:.72rem;font-weight:700;display:inline-flex;align-items:center;gap:5px">${nivelDot(nivel)} ${NIVEL_LABEL[nivel]||nivel}</span>`;
 }
 
 /* ── semana ISO ──────────────────────────────────────────── */
@@ -103,7 +107,7 @@ window.injectRankingMenu = async function injectRankingMenu(){
 
   const div=document.createElement('div');
   div.className='nav-item'; div.dataset.page='ranking';
-  div.innerHTML=`<span class="nav-icon">🏆</span><span class="nav-lbl">Ranking Mensal</span>`;
+  div.innerHTML=`<span class="nav-icon">${lc('trophy',18)}</span><span class="nav-lbl">Ranking Mensal</span>`;
   div.addEventListener('click',()=>{
     navigate('ranking');
     if(typeof toggleMobile==='function') toggleMobile(false);
@@ -200,7 +204,7 @@ window.renderRanking = async function(){
   const podeGerenciar=(typeof isSuperAdmin==='function'&&isSuperAdmin())||(typeof hasPerm==='function'&&hasPerm('gerenciar_ranking'));
   pc.innerHTML=rkLoading();
   const client=rkDb();
-  if(!client){pc.innerHTML=`<div class="empty"><div class="empty-ico">⚠</div><p>Supabase não disponível.</p></div>`;return;}
+  if(!client){pc.innerHTML=`<div class="empty"><div class="empty-ico">${lc('alert-triangle',44)}</div><p>Supabase não disponível.</p></div>`;return;}
   try{
     const hoje=new Date();
     const mesFiltro=window._rkMesFiltro;
@@ -272,29 +276,29 @@ console.log(congsBase);
 
     pc.innerHTML=`
     <div class="sec-hdr">
-      <h2>🏆 Ranking Mensal — ${mesesNome[mesFiltro]} ${anoFiltro}${!ehMesAtual?' <span class="tag" style="font-size:.65rem;vertical-align:middle">histórico</span>':''}</h2>
+      <h2>${lc('trophy',18)} Ranking Mensal — ${mesesNome[mesFiltro]} ${anoFiltro}${!ehMesAtual?' <span class="tag" style="font-size:.65rem;vertical-align:middle">histórico</span>':''}</h2>
       <div class="sec-actions">
         ${rkBack()}
-        ${ehMesAtual?`<button class="btn btn-secondary btn-sm" onclick="apurarRanking(false).then(()=>renderRanking())">🔄 Apurar</button>`:''}
-        ${podeGerenciar?`<button class="btn btn-secondary btn-sm" onclick="openRankingConfig()">⚙️ Configurações</button>`:''}
-        ${podeGerenciar?`<button class="btn btn-primary btn-sm" onclick="exportarRankingPDF()">📄 Relatório PDF</button>`:''}
+        ${ehMesAtual?`<button class="btn btn-secondary btn-sm" onclick="apurarRanking(false).then(()=>renderRanking())">${lc('refresh-cw',14)} Apurar</button>`:''}
+        ${podeGerenciar?`<button class="btn btn-secondary btn-sm" onclick="openRankingConfig()">${lc('settings',14)} Configurações</button>`:''}
+        ${podeGerenciar?`<button class="btn btn-primary btn-sm" onclick="exportarRankingPDF()">${lc('file-text',14)} Relatório PDF</button>`:''}
       </div>
     </div>
 
     <!-- RESUMO -->
     <div class="stats-grid stats-4" style="margin-bottom:24px">
-      <div class="stat-card"><div class="stat-ico" style="background:rgba(100,116,139,.15);font-size:20px">⛪</div><div><div class="stat-val">${congsFiltradas.length}</div><div class="stat-lbl">Total MADALPs</div></div></div>
-      <div class="stat-card" style="border-left:3px solid #14b8a6"><div class="stat-ico" style="background:rgba(20,184,166,.15);font-size:20px">🟢</div><div><div class="stat-val">${totalVerde}</div><div class="stat-lbl">Verde</div></div></div>
-      <div class="stat-card" style="border-left:3px solid #f59e0b"><div class="stat-ico" style="background:rgba(245,158,11,.15);font-size:20px">🟡</div><div><div class="stat-val">${totalAmarelo}</div><div class="stat-lbl">Amarelo</div></div></div>
-      <div class="stat-card" style="border-left:3px solid #f43f5e"><div class="stat-ico" style="background:rgba(244,63,94,.15);font-size:20px">🔴</div><div><div class="stat-val">${totalVermelho}</div><div class="stat-lbl">Vermelho</div></div></div>
+      <div class="stat-card"><div class="stat-ico" style="background:rgba(100,116,139,.15)">${lc('church',20)}</div><div><div class="stat-val">${congsFiltradas.length}</div><div class="stat-lbl">Total MADALPs</div></div></div>
+      <div class="stat-card" style="border-left:3px solid #14b8a6"><div class="stat-ico" style="background:rgba(20,184,166,.15)">${nivelDot('verde',16)}</div><div><div class="stat-val">${totalVerde}</div><div class="stat-lbl">Verde</div></div></div>
+      <div class="stat-card" style="border-left:3px solid #f59e0b"><div class="stat-ico" style="background:rgba(245,158,11,.15)">${nivelDot('amarelo',16)}</div><div><div class="stat-val">${totalAmarelo}</div><div class="stat-lbl">Amarelo</div></div></div>
+      <div class="stat-card" style="border-left:3px solid #f43f5e"><div class="stat-ico" style="background:rgba(244,63,94,.15)">${nivelDot('vermelho',16)}</div><div><div class="stat-val">${totalVermelho}</div><div class="stat-lbl">Vermelho</div></div></div>
     </div>
 
     <!-- METAS CONFIGURADAS -->
     <div style="background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:.82rem;color:var(--txt2);display:flex;gap:20px;flex-wrap:wrap">
-      <span>⚙️ Metas configuradas:</span>
-      <span>🔴 Vermelho: &lt; ${config.amarelo_min} eventos/semana</span>
-      <span>🟡 Amarelo: ≥ ${config.amarelo_min} eventos/semana</span>
-      <span>🟢 Verde: ≥ ${config.verde_min} eventos/semana</span>
+      <span>${lc('settings',13)} Metas configuradas:</span>
+      <span>${nivelDot('vermelho',9)} Vermelho: &lt; ${config.amarelo_min} eventos/semana</span>
+      <span>${nivelDot('amarelo',9)} Amarelo: ≥ ${config.amarelo_min} eventos/semana</span>
+      <span>${nivelDot('verde',9)} Verde: ≥ ${config.verde_min} eventos/semana</span>
     </div>
 
     <!-- GRÁFICO -->
@@ -306,7 +310,7 @@ console.log(congsBase);
 
     <!-- FILTROS -->
     <div class="filter-bar" style="margin-bottom:16px">
-      <div class="filter-title">🔍 Filtrar</div>
+      <div class="filter-title">${lc('search',13)} Filtrar</div>
       <div class="filter-fields">
         <div class="form-group" style="margin:0">
           <label>Mês</label>
@@ -324,9 +328,9 @@ console.log(congsBase);
           <label>Nível</label>
           <select id="rank-filter-nivel" onchange="filterRankingTable()" style="min-width:130px">
             <option value="">Todos</option>
-            <option value="verde">🟢 Verde</option>
-            <option value="amarelo">🟡 Amarelo</option>
-            <option value="vermelho">🔴 Vermelho</option>
+            <option value="verde">Verde</option>
+            <option value="amarelo">Amarelo</option>
+            <option value="vermelho">Vermelho</option>
           </select>
         </div>
         ${vetodosSetores?`<div class="form-group" style="margin:0">
@@ -345,7 +349,7 @@ console.log(congsBase);
 
     <!-- LISTAGEM -->
     <div class="sec-hdr"><h2>MADALPs <span class="count-badge">${congsFiltradas.length}</span></h2></div>
-    ${!congsFiltradas.length?`<div class="empty"><div class="empty-ico">⛪</div><p>Nenhuma MADALP encontrada${setorFiltroAtivo?' neste setor':''}.</p></div>`:`
+    ${!congsFiltradas.length?`<div class="empty"><div class="empty-ico">${lc('church',44)}</div><p>Nenhuma MADALP encontrada${setorFiltroAtivo?' neste setor':''}.</p></div>`:`
     <div id="ranking-lista" style="display:flex;flex-direction:column;gap:8px">
       ${congsFiltradas.map(c=>{
         const m=getMensal(c.id);
@@ -360,14 +364,14 @@ console.log(congsBase);
           data-nome="${rkEsc(c.nome).toLowerCase()}"
           style="border-left:3px solid ${cor}">
           <div class="user-card-main">
-            <div style="font-size:24px;flex-shrink:0">${NIVEL_EMOJI[nivel]}</div>
+            <div style="flex-shrink:0">${nivelDot(nivel, 20)}</div>
             <div class="user-card-info">
               <div class="fw5 fs-sm">${rkEsc(c.nome)}</div>
               <div class="fs-xs c3">${rkEsc(getSetorNome(c.setor_id))}</div>
               <div class="user-card-tags" style="margin-top:6px">
                 ${nivelBadge(nivel)}
-                <span class="tag">📅 Mês: ${totalMes} eventos</span>
-                ${ehMesAtual?`<span class="tag">📆 Semana: ${totalSem} eventos</span>`:''}
+                <span class="tag">${lc('calendar',12)} Mês: ${totalMes} eventos</span>
+                ${ehMesAtual?`<span class="tag">${lc('calendar-days',12)} Semana: ${totalSem} eventos</span>`:''}
               </div>
             </div>
           </div>
@@ -383,14 +387,14 @@ console.log(congsBase);
       const ctx=document.getElementById('chart-ranking-dist');
       if(ctx) new Chart(ctx,{
         type:'doughnut',
-        data:{labels:['🟢 Verde','🟡 Amarelo','🔴 Vermelho'],datasets:[{data:[totalVerde,totalAmarelo,totalVermelho],backgroundColor:['rgba(20,184,166,.8)','rgba(245,158,11,.8)','rgba(244,63,94,.8)'],borderWidth:0,hoverOffset:6}]},
+        data:{labels:['Verde','Amarelo','Vermelho'],datasets:[{data:[totalVerde,totalAmarelo,totalVermelho],backgroundColor:['rgba(20,184,166,.8)','rgba(245,158,11,.8)','rgba(244,63,94,.8)'],borderWidth:0,hoverOffset:6}]},
         options:{responsive:true,plugins:{legend:{labels:{color:'#94a3b8'},position:'right'}},cutout:'55%'}
       });
     }
 
   }catch(e){
     console.error('renderRanking:',e);
-    pc.innerHTML=`<div class="empty"><div class="empty-ico">⚠</div><p>Erro ao carregar ranking.<br><small>${rkEsc(e.message)}</small></p></div>`;
+    pc.innerHTML=`<div class="empty"><div class="empty-ico">${lc('alert-triangle',44)}</div><p>Erro ao carregar ranking.<br><small>${rkEsc(e.message)}</small></p></div>`;
   }
 };
 
@@ -424,7 +428,7 @@ window.filterRankingTable = function(){
 
 /* ── DETALHE DA MADALP ───────────────────────────────────── */
 window.openRankingDetalhe = async function(congId, congNome){
-  rkModal(`<div class="modal-hdr"><span>🏆</span><h2>${rkEsc(congNome)}</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="rank-det-body">${rkLoading()}</div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
+  rkModal(`<div class="modal-hdr"><span>${lc('trophy',20)}</span><h2>${rkEsc(congNome)}</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="rank-det-body">${rkLoading()}</div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
   const client=rkDb(); if(!client) return;
   try{
     const hoje=new Date();
@@ -440,17 +444,17 @@ window.openRankingDetalhe = async function(congId, congNome){
     const nivelAtual=mensal?.[0]?.nivel_final||'vermelho';
     const mesesNome=['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
     const tipoLabel=typeof window.tipoLabel==='function'?window.tipoLabel:t=>t;
-    const tipoIcon=typeof window.tipoIcon==='function'?window.tipoIcon:()=>'📋';
+    const tipoIcon=typeof window.tipoIcon==='function'?window.tipoIcon:()=>lc('clipboard',16);
     document.getElementById('rank-det-body').innerHTML=`
     <div style="text-align:center;padding:16px 0 20px">
-      <div style="font-size:48px">${NIVEL_EMOJI[nivelAtual]}</div>
+      <div>${nivelDot(nivelAtual, 40)}</div>
       <div style="font-size:1.4rem;font-weight:700;color:${NIVEL_COR[nivelAtual]};margin-top:4px">${NIVEL_LABEL[nivelAtual]}</div>
       <div class="fs-xs c3">Nível atual — ${mesesNome[mesAtual]}/${anoAtual}</div>
     </div>
     <div class="sec-hdr" style="margin-bottom:10px"><h2 style="font-size:.9rem">Histórico Mensal</h2></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
       ${(mensal||[]).map(m=>`<div style="flex:1;min-width:80px;background:${NIVEL_COR[m.nivel_final]}22;border:1px solid ${NIVEL_COR[m.nivel_final]}44;border-radius:10px;padding:10px;text-align:center">
-        <div style="font-size:18px">${NIVEL_EMOJI[m.nivel_final]}</div>
+        <div>${nivelDot(m.nivel_final, 16)}</div>
         <div class="fs-xs fw5" style="color:${NIVEL_COR[m.nivel_final]}">${mesesNome[m.mes]}/${m.ano}</div>
         <div class="fs-xs c3">${m.total_eventos} eventos</div>
       </div>`).join('')||'<p class="c3 fs-xs">Sem histórico mensal.</p>'}
@@ -458,7 +462,7 @@ window.openRankingDetalhe = async function(congId, congNome){
     <div class="sec-hdr" style="margin-bottom:10px"><h2 style="font-size:.9rem">Semanas do Mês Atual</h2></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
       ${(semanal||[]).map(s=>`<div style="flex:1;min-width:80px;background:${NIVEL_COR[s.nivel]}22;border:1px solid ${NIVEL_COR[s.nivel]}44;border-radius:10px;padding:10px;text-align:center">
-        <div style="font-size:18px">${NIVEL_EMOJI[s.nivel]}</div>
+        <div>${nivelDot(s.nivel, 16)}</div>
         <div class="fs-xs fw5" style="color:${NIVEL_COR[s.nivel]}">Sem. ${s.semana}</div>
         <div class="fs-xs c3">${s.total_eventos} eventos</div>
       </div>`).join('')||'<p class="c3 fs-xs">Sem dados semanais.</p>'}
@@ -479,27 +483,27 @@ window.openRankingDetalhe = async function(congId, congNome){
 
 /* ── CONFIGURAÇÕES ───────────────────────────────────────── */
 window.openRankingConfig = async function(){
-  rkModal(`<div class="modal-hdr"><span>⚙️</span><h2>Configurações do Ranking</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="rank-cfg-body">${rkLoading()}</div><div class="modal-foot" id="rank-cfg-foot"></div>`);
+  rkModal(`<div class="modal-hdr"><span>${lc('settings',20)}</span><h2>Configurações do Ranking</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="rank-cfg-body">${rkLoading()}</div><div class="modal-foot" id="rank-cfg-foot"></div>`);
   const client=rkDb(); if(!client) return;
   try{
     const {data:cfgArr}=await client.from('ranking_config').select('*').order('created_at',{ascending:false}).limit(1);
     const cfg=cfgArr?.[0]||{vermelho_min:1,amarelo_min:3,verde_min:5};
     document.getElementById('rank-cfg-body').innerHTML=`
     <div style="background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:.82rem;color:var(--txt2)">
-      💡 Defina a quantidade mínima de <strong>eventos por semana</strong> para cada nível.
+      ${lc('lightbulb',13)} Defina a quantidade mínima de <strong>eventos por semana</strong> para cada nível.
     </div>
     <div class="form-group">
-      <label>🔴 Vermelho — mínimo de eventos/semana</label>
+      <label>${nivelDot('vermelho',9)} Vermelho — mínimo de eventos/semana</label>
       <input id="cfg-verm" type="number" min="0" value="${cfg.vermelho_min||1}"/>
       <small class="c3 fs-xs">MADALPs com menos eventos que este valor ficam em Vermelho</small>
     </div>
     <div class="form-group">
-      <label>🟡 Amarelo — mínimo de eventos/semana</label>
+      <label>${nivelDot('amarelo',9)} Amarelo — mínimo de eventos/semana</label>
       <input id="cfg-amar" type="number" min="0" value="${cfg.amarelo_min||3}"/>
       <small class="c3 fs-xs">Acima de Vermelho e abaixo de Verde</small>
     </div>
     <div class="form-group">
-      <label>🟢 Verde — mínimo de eventos/semana</label>
+      <label>${nivelDot('verde',9)} Verde — mínimo de eventos/semana</label>
       <input id="cfg-verd" type="number" min="0" value="${cfg.verde_min||5}"/>
       <small class="c3 fs-xs">MADALPs com este valor ou mais ficam em Verde</small>
     </div>
@@ -507,7 +511,7 @@ window.openRankingConfig = async function(){
       <label>Descrição (opcional)</label>
       <input id="cfg-desc" value="${rkEsc(cfg.descricao||'')}" placeholder="Ex: Configuração Março 2025"/>
     </div>`;
-    document.getElementById('rank-cfg-foot').innerHTML=`<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveRankingConfig('${cfg.id||''}')">💾 Salvar e Reapurar</button>`;
+    document.getElementById('rank-cfg-foot').innerHTML=`<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveRankingConfig('${cfg.id||''}')">${lc('save',14)} Salvar e Reapurar</button>`;
   }catch(e){
     document.getElementById('rank-cfg-body').innerHTML=`<p class="c3" style="padding:20px">Erro: ${rkEsc(e.message)}</p>`;
     document.getElementById('rank-cfg-foot').innerHTML=`<button class="btn btn-secondary" onclick="closeModal()">Fechar</button>`;
@@ -565,7 +569,7 @@ window.exportarRankingPDF = async function(){
     const rows=(congs||[]).map(c=>{
       const m=getMensal(c.id);
       const nivel=m?.nivel_final||'vermelho';
-      return [c.nome, getSetorNome(c.setor_id), `${NIVEL_EMOJI[nivel]} ${NIVEL_LABEL[nivel]}`, m?.total_eventos||0];
+      return [c.nome, getSetorNome(c.setor_id), NIVEL_LABEL[nivel], m?.total_eventos||0];
     });
     // Ordena: verde → amarelo → vermelho
     rows.sort((a,b)=>{

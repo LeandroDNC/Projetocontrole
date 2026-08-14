@@ -1,7 +1,8 @@
-const UMADALPE_TIPOS_OCULTOS = ['culto', 'desviados_voltaram', 'pessoas_evangelizadas', 'presentes_oracao', 'ofertas_umadalpe'];
-
-// tipos evangelísticos (ganham os 3 campos exclusivos e perdem "Bênçãos Agradecidas")
-const UMADALPE_TIPOS_EVANGELISTICOS = ['evangelismo', 'saida', 'culto_ar_livre', 'ponto_pregacao'];
+// UMADALPE_TIPOS_OCULTOS e UMADALPE_TIPOS_EVANGELISTICOS já são declarados
+// em adicao.js (carregado antes deste arquivo, com os mesmos valores) —
+// redeclará-los aqui com "const" quebrava o carregamento deste script
+// inteiro (SyntaxError: identificador já declarado), fazendo nada do que
+// vem abaixo (menu de eventos, campos, relatório) rodar de verdade.
 
 if (typeof TIPOS_EVENTO !== 'undefined') {
   // Garante que os tipos pedidos existam (não sobrescreve se já existirem outras props)
@@ -14,7 +15,7 @@ if (typeof TIPOS_EVENTO !== 'undefined') {
   TIPOS_EVENTO['visita_detidos'] = TIPOS_EVENTO['visita_detidos'] || { label: 'Visita aos Desviados/Detidos', grupo: 'Visitas', icon: 'lock' };
   TIPOS_EVENTO['visita_convertidos'] = TIPOS_EVENTO['visita_convertidos'] || { label: 'Visita aos Novos Convertidos', grupo: 'Visitas', icon: 'cross' };
   TIPOS_EVENTO['visita_umadalpe'] = TIPOS_EVENTO['visita_umadalpe'] || { label: 'Visita a outra UMADALPE', grupo: 'Visitas', icon: 'handshake' };
-  TIPOS_EVENTO['convocacao_superintendencia'] = { label: 'Convocação da Superintendência', grupo: 'Eventos', icon: 'megaphone' };
+  TIPOS_EVENTO['convocacao_superintendencia'] = { label: 'Evento da Superintendência', grupo: 'Eventos', icon: 'megaphone' };
   TIPOS_EVENTO['oracao'] = { label: 'Oração', grupo: 'Eventos', icon: 'hand' };
 }
 
@@ -182,9 +183,9 @@ window.submitEvento = async function (tipo) {
 /* ───────────────────────────────────────────────────────────
    5) RELATÓRIO — totalizadores 100% automáticos
    ─────────────────────────────────────────────────────────── */
-const _origRenderRelatorios = window.renderRelatorios;
+const _origRenderRelatorios2 = window.renderRelatorios;
 window.renderRelatorios = async function () {
-  if (typeof _origRenderRelatorios === 'function') await _origRenderRelatorios();
+  if (typeof _origRenderRelatorios2 === 'function') await _origRenderRelatorios2();
   const pc = $('page-content');
   if (!pc || !hasPerm('ver_relatorios')) return;
 

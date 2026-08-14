@@ -479,26 +479,6 @@ window.submitEventoSetorial = async function () {
 
 console.log('[patch_atuacao_visitas] carregado ✓');
 
-const wrapper = document.getElementById("eventos-wrapper");
-const lista = document.getElementById("dash-eventos-setoriais");
-const btn = document.getElementById("btn-expand-eventos");
-
-btn.addEventListener("click",()=>{
-
-    const aberto = lista.classList.toggle("expanded");
-
-    wrapper.classList.toggle("expanded");
-
-    btn.classList.toggle("open");
-
-    btn.innerHTML = aberto
-        ? `${lc("chevrons-up",16)} Recolher lista`
-        : `${lc("chevrons-down",16)} Ver todos os eventos`;
-
-    refreshLucide();
-
-});
-
 /* ═══════════════════════════════════════════════════════════
    EclesiaSync · patch_umadalpe_eventos.js
    Carregar por ÚLTIMO no HTML, depois de patch_atuacao_visitas.js:
@@ -717,70 +697,15 @@ window.submitEvento = async function (tipo) {
   toast('Evento registrado!'); closeModal(); renderSetores();
 };
 
-/* ───────────────────────────────────────────────────────────
-   5) RELATÓRIO — totalizadores 100% automáticos
-   ─────────────────────────────────────────────────────────── */
-const _origRenderRelatorios = window.renderRelatorios;
-window.renderRelatorios = async function () {
-  if (typeof _origRenderRelatorios === 'function') await _origRenderRelatorios();
-  const pc = $('page-content');
-  if (!pc || !hasPerm('ver_relatorios')) return;
-
-  const sid = relSetorFiltro || currentUser?.setor_id || null;
-  const cid = relCongFiltro || null;
-  let qEv = q('eventos').select('tipo,data,participantes,visitas_recebidas_umadalpe,visita_coordenacao_setor,visita_superintendencia,visita_obreiro_congregacao,visitas_ministerio,desviados_voltaram_campo,almas_salvas,batismo_espirito,renovo,ofertas,evangelizados,literaturas_distribuidas,presentes_evangelismo,bencaos_alcancadas')
-    .gte('data', relFiltroInicio).lte('data', relFiltroFim);
-  if (sid) qEv = qEv.eq('setor_id', sid);
-  if (cid) qEv = qEv.eq('congregacao_id', cid);
-  const { data: evs } = await qEv;
-  const eventos = evs || [];
-
-  const somar = campo => eventos.reduce((s, e) => s + (e[campo] || 0), 0);
-  const tiposEvangelisticos = ['evangelismo', 'saida', 'culto_ar_livre', 'ponto_pregacao'];
-  const presentesEvangelismo = eventos.filter(e => tiposEvangelisticos.includes(e.tipo)).reduce((s, e) => s + (e.participantes || 0), 0);
-  const presentesOracao = eventos.filter(e => e.tipo === 'oracao').reduce((s, e) => s + (e.participantes || 0), 0);
-  const convocacoesAtendidas = eventos.filter(e => e.tipo === 'convocacao_superintendencia').length;
-
-  const card = (icon, val, label) => `<div class="stat-card"><div class="stat-ico ic-violet">${icon}</div><div><div class="stat-val">${val}</div><div class="stat-lbl">${label}</div></div></div>`;
-
-  const bloco = document.createElement('div');
-  bloco.innerHTML = `
-  <div class="sec-hdr" style="margin-top:8px"><h2>${lc('shield', 18)} Totalizadores UMADALPE</h2><span class="tag tag-primary">100% automático — calculado dos eventos</span></div>
-  <div class="stats-grid stats-4" style="margin-bottom:12px">
-    ${card(lc('cross', 20), somar('almas_salvas'), 'Almas Salvas')}
-    ${card(lc('heart-handshake', 20), somar('desviados_voltaram_campo'), 'Desviados que Voltaram')}
-    ${card(lc('sparkles', 20), somar('batismo_espirito'), 'Batismo no Espírito')}
-    ${card(lc('sparkles', 20), somar('renovo'), 'Renovo')}
-  </div>
-  <div class="stats-grid stats-4" style="margin-bottom:12px">
-    ${canSeeFinanceiro() ? card(lc('coins', 20), fmtMoney(somar('ofertas')), 'Ofertas') : ''}
-    ${card(lc('user', 20), somar('evangelizados'), 'Pessoas Evangelizadas')}
-    ${card(lc('book-open', 20), somar('literaturas_distribuidas'), 'Literaturas Distribuídas')}
-    ${card(lc('sun', 20), presentesEvangelismo, 'Presentes no Evangelismo')}
-  </div>
-  <div class="stats-grid stats-4" style="margin-bottom:12px">
-    ${card(lc('handshake', 20), somar('visitas_recebidas_umadalpe'), 'Visitas Recebidas UMADALPE')}
-    ${card(lc('briefcase', 20), somar('visita_coordenacao_setor'), 'Visita da Coordenação')}
-    ${card(lc('shield-check', 20), somar('visita_superintendencia'), 'Visita da Superintendência')}
-    ${card(lc('church', 20), somar('visita_obreiro_congregacao'), 'Visita do Obreiro')}
-  </div>
-  <div class="stats-grid stats-4" style="margin-bottom:24px">
-    ${card(lc('users', 20), somar('visitas_ministerio'), 'Visitas do Ministério')}
-    ${card(lc('gift', 20), somar('bencaos_alcancadas'), 'Bênçãos Agradecidas')}
-    ${card(lc('check-circle', 20), convocacoesAtendidas, 'Convocações Atendidas')}
-    ${card(lc('hand', 20), presentesOracao, 'Presentes na Oração')}
-  </div>`;
-
-  const secEventos = pc.querySelector('.sec-hdr');
-  if (secEventos && secEventos.parentElement === pc) {
-    pc.insertBefore(bloco, secEventos.nextSibling.nextSibling || null);
-  } else {
-    pc.appendChild(bloco);
-  }
-  refreshLucide();
-};
-
-console.log('[patch_umadalpe_eventos] carregado ✓');
+/* O bloco "5) RELATÓRIO — totalizadores 100% automáticos" que existia
+   aqui era uma cópia idêntica do que patch_umadalpe_eventos.js (carregado
+   depois deste arquivo) já faz — as duas versões declaravam a mesma
+   variável top-level (_origRenderRelatorios), o que gerava
+   "SyntaxError: Identifier already declared" e travava o carregamento
+   de patch_umadalpe_eventos.js inteiro. Além do erro, se as duas
+   rodassem (com a variável renomeada) o card "Totalizadores UMADALPE"
+   apareceria duplicado na tela de Relatórios. Removida a cópia daqui;
+   a versão de patch_umadalpe_eventos.js é a que roda. */
 
 
 

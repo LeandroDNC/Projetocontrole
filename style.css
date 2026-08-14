@@ -21,6 +21,7 @@
   --bg-side: #0c1020;
   --gold: #c9a84c;
   --gold-l: #e2c070;
+  --gold-rgb: 201, 168, 76;
   --blue: #3b82f6;
   --teal: #14b8a6;
   --rose: #f43f5e;
@@ -28,45 +29,45 @@
   --txt: #f1f5f9;
   --txt2: #94a3b8;
   --txt3: #475569;
-  --bdr: rgba(201, 168, 76, .14);
+  --bdr: rgba(var(--gold-rgb), .14);
   --bdr2: rgba(255, 255, 255, .06);
   --shadow: 0 8px 32px rgba(0, 0, 0, .55);
   --r: 14px;
   --r2: 8px;
   --sw: 260px;
   --ease: all .28s cubic-bezier(.4, 0, .2, 1);
-  --theme-icon: "🌙";
 }
 
 /* ════════════════════════════
    TEMA CLARO
 ════════════════════════════ */
 [data-theme="light"] {
-  --bg: #e8e8e8;
+  --bg: #eef1fa;
   --bg-card: #ffffff;
-  --bg-card2: #f7f8fc;
-
-  /* 🔥 ALTERE AQUI */
+  --bg-card2: #f4f6fc;
   --bg-side: #ffffff;
-  --side-text: #0f172a;
- 
+  --side-text: #1e293b;
 
-
-
-  --white:rgba(253, 253, 253, 0.2);
-  --gold: #a07830;
-  --gold-l: #c99a3e;
-  --blue: #2563eb;
-  --teal: #0d9488;
+  --white: rgba(253, 253, 253, 0.2);
+  /* Cor primária do tema claro passa a ser azul, seguindo a
+     referência de design enviada — como o app inteiro já usa
+     var(--gold)/var(--gold-l) para a cor de destaque (botões,
+     ícones, badges, bordas), só reapontar essas duas variáveis
+     já muda a identidade do tema claro sem tocar em nenhuma
+     outra regra CSS. */
+  --gold: #4f7dfb;
+  --gold-l: #6f97fd;
+  --gold-rgb: 79, 125, 251;
+  --blue: #4f7dfb;
+  --teal: #0ea5a5;
   --rose: #e11d48;
-  --violet: #7c3aed;
-  --txt: #0f172a;
-  --txt2: #374151;
-  --txt3: #6b7280;
-  --bdr: rgba(160, 120, 48, .2);
-  --bdr2: rgba(0, 0, 0, .1);
-  --shadow: 0 8px 32px rgba(0, 0, 0, .12);
-  --theme-icon: "☀";
+  --violet: #7c6cf0;
+  --txt: #1e293b;
+  --txt2: #64748b;
+  --txt3: #94a3b8;
+  --bdr: rgba(79, 125, 251, .16);
+  --bdr2: rgba(30, 41, 59, .07);
+  --shadow: 0 12px 32px rgba(79, 125, 251, .12);
 }
 
 /* ════════════════════════════
@@ -259,7 +260,7 @@
 
 .theme-btn.active {
   border-color: var(--gold);
-  background: rgba(201, 168, 76, .1);
+  background: rgba(var(--gold-rgb), .1);
 }
 
 .theme-btn-icon {
@@ -307,7 +308,7 @@
 
 .cb-btn.active {
   border-color: var(--gold);
-  background: rgba(201, 168, 76, .1);
+  background: rgba(var(--gold-rgb), .1);
 }
 
 .cb-btn-swatch {
@@ -534,8 +535,8 @@ textarea {
 
 textarea:focus {
   border-color: var(--gold);
-  background: rgba(201, 168, 76, .04);
-  box-shadow: 0 0 0 3px rgba(201, 168, 76, .1)
+  background: rgba(var(--gold-rgb), .04);
+  box-shadow: 0 0 0 3px rgba(var(--gold-rgb), .1)
 }
 
 [data-theme="light"] textarea {
@@ -543,7 +544,7 @@ textarea:focus {
 }
 
 [data-theme="light"] textarea:focus {
-  background: rgba(160, 120, 48, .04);
+  background: rgba(var(--gold-rgb), .04);
 }
 
 .hidden {
@@ -638,14 +639,14 @@ textarea:focus {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--), var(--gold-l));
+  background: linear-gradient(135deg, var(--gold), var(--gold-l));
   color: #090c18;
-  box-shadow: 0 4px 16px rgba(201, 168, 76, .3)
+  box-shadow: 0 4px 16px rgba(var(--gold-rgb), .3)
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(201, 168, 76, .4)
+  box-shadow: 0 8px 24px rgba(var(--gold-rgb), .4)
 }
 
 .btn-secondary {
@@ -739,8 +740,8 @@ textarea:focus {
 .form-group input:focus,
 .form-group select:focus {
   border-color: var(--gold);
-  background: rgba(201, 168, 76, .04);
-  box-shadow: 0 0 0 3px rgba(201, 168, 76, .1)
+  background: rgba(var(--gold-rgb), .04);
+  box-shadow: 0 0 0 3px rgba(var(--gold-rgb), .1)
 }
 
 .form-group select option {
@@ -758,7 +759,7 @@ textarea:focus {
 }
 
 .form-group select[multiple] option:checked {
-  background: rgba(201, 168, 76, .2);
+  background: rgba(var(--gold-rgb), .2);
   color: var(--gold)
 }
 
@@ -797,7 +798,7 @@ textarea:focus {
 }
 
 .tag-gold {
-  background: rgba(201, 168, 76, .15);
+  background: rgba(var(--gold-rgb), .15);
   color: var(--gold)
 }
 
@@ -831,7 +832,7 @@ textarea:focus {
 }
 
 .role-admin {
-  background: rgba(201, 168, 76, .2);
+  background: rgba(var(--gold-rgb), .2);
   color: var(--gold)
 }
 
@@ -941,44 +942,53 @@ textarea:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
-              radial-gradient(circle at 100% 100%, rgba(201, 168, 76, 0.05) 0%, transparent 50%),
-              var(--bg);
+  background: var(--bg);
   position: relative;
   overflow: hidden;
   padding: 16px;
 }
 
-[data-theme="light"] #screen-login {
-  background: radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
-              radial-gradient(circle at 100% 100%, rgba(160, 120, 48, 0.03) 0%, transparent 50%),
-              var(--bg);
+/* ── Cartão dividido em dois painéis (marca + formulário) ── */
+.login-split {
+  display: flex;
+  width: 100%;
+  max-width: 920px;
+  min-height: 560px;
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.45);
+  animation: loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  background: var(--bg-card);
+}
+
+[data-theme="light"] .login-split {
+  box-shadow: 0 30px 70px -20px rgba(30, 41, 59, 0.22);
 }
 
 .login-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(100px);
+  filter: blur(80px);
   pointer-events: none;
-  opacity: 0.6;
+  opacity: 0.55;
   animation: orbFloat 20s infinite alternate ease-in-out;
 }
 
 .orb-a {
-  width: 600px;
-  height: 600px;
-  background: rgba(59, 130, 246, 0.12);
-  top: -200px;
-  right: -100px;
+  width: 320px;
+  height: 320px;
+  background: rgba(255, 255, 255, 0.16);
+  top: -120px;
+  right: -80px;
   animation-delay: 0s;
 }
 
 .orb-b {
-  width: 500px;
-  height: 500px;
-  background: rgba(201, 168, 76, 0.1);
-  bottom: -150px;
-  left: -100px;
+  width: 260px;
+  height: 260px;
+  background: rgba(255, 255, 255, 0.1);
+  bottom: -90px;
+  left: -70px;
   animation-delay: -5s;
 }
 
@@ -988,25 +998,115 @@ textarea:focus {
   100% { transform: translate(-20px, -30px) scale(0.9); }
 }
 
-.login-card {
-  background: rgba(17, 24, 39, 0.7);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
-  padding: 60px 40px;
-  width: 100%;
-  max-width: 440px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  animation: loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+/* Painel azul de marca (esquerda no desktop, topo no mobile) */
+.login-brand-panel {
   position: relative;
-  z-index: 2;
+  z-index: 1;
+  flex: 0 0 42%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 40px 44px 40px 36px;
+  background: linear-gradient(160deg, #6f97fd 0%, #4f7dfb 45%, #2f56d6 100%);
 }
 
-[data-theme="light"] .login-card {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+[data-theme="dark"] .login-brand-panel {
+  background: linear-gradient(160deg, #3b5bdb 0%, #2547b8 55%, #14245e 100%);
+}
+
+.login-brand-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  color: #fff;
+}
+
+.login-brand-content .login-emblem {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 18px;
+}
+
+.login-brand-content h1 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.7rem;
+  color: #fff;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.login-brand-tag {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.login-brand-desc {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.68);
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+/* Onda que separa os dois painéis. .login-wave-seam é um item flex de
+   largura/altura zero — não ocupa espaço no layout, só marca a costura
+   exata entre os painéis; o SVG dentro dele é posicionado absoluto e
+   "vaza" para dentro do painel azul, na cor do painel do formulário. */
+.login-wave-seam {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 0;
+  width: 0;
+}
+
+.login-wave {
+  position: absolute;
+  color: var(--bg-card);
+  fill: currentColor;
+  pointer-events: none;
+}
+
+.login-wave-v {
+  top: 0;
+  left: -34px;
+  width: 34px;
+  height: 100%;
+}
+
+.login-wave-h {
+  display: none;
+}
+
+/* Painel do formulário (direita no desktop, base no mobile) */
+.login-card {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--bg-card);
+  padding: 48px 46px;
+  animation: none;
+}
+
+.login-form-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.35rem;
+  color: var(--txt);
+  margin-bottom: 4px;
+}
+
+.login-form-sub {
+  font-size: 0.82rem;
+  color: var(--txt3);
+  margin-bottom: 26px;
 }
 
 @keyframes loginFadeUp {
@@ -1071,13 +1171,13 @@ textarea:focus {
 .login-card input:focus {
   background: rgba(255, 255, 255, 0.06);
   border-color: var(--gold);
-  box-shadow: 0 0 0 4px rgba(201, 168, 76, 0.15);
+  box-shadow: 0 0 0 4px rgba(var(--gold-rgb), 0.15);
   outline: none;
 }
 
 [data-theme="light"] .login-card input:focus {
   background: #fff;
-  box-shadow: 0 0 0 4px rgba(160, 120, 48, 0.1);
+  box-shadow: 0 0 0 4px rgba(var(--gold-rgb), 0.12);
 }
 
 .login-card input:focus + .input-icon,
@@ -1086,7 +1186,7 @@ textarea:focus {
 }
 
 .btn-primary.btn-full {
-  background: linear-gradient(135deg, var(--gold) 0%, #a07830 100%);
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-l) 100%);
   border: none;
   height: 52px;
   border-radius: 12px;
@@ -1096,13 +1196,13 @@ textarea:focus {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  box-shadow: 0 10px 20px -5px rgba(160, 120, 48, 0.3);
+  box-shadow: 0 10px 20px -5px rgba(var(--gold-rgb), 0.3);
   transition: all 0.3s ease;
 }
 
 .btn-primary.btn-full:hover {
   transform: translateY(-2px);
-  box-shadow: 0 15px 30px -10px rgba(160, 120, 48, 0.4);
+  box-shadow: 0 15px 30px -10px rgba(var(--gold-rgb), 0.4);
   filter: brightness(1.1);
 }
 
@@ -1164,7 +1264,7 @@ textarea:focus {
 }
 
 .login-theme-btn.active {
-  background: rgba(201, 168, 76, 0.1);
+  background: rgba(var(--gold-rgb), 0.1);
   border-color: var(--gold);
   color: var(--gold);
 }
@@ -1294,7 +1394,7 @@ textarea:focus {
 }
 
 .sidebar .nav-item.active {
-  background: rgba(201, 168, 76, .15);
+  background: rgba(var(--gold-rgb), .15);
   color: var(--gold);
 }
 
@@ -1567,7 +1667,7 @@ textarea:focus {
   align-items: center;
   gap: 5px;
   background: var(--bg-card);
-  border-bottom: 3px solid #4747dde7;
+  border: 1px solid var(--bdr2);
   border-radius: 12px;
   padding: 12px 16px;
   cursor: pointer;
@@ -1578,7 +1678,7 @@ textarea:focus {
 
 
 .shortcut-btn:hover {
-  border-color: rgba(201, 168, 76, .3);
+  border-color: rgba(var(--gold-rgb), .3);
   transform: translateY(-2px);
   background: var(--bg-card2)
 }
@@ -1716,7 +1816,7 @@ textarea:focus {
 
 .stat-card {
   background: var(--bg-card);
-  border-bottom: 3px solid #3e3ecddb;
+  border: 1px solid var(--bdr2);
   border-radius: var(--r);
   padding: 22px;
   display: flex;
@@ -1729,7 +1829,7 @@ textarea:focus {
 .stat-card:hover {
   border-color: var(--gold);
   transform: translateY(-3px);
-  box-shadow: 0 0 28px rgba(201, 168, 76, .12)
+  box-shadow: 0 0 28px rgba(var(--gold-rgb), .12)
 }
 
 .stat-ico {
@@ -1744,7 +1844,7 @@ textarea:focus {
 }
 
 .ic-gold {
-  background: rgba(201, 168, 76, .15)
+  background: rgba(var(--gold-rgb), .15)
 }
 
 .ic-blue {
@@ -1847,7 +1947,7 @@ textarea:focus {
   position: relative;
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 0 5px 10px rgba(10, 105, 189, 0.38);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .08);
   
 }
 
@@ -1865,7 +1965,7 @@ textarea:focus {
 }
 
 .item-card:hover {
-  border-color: rgba(201, 168, 76, .3);
+  border-color: rgba(var(--gold-rgb), .3);
   transform: translateY(-3px);
   box-shadow: var(--shadow)
 }
@@ -1889,7 +1989,7 @@ textarea:focus {
   align-items: center;
   justify-content: center;
   font-size: 17px;
-  background: rgba(201, 168, 76, .1);
+  background: rgba(var(--gold-rgb), .1);
   flex-shrink: 0
 }
 
@@ -1923,7 +2023,7 @@ textarea:focus {
 }
 
 .lider-card:hover {
-  border-color: rgba(201, 168, 76, .3);
+  border-color: rgba(var(--gold-rgb), .3);
   transform: translateY(-2px)
 }
 
@@ -2006,7 +2106,7 @@ textarea:focus {
 }
 
 .member-row:hover {
-  border-color: rgba(201, 168, 76, .3);
+  border-color: rgba(var(--gold-rgb), .3);
   background: var(--bg-card2);
   transform: translateX(4px)
 }
@@ -2146,7 +2246,7 @@ textarea:focus {
 }
 
 .act-item:hover {
-  border-color: rgba(201, 168, 76, .2);
+  border-color: rgba(var(--gold-rgb), .2);
   background: rgba(255, 255, 255, .03);
   transform: translateX(2px);
 }
@@ -2201,7 +2301,7 @@ textarea:focus {
 }
 
 .dropdown-item:hover {
-  background: rgba(201, 168, 76, .1);
+  background: rgba(var(--gold-rgb), .1);
   color: var(--gold)
 }
 
@@ -2322,7 +2422,7 @@ textarea:focus {
 }
 
 .agenda-item:hover {
-  border-color: rgba(201, 168, 76, .2)
+  border-color: rgba(var(--gold-rgb), .2)
 }
 
 .agenda-date {
@@ -2390,8 +2490,8 @@ textarea:focus {
 }
 
 .agenda-today {
-  border-color: rgba(201, 168, 76, .4);
-  background: rgba(201, 168, 76, .04)
+  border-color: rgba(var(--gold-rgb), .4);
+  background: rgba(var(--gold-rgb), .04)
 }
 
 .ag-day-head {
@@ -2428,7 +2528,7 @@ textarea:focus {
 }
 
 .ag-event-chip {
-  background: rgba(201, 168, 76, .12);
+  background: rgba(var(--gold-rgb), .12);
   color: var(--gold);
   border-radius: 6px;
   padding: 4px 6px;
@@ -2441,7 +2541,7 @@ textarea:focus {
 }
 
 .ag-event-chip:hover {
-  background: rgba(201, 168, 76, .22)
+  background: rgba(var(--gold-rgb), .22)
 }
 
 .ag-add-btn {
@@ -2463,7 +2563,7 @@ textarea:focus {
 .ag-add-btn:hover {
   border-color: var(--gold);
   color: var(--gold);
-  background: rgba(201, 168, 76, .05)
+  background: rgba(var(--gold-rgb), .05)
 }
 
 /* ─ PARTICIPANTES LIST ─ */
@@ -2611,7 +2711,7 @@ textarea:focus {
 }
 
 .freq-item:hover {
-  border-color: rgba(201, 168, 76, .2)
+  border-color: rgba(var(--gold-rgb), .2)
 }
 
 .freq-item-user {
@@ -2697,7 +2797,7 @@ textarea:focus {
 }
 
 .user-card:hover {
-  border-color: rgba(201, 168, 76, .2)
+  border-color: rgba(var(--gold-rgb), .2)
 }
 
 .user-card-main {
@@ -2795,8 +2895,8 @@ textarea:focus {
 }
 
 .rtable-total {
-  background: rgba(201, 168, 76, .06);
-  border-top: 2px solid rgba(201, 168, 76, .2);
+  background: rgba(var(--gold-rgb), .06);
+  border-top: 2px solid rgba(var(--gold-rgb), .2);
   font-weight: 600;
   color: var(--gold)
 }
@@ -3051,7 +3151,7 @@ textarea:focus {
 .back-btn:hover {
   background: rgba(255, 255, 255, .1);
   color: var(--txt);
-  border-color: rgba(201, 168, 76, .3);
+  border-color: rgba(var(--gold-rgb), .3);
   transform: translateX(-2px);
 }
 
@@ -3194,7 +3294,7 @@ textarea:focus {
 
 .refresh-btn:hover {
   background: rgba(255, 255, 255, .1);
-  border-color: rgba(201, 168, 76, .3);
+  border-color: rgba(var(--gold-rgb), .3);
   color: var(--gold);
 }
 
@@ -3790,7 +3890,7 @@ textarea:focus {
   position: relative;
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 0 5px 10px rgba(10, 105, 189, 0.38);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .08);
 }
   }
 
@@ -3824,7 +3924,7 @@ textarea:focus {
 .back-btn:hover {
   background: rgba(255, 255, 255, .1);
   color: var(--txt);
-  border-color: rgba(201, 168, 76, .3);
+  border-color: rgba(var(--gold-rgb), .3);
   transform: translateX(-2px);
 }
 
@@ -3967,7 +4067,7 @@ textarea:focus {
 
 .refresh-btn:hover {
   background: rgba(255, 255, 255, .1);
-  border-color: rgba(201, 168, 76, .3);
+  border-color: rgba(var(--gold-rgb), .3);
   color: var(--gold);
 }
 
@@ -4118,7 +4218,7 @@ textarea:focus {
 
   [data-theme="light"] .sidebar .nav-item.active,
   [data-theme="light"] .sidebar .nav-item.active .nav-lbl {
-    color: var(--gold, #a07830) !important;
+    color: var(--gold) !important;
   }
 
   [data-theme="light"] .sidebar .user-inf strong,
@@ -4258,7 +4358,7 @@ body {
 #dash-eventos-setoriais::-webkit-scrollbar-thumb,
 .eventos-lista::-webkit-scrollbar-thumb,
 .eventos-limitados::-webkit-scrollbar-thumb {
-  background: rgba(201, 168, 76, .35);
+  background: rgba(var(--gold-rgb), .35);
   border-radius: 999px;
 }
 
@@ -4295,7 +4395,7 @@ body {
 
 #dash-eventos-setoriais .act-item:hover {
   transform: translateY(-3px) translateX(4px);
-  border-color: rgba(201, 168, 76, .35);
+  border-color: rgba(var(--gold-rgb), .35);
   box-shadow: 0 12px 30px rgba(0, 0, 0, .18);
   background: rgba(255, 255, 255, .035);
 }
@@ -4335,9 +4435,9 @@ body {
 }
 
 #dash-eventos-setoriais .tag {
-  background: rgba(201, 168, 76, .12);
+  background: rgba(var(--gold-rgb), .12);
   color: var(--gold);
-  border: 1px solid rgba(201, 168, 76, .22);
+  border: 1px solid rgba(var(--gold-rgb), .22);
   padding: 6px 12px;
   border-radius: 999px;
   font-size: .72rem;
@@ -4412,11 +4512,11 @@ body {
   align-items: center;
   gap: 8px;
   padding: 11px 22px;
-  border: 1px solid rgba(201, 168, 76, .35);
+  border: 1px solid rgba(var(--gold-rgb), .35);
   outline: none;
   cursor: pointer;
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(201, 168, 76, .18), rgba(201, 168, 76, .05));
+  background: linear-gradient(135deg, rgba(var(--gold-rgb), .18), rgba(var(--gold-rgb), .05));
   color: var(--gold);
   font-weight: 700;
   font-size: .82rem;
@@ -4425,8 +4525,8 @@ body {
 
 .btn-expand-eventos:hover {
   transform: translateY(-2px);
-  background: rgba(201, 168, 76, .22);
-  box-shadow: 0 10px 25px rgba(201, 168, 76, .2);
+  background: rgba(var(--gold-rgb), .22);
+  box-shadow: 0 10px 25px rgba(var(--gold-rgb), .2);
 }
 
 .btn-expand-eventos svg {
@@ -4574,7 +4674,7 @@ body {
 
 .membro-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(201, 168, 76, .35);
+  border-color: rgba(var(--gold-rgb), .35);
   box-shadow: 0 14px 35px rgba(0, 0, 0, .18);
 }
 
@@ -4638,9 +4738,9 @@ body {
 }
 
 .tag-cargo {
-  background: rgba(201, 168, 76, .12);
+  background: rgba(var(--gold-rgb), .12);
   color: var(--gold);
-  border: 1px solid rgba(201, 168, 76, .3);
+  border: 1px solid rgba(var(--gold-rgb), .3);
 }
 
 .membro-footer {
@@ -4694,7 +4794,7 @@ body {
   gap: 6px;
   padding: 5px 12px;
   border-radius: 999px;
-  background: rgba(201, 168, 76, .12);
+  background: rgba(var(--gold-rgb), .12);
   color: var(--gold);
   font-size: .82rem;
   font-weight: 600;
@@ -4771,6 +4871,22 @@ body {
   animation: loginNodePulse 3.2s ease-in-out infinite;
 }
 
+/* Dentro do painel azul de marca, a rede fica em branco translúcido
+   (o painel já é colorido, não precisa da cor de destaque do tema) */
+.login-brand-panel .login-network {
+  opacity: .3;
+}
+
+.login-brand-panel .login-network-lines line {
+  stroke: #fff;
+  opacity: .35;
+}
+
+.login-brand-panel .login-network-nodes circle,
+.login-brand-panel .login-network-nodes .login-node-main {
+  fill: #fff;
+}
+
 @keyframes loginNodePulse {
   0%, 100% { r: 6; opacity: 1; }
   50% { r: 9; opacity: .55; }
@@ -4788,8 +4904,8 @@ body {
   align-items: center;
   justify-content: center;
   border-radius: 14px;
-  background: linear-gradient(145deg, rgba(201, 168, 76, .16), rgba(201, 168, 76, .04));
-  border: 1px solid rgba(201, 168, 76, .28);
+  background: linear-gradient(145deg, rgba(var(--gold-rgb), .16), rgba(var(--gold-rgb), .04));
+  border: 1px solid rgba(var(--gold-rgb), .28);
   color: var(--gold-l);
 }
 
@@ -4836,6 +4952,57 @@ body {
   .login-emblem svg { width: 22px; height: 22px; }
 }
 
+/* Empilha os dois painéis do login em telas estreitas — painel azul
+   vira topo (onda horizontal), formulário vira base (onda vertical some) */
+@media (max-width: 760px) {
+  .login-split {
+    flex-direction: column;
+    max-width: 460px;
+    min-height: 0;
+    border-radius: 22px;
+  }
+
+  .login-brand-panel {
+    flex: 0 0 auto;
+    padding: 34px 28px 46px;
+  }
+
+  .login-brand-content .login-emblem {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+  }
+
+  .login-brand-content h1 {
+    font-size: 1.35rem;
+  }
+
+  .login-brand-desc {
+    display: none;
+  }
+
+  .login-wave-seam {
+    width: auto;
+    height: 0;
+  }
+
+  .login-wave-v {
+    display: none;
+  }
+
+  .login-wave-h {
+    display: block;
+    left: 0;
+    top: -26px;
+    width: 100%;
+    height: 26px;
+  }
+
+  .login-card {
+    padding: 32px 26px 28px;
+  }
+}
+
 /* ══════════════════════════════════════════════════════════
    REVISÃO — Fundo texturizado (estilo WhatsApp) + Modais
    ══════════════════════════════════════════════════════════
@@ -4851,18 +5018,27 @@ body {
 ══════════════════════════════════════════════════════════ */
 
 body {
-  background-repeat: repeat;
-  background-size: 130px 130px;
-  background-attachment: fixed;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+  background-size: 96px 96px, 900px 900px, 800px 800px, auto;
+  background-position: 0 0, -220px -180px, calc(100% + 260px) calc(100% + 220px), 0 0;
+  background-attachment: fixed, fixed, fixed, fixed;
   background-color: var(--bg);
 }
 
 [data-theme="dark"] body {
-  background-image: url("assets/wallpaper-dark.svg") !important;
+  background-image:
+    url("assets/wallpaper-dark.svg"),
+    radial-gradient(circle, rgba(var(--gold-rgb), .05), transparent 70%),
+    radial-gradient(circle, rgba(59, 130, 246, .04), transparent 70%),
+    var(--bg) !important;
 }
 
 [data-theme="light"] body {
-  background-image: url("assets/wallpaper-light.svg") !important;
+  background-image:
+    url("assets/wallpaper-light.svg"),
+    radial-gradient(circle, rgba(79, 125, 251, .05), transparent 70%),
+    radial-gradient(circle, rgba(201, 168, 76, .05), transparent 70%),
+    var(--bg) !important;
 }
 
 /* Backdrop de modal — mais decisivo, garante que o fundo fique
@@ -4879,7 +5055,7 @@ body {
 
 /* Card do modal — leve acento dourado no topo + sombra mais funda */
 .modal {
-  box-shadow: 0 32px 90px rgba(0, 0, 0, .5), 0 0 0 1px rgba(201, 168, 76, .08) !important;
+  box-shadow: 0 32px 90px rgba(0, 0, 0, .5), 0 0 0 1px rgba(var(--gold-rgb), .08) !important;
 }
 
 .modal::before {
@@ -4897,7 +5073,7 @@ body {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: rgba(201, 168, 76, .12);
+  background: rgba(var(--gold-rgb), .12);
   color: var(--gold-l);
   flex-shrink: 0;
 }
@@ -4929,23 +5105,12 @@ body {
   border-radius: 20px !important;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, .16);
-}
-
-.stat-card::after {
-  content: "";
-  position: absolute;
-  right: -18px;
-  bottom: -22px;
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(201, 168, 76, .10), transparent 70%);
-  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .06);
+  border: 1px solid var(--bdr2) !important;
 }
 
 .stat-card:hover {
-  box-shadow: 0 16px 38px rgba(201, 168, 76, .16);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .1);
 }
 
 /* Ícone do card — badge arredondado com leve gradiente, em vez
@@ -4955,7 +5120,7 @@ body {
   position: relative;
 }
 
-.stat-ico.ic-gold { background: linear-gradient(145deg, rgba(201, 168, 76, .22), rgba(201, 168, 76, .08)); }
+.stat-ico.ic-gold { background: linear-gradient(145deg, rgba(var(--gold-rgb), .22), rgba(var(--gold-rgb), .08)); }
 .stat-ico.ic-blue { background: linear-gradient(145deg, rgba(59, 130, 246, .22), rgba(59, 130, 246, .08)); }
 .stat-ico.ic-teal { background: linear-gradient(145deg, rgba(20, 184, 166, .22), rgba(20, 184, 166, .08)); }
 .stat-ico.ic-violet { background: linear-gradient(145deg, rgba(139, 92, 246, .22), rgba(139, 92, 246, .08)); }
@@ -4965,8 +5130,8 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: rgba(201, 168, 76, .1);
-  border: 1px solid rgba(201, 168, 76, .18);
+  background: rgba(var(--gold-rgb), .1);
+  border: 1px solid rgba(var(--gold-rgb), .18);
   border-radius: 999px;
   padding: 2px 9px;
   width: fit-content;
@@ -4991,18 +5156,7 @@ body {
 .chart-card {
   border-radius: 20px !important;
   position: relative;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, .14);
-}
-
-.chart-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 20px;
-  right: 20px;
-  height: 2px;
-  border-radius: 0 0 4px 4px;
-  background: linear-gradient(90deg, transparent, rgba(201, 168, 76, .5), transparent);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .06);
 }
 
 /* Atalhos rápidos — cantos maiores, elevação mais suave, ícone
@@ -5020,13 +5174,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(201, 168, 76, .12);
+  background: rgba(var(--gold-rgb), .12);
   margin: 0 auto;
 }
 
 .shortcut-btn:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 26px rgba(201, 168, 76, .14);
+  box-shadow: 0 12px 26px rgba(var(--gold-rgb), .14);
 }
 
 /* Fin-cards (Ofertas/Dízimos) — mesmo tratamento de cantos/sombra */
@@ -5034,6 +5188,374 @@ body {
   border-radius: 18px !important;
 }
 
-@media (max-width: 480px) {
-  .stat-card::after { width: 50px; height: 50px; right: -12px; bottom: -16px; }
+/* ══════════════════════════════════════════════════════════
+   REVISÃO — Design System v2 (só CSS/animação, zero função)
+   ══════════════════════════════════════════════════════════
+   Inspirado nas referências de app mobile/smart-home: cantos
+   mais arredondados, sombras suaves, toggles com deslize macio,
+   ícones em badge com leve gradiente, micro-interações de hover
+   consistentes em TODAS as telas — como tudo usa as mesmas
+   classes compartilhadas (.item-card, .user-card, .btn,
+   .toggle-sw, .tag, .filter-bar, .tbl-wrap etc.), o mesmo
+   arquivo de CSS já propaga pra Setores, Usuários, Frequência,
+   Relatórios, Membros, Permissões — sem tocar em HTML/JS.
+   Menu continua na lateral (sidebar), como pedido.
+══════════════════════════════════════════════════════════ */
+
+/* ── Cantos e sombra unificados em cards de conteúdo ── */
+.item-card,
+.user-card,
+.freq-item,
+.ev-card,
+.filter-bar,
+.tbl-wrap,
+.struct-card,
+.membro-card,
+.agenda-item,
+.agenda-day,
+.rank-item {
+  border-radius: 18px !important;
+  transition: transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s ease, border-color .25s ease !important;
 }
+
+.item-card:hover,
+.user-card:hover,
+.freq-item:hover,
+.ev-card:hover,
+.membro-card:hover {
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .14);
+}
+
+/* ── Botões — mais arredondados, leve elevação no hover ── */
+.btn {
+  border-radius: 12px !important;
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease !important;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px) !important;
+}
+
+.btn-secondary:hover,
+.btn-teal:hover,
+.btn-danger:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0) scale(.98) !important;
+}
+
+.btn-sm {
+  border-radius: 10px !important;
+}
+
+/* ── Toggle switches — deslize mais macio, com leve "bounce" ── */
+.toggle-sw {
+  width: 44px !important;
+  height: 24px !important;
+  transition: background .25s ease, border-color .25s ease !important;
+}
+
+.toggle-sw::after {
+  width: 16px !important;
+  height: 16px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
+  transition: left .28s cubic-bezier(.34, 1.56, .64, 1), background .25s ease !important;
+}
+
+.toggle-sw.on::after {
+  left: 24px !important;
+}
+
+/* ── Inputs — cantos macios, foco mais evidente ── */
+.form-group input,
+.form-group select,
+.form-group textarea,
+.search-wrap input {
+  border-radius: 12px !important;
+  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease !important;
+}
+
+/* ── Ícones de card (Setores/Congregações/Usuários etc.) — mesmo
+   tratamento em badge com gradiente que já existe em stat-ico ── */
+.card-ico {
+  border-radius: 12px !important;
+  background: linear-gradient(145deg, rgba(var(--gold-rgb), .2), rgba(var(--gold-rgb), .06)) !important;
+  transition: transform .25s ease;
+}
+
+.item-card:hover .card-ico {
+  transform: scale(1.05);
+}
+
+/* ── Avatares — leve anel e sombra ── */
+.av,
+.av-sm,
+.user-av {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .18);
+  transition: transform .2s ease;
+}
+
+.user-card:hover .av,
+.member-row:hover .av,
+.freq-item:hover .av {
+  transform: scale(1.05);
+}
+
+/* ── Sidebar — item ativo com transição mais suave ── */
+.nav-item {
+  transition: background .22s ease, color .22s ease, transform .18s ease !important;
+}
+
+.nav-item:hover {
+  transform: translateX(2px);
+}
+
+/* ── Tags/badges — leve hover onde fizer sentido (dentro de
+   cards clicáveis, sem mudar comportamento) ── */
+.tag,
+.role-badge {
+  transition: transform .15s ease;
+}
+
+/* ── Barra de progresso de frequência — transição mais viva ── */
+.freq-bar {
+  transition: width .6s cubic-bezier(.4, 0, .2, 1) !important;
+}
+
+/* ── Sec-hdr / títulos — leve respiro extra ── */
+.sec-hdr h2 {
+  letter-spacing: .01em;
+}
+
+/* ── Loading spinner — um pouco mais elegante ── */
+.spinner {
+  border-width: 2.5px !important;
+}
+
+/* ── Empty states — cantos e leve fade-in ── */
+.empty {
+  animation: fadeUp .35s ease both;
+}
+
+/* ── Stagger sutil nas listas (cards entrando levemente
+   escalonados, já existia a animação-base fadeUp) ── */
+.cards-grid .item-card:nth-child(1) { animation-delay: .02s; }
+.cards-grid .item-card:nth-child(2) { animation-delay: .06s; }
+.cards-grid .item-card:nth-child(3) { animation-delay: .10s; }
+.cards-grid .item-card:nth-child(4) { animation-delay: .14s; }
+.cards-grid .item-card:nth-child(5) { animation-delay: .18s; }
+.cards-grid .item-card:nth-child(6) { animation-delay: .22s; }
+
+/* ══════════════════════════════════════════════════════════
+   REVISÃO 2 — Ajustes finos pós-feedback (cor primária do tema
+   claro agora é azul, refletida em TODO o app via --gold/-l/-rgb;
+   ver bloco [data-theme="light"] mais acima). Aqui só reposiciono
+   o selo "Total"/"Este mês" para o canto do card, como na
+   referência — sem HTML novo, .stat-chg já existe no card.
+══════════════════════════════════════════════════════════ */
+
+.stat-card {
+  padding-top: 18px !important;
+}
+
+.stat-card > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-chg {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: .66rem !important;
+  z-index: 1;
+}
+
+.stat-ico {
+  margin-bottom: 2px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   REVISÃO 3 — Fecha o resto do "Design System v2" (só CSS,
+   zero função). As rodadas anteriores já arredondaram
+   .item-card/.user-card/.stat-card/.chart-card/.shortcut-btn/
+   .btn/.toggle-sw/.form-group input etc. Aqui só estendo o
+   mesmo tratamento (cantos, sombra suave, ícone em bolha com
+   gradiente, hover consistente) para o que tinha ficado de
+   fora: menu "+ Evento" (.dropdown-menu), itens de atividade
+   (.act-item), notificação do topbar (.notif), tabela de
+   relatórios, e a sidebar/topbar em si — que ainda usavam o
+   raio antigo (--r/--r2) e um hover mais seco. Também corrige
+   um gradiente quebrado em .btn-primary (var(--) sem nome —
+   fazia o botão principal ficar sem cor de fundo nenhuma).
+══════════════════════════════════════════════════════════ */
+
+/* Dropdown "+ Evento" e afins — mesmo cartão arredondado usado no resto */
+.dropdown-menu {
+  border-radius: 16px !important;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, .22), 0 0 0 1px var(--bdr2);
+  overflow: hidden;
+}
+
+.dropdown-item {
+  border-radius: 0;
+}
+
+.dropdown-item:hover {
+  padding-left: 19px;
+}
+
+/* Itens de atividade (dashboard, histórico) */
+.act-item {
+  border-radius: 14px !important;
+}
+
+.act-item:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .1);
+}
+
+/* Sino de notificação e botão de refresh — cantos macios, leve elevação */
+.notif,
+.refresh-btn {
+  border-radius: 12px !important;
+  transition: var(--ease), transform .18s ease !important;
+}
+
+.notif:hover,
+.refresh-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* Tabela de relatórios — cabeçalho e linhas com o mesmo raio dos cards */
+.rtable-header {
+  border-radius: 14px 14px 0 0 !important;
+}
+
+.rtable-header,
+.rtable-row {
+  border-radius: 0;
+}
+
+.rtable-row:last-child {
+  border-radius: 0 0 14px 14px;
+}
+
+/* Sidebar — item ativo com glow suave em vez de bloco chapado,
+   mesma linguagem de "pílula" dos cards de ícone */
+.sidebar .nav-item {
+  border-radius: 12px;
+}
+
+.sidebar .nav-item.active {
+  box-shadow: 0 4px 14px rgba(var(--gold-rgb), .18), inset 0 0 0 1px rgba(var(--gold-rgb), .15);
+}
+
+.nav-icon {
+  transition: transform .2s ease;
+}
+
+.sidebar .nav-item:hover .nav-icon {
+  transform: scale(1.08);
+}
+
+/* Topbar — sombra bem sutil pra separar do conteúdo, em vez de só borda */
+.topbar {
+  box-shadow: 0 2px 16px rgba(0, 0, 0, .12);
+}
+
+/* Cards de estatística — entrada levemente escalonada, mesmo espírito
+   do stagger já aplicado em .cards-grid .item-card */
+.stats-grid .stat-card:nth-child(1) { animation-delay: .02s; }
+.stats-grid .stat-card:nth-child(2) { animation-delay: .06s; }
+.stats-grid .stat-card:nth-child(3) { animation-delay: .1s; }
+.stats-grid .stat-card:nth-child(4) { animation-delay: .14s; }
+
+/* ══════════════════════════════════════════════════════════
+   REVISÃO 4 — Linguagem visual da referência (mobile dashboard
+   claro, cards bem arredondados, bolha de ícone circular, onda
+   decorativa no rodapé do card, filtros em formato de pílula).
+   Só CSS, zero função nova, zero dado inventado (não adiciono
+   selo de "+42%" porque o app não calcula variação percentual
+   real desses números). Paleta continua a mesma do projeto —
+   azul como cor primária (var(--gold) já é azul no tema claro),
+   dourado/teal/violeta como as demais cores de categoria que já
+   existiam antes desta tarefa.
+══════════════════════════════════════════════════════════ */
+
+/* Bolha de ícone sempre circular, como na referência */
+.stat-ico,
+.shortcut-ico,
+.fin-card-ico,
+.card-ico,
+.gauge-ico {
+  border-radius: 50% !important;
+}
+
+.shortcut-ico {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 8px;
+}
+
+/* Onda decorativa no rodapé do stat-card, na cor da categoria do
+   próprio card (lida via :has, sem precisar de HTML/JS novo) */
+.stat-card {
+  padding-bottom: 26px;
+}
+
+.stat-card::after {
+  content: '';
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -6px;
+  height: 34px;
+  opacity: .5;
+  background-repeat: no-repeat;
+  background-size: 140% 100%;
+  background-position: center bottom;
+  background-image: radial-gradient(ellipse at 30% 100%, currentColor 0%, transparent 62%),
+                     radial-gradient(ellipse at 75% 100%, currentColor 0%, transparent 55%);
+  color: var(--bdr2);
+  pointer-events: none;
+}
+
+.stat-card:has(.ic-gold)::after   { color: rgba(var(--gold-rgb), .16); }
+.stat-card:has(.ic-blue)::after   { color: rgba(59, 130, 246, .14); }
+.stat-card:has(.ic-teal)::after   { color: rgba(20, 184, 166, .14); }
+.stat-card:has(.ic-violet)::after { color: rgba(139, 92, 246, .12); }
+
+/* Filtros do dashboard (Setor / Período) em formato de pílula,
+   como os chips "SETOR 1" / "Julho de 2026" da referência */
+.dash-setor-selector {
+  border-radius: 18px !important;
+}
+
+.selector-select {
+  border-radius: 999px !important;
+}
+
+.dash-period .tag {
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-weight: 600;
+}
+
+/* Botão de atualizar (refresh) do dashboard, redondo como na referência */
+.dash-setor-selector .btn-secondary[title="Atualizar"] {
+  border-radius: 50% !important;
+  width: 34px;
+  height: 34px;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+

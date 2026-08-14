@@ -552,7 +552,7 @@ window.renderFrequencia = async function () {
     <h2>Frequência <span class="count-badge">${membrosArr.length} membros</span></h2>
     <div class="sec-actions">
       ${backBtn()}
-      ${hasPerm('exportar_dados') ? `<button class="btn btn-primary btn-sm" onclick="exportarFrequenciaPDF()">📄 PDF</button><button class="btn btn-secondary btn-sm" onclick="exportarFrequenciaExcel()">${lc("bar-chart-3", 14)} Excel</button>` : ''}
+      ${hasPerm('exportar_dados') ? `<button class="btn btn-primary btn-sm" onclick="exportarFrequenciaPDF()">${lc("file-text", 14)} PDF</button><button class="btn btn-secondary btn-sm" onclick="exportarFrequenciaExcel()">${lc("bar-chart-3", 14)} Excel</button>` : ''}
     </div>
   </div>
   <div class="filter-bar">
@@ -654,9 +654,9 @@ console.log('[patch_ajustes] carregado ✓');
 
 window.openUserModal = function (id) {
   const ROLES_FIXOS = ['admin', 'dirigente', 'adjunto', 'usuario'];
-  showModal(`<div class="modal-hdr"><span>👤</span><h2>${id ? 'Editar Usuário' : 'Novo Usuário'}</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="user-modal-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot" id="user-modal-foot"></div>`);
+  showModal(`<div class="modal-hdr"><span>${lc('user', 20)}</span><h2>${id ? 'Editar Usuário' : 'Novo Usuário'}</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="user-modal-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot" id="user-modal-foot"></div>`);
   Promise.all([
-    id ? q('sistema_usuarios').select('*').eq('id', id).single() : { data: null },
+    id ? q('sistema_usuarios').select('id,nome,username,role,cargo,congregacao,idade,ativo,setor_id,congregacao_id,frequenta_ebd,papel_ebd,vocacao,created_at').eq('id', id).single() : { data: null },
     q('setores').select('id,nome').order('nome'),
     q('congregacoes').select('id,nome,setor_id').order('nome'),
     q('roles').select('nome').order('nome'),
@@ -933,7 +933,7 @@ setTimeout(() => {
     if (nav && !nav.querySelector('[data-page="todos_membros"]')) {
       const div = document.createElement('div');
       div.className = 'nav-item'; div.dataset.page = 'todos_membros';
-      div.innerHTML = `<span class="nav-icon">${typeof lc === 'function' ? lc('users-2', 20) || '👥' : '👥'}</span><span class="nav-lbl">Membros</span>`;
+      div.innerHTML = `<span class="nav-icon">${typeof lc === 'function' ? lc('users-2', 20) : ''}</span><span class="nav-lbl">Membros</span>`;
       div.addEventListener('click', () => {
         if (typeof navigate === 'function') navigate('todos_membros');
         if (typeof toggleMobile === 'function') toggleMobile(false);
@@ -975,7 +975,7 @@ window._renderTodosMembrosDesativado_ajuste = async function() {
   const pc = document.getElementById('page-content');
   if (!pc) return;
   if (!hasPerm('visualizar_membros')) {
-    pc.innerHTML = `<div class="empty"><div class="empty-ico">${typeof lc === 'function' ? lc('shield-off', 44) : '🚫'}</div><p>Sem permissão.</p></div>`;
+    pc.innerHTML = `<div class="empty"><div class="empty-ico">${typeof lc === 'function' ? lc('shield-off', 44) : ''}</div><p>Sem permissão.</p></div>`;
     return;
   }
   
@@ -988,7 +988,7 @@ window._renderTodosMembrosDesativado_ajuste = async function() {
   
   const { data: mems, error } = await qMems;
   if (error) {
-    pc.innerHTML = `<div class="empty"><div class="empty-ico">${typeof lc === 'function' ? lc('alert-triangle', 44) : '⚠️'}</div><p>${error.message}</p></div>`;
+    pc.innerHTML = `<div class="empty"><div class="empty-ico">${typeof lc === 'function' ? lc('alert-triangle', 44) : ''}</div><p>${error.message}</p></div>`;
     return;
   }
   
@@ -1006,7 +1006,7 @@ window._renderTodosMembrosDesativado_ajuste = async function() {
   <div class="card" style="margin-top:16px">
     <div style="padding:16px;border-bottom:1px solid var(--bdr);display:flex;gap:12px;align-items:center;">
       <div class="search-box" style="flex:1">
-        ${typeof lc === 'function' ? lc('search', 16) : '🔍'}
+        ${typeof lc === 'function' ? lc('search', 16) : ''}
         <input type="text" id="membros-global-search" placeholder="Buscar membro por nome..." oninput="filterTodosMembros(this.value)">
       </div>
     </div>
@@ -1035,7 +1035,7 @@ window._renderTodosMembrosDesativado_ajuste = async function() {
 window._renderMembrosGlobalRowsDesativado_ajuste = function(membros) {
   if (!membros || !membros.length) return '<tr><td colspan="5" style="text-align:center;color:var(--c3);padding:24px">Nenhum membro encontrado.</td></tr>';
   return membros.map(m => {
-    const act = `<button class="action-btn" title="Ver Perfil" onclick="openMemberModal('${m.id}')">${typeof lc === 'function' ? lc('eye', 14) : '👁️'}</button> ${hasPerm('gerenciar_membros') ? `<button class="action-btn" title="Editar" onclick="openEditMembro('${m.id}')">${typeof lc === 'function' ? lc('pencil', 14) : '✏️'}</button> <button class="action-btn" style="color:var(--red)" title="Excluir" onclick="delMembro('${m.id}')">${typeof lc === 'function' ? lc('trash', 14) : '🗑️'}</button>` : ''}`;
+    const act = `<button class="action-btn" title="Ver Perfil" onclick="openMemberModal('${m.id}')">${typeof lc === 'function' ? lc('eye', 14) : ''}</button> ${hasPerm('gerenciar_membros') ? `<button class="action-btn" title="Editar" onclick="openEditMembro('${m.id}')">${typeof lc === 'function' ? lc('pencil', 14) : ''}</button> <button class="action-btn" style="color:var(--red)" title="Excluir" onclick="delMembro('${m.id}')">${typeof lc === 'function' ? lc('trash', 14) : ''}</button>` : ''}`;
     return `
     <tr>
       <td>
@@ -1065,7 +1065,7 @@ window._filterTodosMembrosDesativado_ajuste = function(qStr) {
 window._openAddMembroGlobalDesativado_ajuste = async function() {
   if (!hasPerm('gerenciar_membros')) return toast('Sem permissão', 'error');
   
-  showModal(`<div class="modal-hdr"><span>+</span><h2>Novo Membro</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="add-membro-global-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitAddMembroGlobal()">${typeof lc === 'function' ? lc('save', 14) : '💾'} Salvar</button></div>`);
+  showModal(`<div class="modal-hdr"><span>+</span><h2>Novo Membro</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="add-membro-global-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitAddMembroGlobal()">${typeof lc === 'function' ? lc('save', 14) : ''} Salvar</button></div>`);
   
   let qSetores = q('setores').select('id,nome').order('nome');
   if (!canSeeAllSetores() && currentUser?.setor_id) qSetores = qSetores.eq('id', currentUser.setor_id);
@@ -1099,13 +1099,13 @@ window._openAddMembroGlobalDesativado_ajuste = async function() {
 </div>
 
 <div class="form-section-title">
-  ${typeof lc === 'function' ? lc('shield', 14) : '🛡️'} Atuação
+  ${typeof lc === 'function' ? lc('shield', 14) : ''} Atuação
 </div>
 
 ${pfAtuacaoSelectHtml('amg', '', '')}
 
 <div class="form-section-title">
-  ${typeof lc === 'function' ? lc('book-open', 14) : '📖'} EBD
+  ${typeof lc === 'function' ? lc('book-open', 14) : ''} EBD
 </div>
     <div class="form-row">
       <div class="form-group"><label>Frequenta EBD?</label><select id="amg-ebd"><option value="false">Não</option><option value="true">Sim</option></select></div>

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:8791/adicao.js)",
+      "Bash(curl -sI http://localhost:8791/adicao.js)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(pkill -f \"http.server 8791\")",
+      "Bash(python3 -c ' *)",
+      "Bash(cat adicao.js patch_umadalpe_eventos.js)",
+      "Bash(node --check /tmp/combined_check.js)",
+      "Bash(node --check adicao.js)",
+      "Bash(node --check patch_umadalpe_eventos.js)",
+      "Bash(node --check /tmp/combined_check2.js)",
+      "Bash(cat script_v5.js financeiro_module.js ranking_module.js dashboard_patch.js adicao.js ajuste.js patch_umadalpe_eventos.js)",
+      "Bash(pkill -f \"http.server 879\")",
+      "Bash(node --check script_v5.js)"
+    ]
+  }
+}

@@ -7,16 +7,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="assets/calendar.css">
     <link rel="stylesheet" href="assets/modal.css">
-
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 
 </head>
 
 
 <style>
+    body {
+        background-color: #fffaf3;
+        background-image: radial-gradient(circle at 8% 0%, rgba(212, 175, 55, .07), transparent 45%),
+                           radial-gradient(circle at 100% 100%, rgba(212, 175, 55, .05), transparent 50%),
+                           url("assets/wallpaper-dark.svg");
+        background-size: auto, auto, 96px 96px;
+        background-attachment: fixed, fixed, fixed;
+        background-repeat: no-repeat, no-repeat, repeat;
+        transition: background-color .35s ease, color .35s ease;
+    }
+
+    body.dark {
+        background-color: #121212;
+        background-image: radial-gradient(circle at 8% 0%, rgba(212, 175, 55, .06), transparent 45%),
+                           radial-gradient(circle at 100% 100%, rgba(212, 175, 55, .05), transparent 50%),
+                           url("assets/wallpaper-dark.svg");
+        background-size: auto, auto, 96px 96px;
+        background-attachment: fixed, fixed, fixed;
+        background-repeat: no-repeat, no-repeat, repeat;
+    }
+
     .calendar-container {
-        background: #fffaf3;
+        background: transparent;
         color: #4b2e1e;
         padding: 20px;
+        transition: color .35s ease;
     }
 
     .month-section {
@@ -148,10 +170,16 @@
         color: #fff;
         cursor: pointer;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-
+        transition: transform .2s ease, box-shadow .2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
     }
 
-
+    .voltar:hover,
+    .theme-toggle:hover {
+        transform: translateY(-2px);
+    }
 
     .theme-toggle {
         background: rgba(128, 95, 95, 0.15);
@@ -159,6 +187,9 @@
         padding: 10px 16px;
         border-radius: 12px;
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        transition: transform .2s ease, background .2s ease;
     }
 
 
@@ -615,7 +646,7 @@
 
         <aside class="calendar-aside">
             <button class="voltar" onclick="openLogout()">Sair</button>
-            <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+            <button class="theme-toggle" onclick="toggleTheme()"><i data-lucide="moon" style="width:16px;height:16px;vertical-align:middle"></i></button>
         </aside>
 
         <h1>EVENTOS UMADALPE 2026</h1>
@@ -664,6 +695,7 @@
 
         // ==================== CALENDAR ====================
         fetch("events.json").then(res => res.json()).then(data => renderCalendar(data[String(YEAR)] || {}));
+        if (typeof lucide !== 'undefined') lucide.createIcons();
 
         function renderCalendar(events) {
             const container = document.getElementById("calendar");
@@ -723,13 +755,14 @@
         <p>${event.description || ""}</p>
         ${event.time ? `<p><b>Horário:</b> ${event.time}</p>` : ""}
         ${event.location ? `<p><b>Local:</b> ${event.location}</p>${getTransportLinks(event)}` : ""}
-        <button class="calendar-btn" onclick="openComments('${formatEventId(YEAR, month, day)}')">💬 Ver comentários</button>
+        <button class="calendar-btn" onclick="openComments('${formatEventId(YEAR, month, day)}')"><i data-lucide="message-circle" style="width:14px;height:14px;vertical-align:middle"></i> Ver comentários</button>
         <button class="calendar-btn" onclick="addToGoogleCalendar(${day},${month},'${event.title}','${event.description || ""}')">Adicionar ao calendário</button>
         `}
     `;
             modal.querySelector(".close").onclick = () => overlay.remove();
             overlay.appendChild(modal);
             document.body.appendChild(overlay);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
         function addToGoogleCalendar(day, month, title, description) {
@@ -754,13 +787,13 @@
             const commentsRef = window.collection(window.db, "eventos", currentEventId, "comentarios");
             const snap = await window.getDocs(window.query(commentsRef, window.orderBy("data", "asc")));
 
-            // 🔹 Filtra comentários do usuário
+            // Filtra comentários do usuário
             let meus = snap.docs.map(d => ({ id: d.id, ...d.data(), ref: d.ref })).filter(c => c.uid === user.uid);
 
-            // 🔹 Se já tiver 3, apaga o mais antigo (FIFO)
+            // Se já tiver 3, apaga o mais antigo (FIFO)
             if (meus.length >= 3) { await window.deleteDoc(meus[0].ref); }
 
-            // 🔹 Cria novo comentário
+            // Cria novo comentário
             await window.addDoc(commentsRef, { nome: user.email, texto: text, uid: user.uid, data: new Date() });
 
             document.getElementById("commentText").value = "";

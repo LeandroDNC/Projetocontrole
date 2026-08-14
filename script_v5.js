@@ -16,6 +16,36 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+/* ── ANIMAÇÃO PADRÃO DOS GRÁFICOS (Chart.js) ──────────────────────────
+   Config única, global, aplicada a todo gráfico criado no app (relatórios,
+   frequência, financeiro, dashboard, ranking) — entrada escalonada ponto a
+   ponto/barra a barra em vez de tudo aparecer de uma vez, easing mais macio,
+   e as fatias de doughnut "crescendo" a partir do centro. Só estilo/anima-
+   ção — nenhum dado, escala ou interação muda. */
+if (typeof Chart !== 'undefined') {
+  const CHART_DELAY_STEP = 22, CHART_DATASET_STEP = 110;
+  Chart.defaults.animation = {
+    duration: 850,
+    easing: 'easeOutQuart',
+    delay(ctx) {
+      if (ctx.type === 'data' && ctx.mode === 'default' && !ctx.dropped) {
+        ctx.dropped = true;
+        return ctx.dataIndex * CHART_DELAY_STEP + ctx.datasetIndex * CHART_DATASET_STEP;
+      }
+      return 0;
+    }
+  };
+  Chart.defaults.animations.numbers = { duration: 850, easing: 'easeOutQuart' };
+  Chart.defaults.transitions.active.animation.duration = 300;
+  if (Chart.overrides?.doughnut) {
+    Chart.overrides.doughnut.animation = { animateRotate: true, animateScale: true, duration: 900, easing: 'easeOutQuart' };
+  }
+  if (Chart.overrides?.pie) {
+    Chart.overrides.pie.animation = { animateRotate: true, animateScale: true, duration: 900, easing: 'easeOutQuart' };
+  }
+  Chart.defaults.plugins.tooltip.animation = { duration: 200, easing: 'easeOutQuad' };
+}
+
 /* ── LUCIDE SVG ICON HELPER ────────────────────────────── */
 function lc(name, size = 18, cls = '') {
   return `<i data-lucide="${name}" class="lc-icon ${cls}" style="width:${size}px;height:${size}px"></i>`;
@@ -254,14 +284,23 @@ async function doLogin() {
   errEl.classList.add('hidden');
   $('btn-login').disabled = true;
   $('btn-login').innerHTML = '<span class="login-spinner"></span> Entrando...';
-  // SEGURANÇA: select() explícito sem a coluna 'senha' — antes usava select('*'),
-  // o que trazia a senha em texto puro para dentro do objeto salvo em
-  // localStorage (ecclesia_user), legível por qualquer um com acesso ao
-  // navegador (DevTools, extensão maliciosa, outro XSS). O filtro .eq('senha', pass)
-  // continua no WHERE para autenticar — a comparação ainda acontece no banco,
-  // só o valor não volta mais para o cliente.
-  const { data: user, error } = await q('sistema_usuarios').select('id,nome,username,role,cargo,idade,congregacao,congregacao_id,setor_id,ativo,frequenta_ebd,papel_ebd,vocacao').eq('username', username).eq('senha', pass).eq('ativo', true).single();
-  if (error || !user) {
+  // SEGURANÇA: a verificação da senha acontece inteiramente dentro do banco,
+  // via a função rpc_login (ver security_migration.sql) — ela compara a senha
+  // contra o hash bcrypt armazenado e só devolve os campos seguros do usuário.
+  // A senha digitada nunca é lida de volta, nem em texto puro nem como hash.
+  // Requer que security_migration.sql já tenha sido rodado no Supabase.
+  const { data: rows, error } = await db.rpc('rpc_login', { p_username: username, p_password: pass });
+  const user = Array.isArray(rows) ? rows[0] : rows;
+  if (error) {
+    // Erro técnico (função ainda não existe, cache do PostgREST desatualizado,
+    // permissão faltando etc.) — mostramos o motivo real em vez de mascarar
+    // como "senha errada", para dar pra diagnosticar. Detalhe completo no console.
+    console.error('[rpc_login] erro técnico:', error);
+    errEl.textContent = `Não foi possível entrar (erro técnico: ${error.message || 'ver console'}). Confirme se o security_migration.sql já foi rodado no Supabase.`;
+    errEl.classList.remove('hidden');
+    $('btn-login').disabled = false; $('btn-login').innerHTML = `${lc('log-in', 18, 'btn-icon')} Entrar no Sistema`; refreshLucide(); return;
+  }
+  if (!user) {
     errEl.textContent = 'Usuário ou senha inválidos'; errEl.classList.remove('hidden');
     $('btn-login').disabled = false; $('btn-login').innerHTML = `${lc('log-in', 18, 'btn-icon')} Entrar no Sistema`; refreshLucide(); return;
   }
@@ -815,8 +854,9 @@ async function delLicenca(id) {
    EVENTOS SETORIAIS
 ════════════════════════════════════════════════════════════ */
 async function renderEventosSetoriais() {
-  if (!canEventoSetorial()) {
-    $('page-content').innerHTML = `<div class="empty"><div class="empty-ico">${lc('shield-off', 44)}</div><p>Sem permissão para criar eventos setoriais.</p></div>`; refreshLucide(); return;
+  const podeVer = canEventoSetorial() || hasPerm('visualizar_eventos_setoriais_dash') || isSuperAdmin();
+  if (!podeVer) {
+    $('page-content').innerHTML = `<div class="empty"><div class="empty-ico">${lc('shield-off', 44)}</div><p>Sem permissão para ver eventos setoriais.</p></div>`; refreshLucide(); return;
   }
   $('page-content').innerHTML = loadingPage();
   const sid = currentUser?.setor_id || null;
@@ -834,7 +874,7 @@ async function renderEventosSetoriais() {
     <h2>${lc('building-2', 20)} Eventos Setoriais</h2>
     <div class="sec-actions">
       ${backBtn()}
-      <button class="btn btn-primary btn-sm" onclick="openEventoSetorialModal()">+ Novo Evento Setorial</button>
+      ${canEventoSetorial() ? `<button class="btn btn-primary btn-sm" onclick="openEventoSetorialModal()">+ Novo Evento Setorial</button>` : ''}
     </div>
   </div>
 
@@ -1026,7 +1066,7 @@ async function renderCongregacoes(pc) {
       <div class="card-head"><div class="card-ico">${lc("church", 14)}</div>
         <div><div class="card-name">${escHtml(c.nome)}</div><div class="card-sub">${escHtml(c.endereco || '')}</div></div>
       </div>
-      <div style="font-size:.77rem;color:var(--txt2);margin:8px 0">👨‍⚖️ ${escHtml(c.pastor_local || 'A definir')}</div>
+      <div style="font-size:.77rem;color:var(--txt2);margin:8px 0">${lc("user-round", 13)} ${escHtml(c.pastor_local || 'A definir')}</div>
       <div class="card-meta"><span class="tag tag-teal">${lc("users", 18)} ${memCount(c.id)} membros</span></div>
       <div class="card-actions" onclick="event.stopPropagation()">
         ${hasPerm('gerenciar_congregacoes') ? `<button class="btn btn-secondary btn-sm" onclick="openEditCongModal('${c.id}')">${lc("pencil", 14)}</button>` : ''}
@@ -1123,7 +1163,7 @@ async function renderCongregacao(pc) {
             <div class="fs-xs c3">${escHtml(u.cargo || '—')} · <span class="role-badge ${roleCls(u.role)}" style="font-size:.6rem">${u.role}</span></div>
           </div>
         </div>`).join('')}</div>
-      <div class="lider-expand-hint fs-xs c3" style="margin-top:6px;text-align:right">👆 clique para expandir</div>`: ''
+      <div class="lider-expand-hint fs-xs c3" style="margin-top:6px;text-align:right">${lc("chevron-down", 12)} clique para expandir</div>`: ''
       }
     </div>`;
   };
@@ -1141,17 +1181,17 @@ async function renderCongregacao(pc) {
   </div>
 
   <div class="struct-grid" style="margin-bottom:26px">
-    ${renderLiderCard('👨🏻‍⚖️', 'Pastor Local', c.pastor_local)}
-    ${renderLiderCard('👨🏻‍💼', 'Dirigente', c.dirigente)}
+    ${renderLiderCard(lc("user-round", 18), 'Pastor Local', c.pastor_local)}
+    ${renderLiderCard(lc("briefcase", 18), 'Dirigente', c.dirigente)}
     ${renderLiderCard(lc("users",18), 'Vice-Dirigente', c.vice_dirigente)}
-    ${renderLiderCard('👩‍💼', 'Secretária', c.secretaria)}
-    ${c.auxiliares ? renderLiderCard('🤝', 'Auxiliares', c.auxiliares) : `<div class="struct-card" style="opacity:.5"><div class="s-icon">🤝</div><div class="s-label">Auxiliares</div><div class="s-value">A definir</div></div>`}
+    ${renderLiderCard(lc("user-round", 18), 'Secretária', c.secretaria)}
+    ${c.auxiliares ? renderLiderCard(lc("handshake", 18), 'Auxiliares', c.auxiliares) : `<div class="struct-card" style="opacity:.5"><div class="s-icon">${lc("handshake", 18)}</div><div class="s-label">Auxiliares</div><div class="s-value">A definir</div></div>`}
   </div>
 
   <div class="stats-grid stats-3" style="margin-bottom:22px">
     ${statCard(lc("clipboard-list",14), 'ic-gold', (eventos || []).length, 'Eventos registrados', '')}
     ${canSeeFinanceiro() ? statCard(lc("coins",14), 'ic-teal', fmtMoney(totalOfertas), 'Total Ofertas', '') : ''}
-    ${canSeeFinanceiro() ? statCard('💵', 'ic-violet', fmtMoney(totalDizimos), 'Total Dízimos', '') : ''}
+    ${canSeeFinanceiro() ? statCard(lc("wallet", 14), 'ic-violet', fmtMoney(totalDizimos), 'Total Dízimos', '') : ''}
   </div>
 
   <div class="sec-hdr"><h2>${lc("calendar", 14)} Agenda da Semana</h2><div class="sec-actions">${hasPerm('gerenciar_agenda') ? `<button class="btn btn-primary btn-sm" onclick="openAgendaModal('${c.id}')">+</button>` : ''}<button class="btn btn-secondary btn-sm" onclick="openAgendaCompleta('${c.id}')">Ver completa ${lc("arrow-right", 14)}</button></div></div>
@@ -1191,7 +1231,7 @@ function toggleLiderExpand(card) {
   const hint = card.querySelector('.lider-expand-hint');
   if (!expand) return;
   expand.classList.toggle('hidden');
-  if (hint) hint.textContent = expand.classList.contains('hidden') ? '👆 clique para expandir' : '👆 clique para recolher';
+  if (hint) hint.innerHTML = expand.classList.contains('hidden') ? `${lc('chevron-down', 12)} clique para expandir` : `${lc('chevron-up', 12)} clique para recolher`;
 }
 
 function buildMapLinks(c) {
@@ -1578,7 +1618,7 @@ async function submitAdd(type) {
 async function renderUsuarios() {
   if (!hasPerm('gerenciar_usuarios')) { $('page-content').innerHTML = `<div class="empty"><div class="empty-ico">${lc("shield-off", 14)}</div><p>Sem permissão.</p></div>`; return; }
   $('page-content').innerHTML = loadingPage();
-  let qU = q('sistema_usuarios').select('*').order('nome');
+  let qU = q('sistema_usuarios').select('id,nome,username,role,cargo,congregacao,idade,ativo,setor_id,congregacao_id,frequenta_ebd,papel_ebd,vocacao,created_at').order('nome');
   if (!canSeeAllSetores() && currentUser?.setor_id) qU = qU.eq('setor_id', currentUser.setor_id);
   const { data, error } = await qU;
   if (error) { $('page-content').innerHTML = `<div class="empty"><div class="empty-ico">${lc("alert-triangle", 14)}</div><p>${error.message}</p></div>`; return; }
@@ -1624,9 +1664,9 @@ async function renderUsuarios() {
 
 function openUserModal(id) {
   const ROLES = ['admin', 'dirigente', 'adjunto', 'usuario'];
-  showModal(`<div class="modal-hdr"><span>👤</span><h2>${id ? 'Editar Usuário' : 'Novo Usuário'}</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="user-modal-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot" id="user-modal-foot"></div>`);
+  showModal(`<div class="modal-hdr"><span>${lc('user', 20)}</span><h2>${id ? 'Editar Usuário' : 'Novo Usuário'}</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="user-modal-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot" id="user-modal-foot"></div>`);
   Promise.all([
-    id ? q('sistema_usuarios').select('*').eq('id', id).single() : { data: null },
+    id ? q('sistema_usuarios').select('id,nome,username,role,cargo,congregacao,idade,ativo,setor_id,congregacao_id,frequenta_ebd,papel_ebd,vocacao,created_at').eq('id', id).single() : { data: null },
     q('setores').select('id,nome').order('nome'),
     q('congregacoes').select('id,nome,setor_id').order('nome')
   ]).then(([{ data: u }, { data: setores }, { data: congs }]) => {
@@ -1753,7 +1793,7 @@ async function renderRelatorios() {
     <h2>Relatórios e Estatísticas</h2>
     <div class="sec-actions">
       ${backBtn()}
-      ${hasPerm('exportar_dados') ? `<button class="btn btn-primary btn-sm" onclick="exportarPDF()">📄 PDF</button>` : ''}
+      ${hasPerm('exportar_dados') ? `<button class="btn btn-primary btn-sm" onclick="exportarPDF()">${lc("file-text", 14)} PDF</button>` : ''}
     </div>
   </div>
   <div class="filter-bar">
@@ -1764,7 +1804,7 @@ async function renderRelatorios() {
       <div class="form-group" style="margin:0"><label>Fim</label><input type="date" id="rel-fim" value="${relFiltroFim}" onchange="relFiltroFim=this.value"/></div>
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
         <button class="btn btn-primary btn-sm" onclick="${canFilterSetores() ? "relSetorFiltro=$('rel-setor')?.value||currentUser?.setor_id||null;" : ''} ${canVerRelCong() ? "relCongFiltro=$('rel-cong')?.value||null;" : ''} renderRelatorios()">${lc("search", 14)} Filtrar</button>
-        <button class="btn btn-secondary btn-sm" onclick="relFiltroInicio='';relFiltroFim='';relSetorFiltro=currentUser?.setor_id||null;relCongFiltro=null;renderRelatorios()">↺</button>
+        <button class="btn btn-secondary btn-sm" onclick="relFiltroInicio='';relFiltroFim='';relSetorFiltro=currentUser?.setor_id||null;relCongFiltro=null;renderRelatorios()">${lc("rotate-ccw", 14)}</button>
       </div>
     </div>
     <div class="filter-presets">
@@ -1776,13 +1816,13 @@ async function renderRelatorios() {
     </div>
   </div>
   <div class="stats-grid stats-4" style="margin-bottom:26px">
-    ${statCard(lc("church",14), 'ic-gold', cultos, 'Cultos', '')}${statCard('🎉', 'ic-blue', genEvt, 'Eventos', '')}${statCard('🚶', 'ic-teal', saidas, 'Saídas Evang.', '')}${statCard('✝', 'ic-violet', totalConv, 'Conversões', '')}
+    ${statCard(lc("church",14), 'ic-gold', cultos, 'Cultos', '')}${statCard(lc("calendar-days",14), 'ic-blue', genEvt, 'Eventos', '')}${statCard(lc("footprints",14), 'ic-teal', saidas, 'Saídas Evang.', '')}${statCard(lc("cross",14), 'ic-violet', totalConv, 'Conversões', '')}
   </div>
   <div class="stats-grid stats-4" style="margin-bottom:26px">
     ${statCard(lc("users",18), 'ic-blue', totalPart, 'Participantes', '')}
     ${canSeeFinanceiro() ? statCard(lc("coins",14), 'ic-teal', fmtMoney(totalOfer), 'Total Ofertas', '') : ''}
-    ${canSeeFinanceiro() ? statCard('💎', 'ic-violet', fmtMoney(totalDiz), 'Total Dízimos', '') : ''}
-    ${canSeeFinanceiro() ? statCard('💵', 'ic-gold', fmtMoney(totalOfer + totalDiz), 'Total Arrecadado', '') : ''}
+    ${canSeeFinanceiro() ? statCard(lc("wallet",14), 'ic-violet', fmtMoney(totalDiz), 'Total Dízimos', '') : ''}
+    ${canSeeFinanceiro() ? statCard(lc("banknote",14), 'ic-gold', fmtMoney(totalOfer + totalDiz), 'Total Arrecadado', '') : ''}
   </div>
   <div class="charts-grid" style="margin-bottom:26px">
     <div class="chart-card chart-span2"><h3>Participantes por Mês</h3><p>Acumulado</p><canvas id="chart-line" height="100"></canvas></div>
@@ -1927,7 +1967,7 @@ async function renderFrequencia() {
     <h2>Frequência <span class="count-badge">${membrosArr.length} membros</span></h2>
     <div class="sec-actions">
       ${backBtn()}
-      ${hasPerm('exportar_dados') ? `<button class="btn btn-primary btn-sm" onclick="exportarFrequenciaPDF()">📄 PDF</button><button class="btn btn-secondary btn-sm" onclick="exportarFrequenciaExcel()">${lc("bar-chart-3", 14)} Excel</button>` : ''}
+      ${hasPerm('exportar_dados') ? `<button class="btn btn-primary btn-sm" onclick="exportarFrequenciaPDF()">${lc("file-text", 14)} PDF</button><button class="btn btn-secondary btn-sm" onclick="exportarFrequenciaExcel()">${lc("bar-chart-3", 14)} Excel</button>` : ''}
     </div>
   </div>
   <div class="filter-bar">
@@ -2079,7 +2119,7 @@ async function renderPermissoes() {
     ${isSuperAdmin() ? `<button class="btn btn-primary btn-sm" onclick="openNewRoleModal()">+ Novo Perfil</button>` : ''}
   </div>
   <div style="background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:.82rem;color:var(--txt2)">
-    ⭐ <strong>admin</strong> = superusuário.<br>${lc("coins", 14)} <strong>Ver Financeiro</strong>: oculta ofertas/dízimos.<br>${lc("lock", 14)} <strong>Filtrar Setor</strong> = somente leitura.<br>${lc("wallet", 14)} <strong>Gerenciar Financeiro</strong>: acesso ao módulo de licenças.<br>${lc("building-2", 14)} <strong>Criar Eventos Setoriais</strong>: cria eventos e vê usuários do setor.
+    ${lc("star", 14)} <strong>admin</strong> = superusuário.<br>${lc("coins", 14)} <strong>Ver Financeiro</strong>: oculta ofertas/dízimos.<br>${lc("lock", 14)} <strong>Filtrar Setor</strong> = somente leitura.<br>${lc("wallet", 14)} <strong>Gerenciar Financeiro</strong>: acesso ao módulo de licenças.<br>${lc("building-2", 14)} <strong>Criar Eventos Setoriais</strong>: cria eventos e vê usuários do setor.
   </div>
   <div class="role-tabs">
     ${todasRoles.map(r => `<button class="btn ${r === activeRole ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="setActiveRole('${r}')"><span class="role-badge ${roleCls(r)}">${r}</span></button>`).join('')}
@@ -2087,7 +2127,7 @@ async function renderPermissoes() {
   </div>
   <div class="tbl-wrap" style="max-width:680px">
     <div style="padding:15px 18px;border-bottom:1px solid var(--bdr2)">
-      <div style="font-family:'Cinzel',serif;font-size:.88rem">Perfil: <span class="role-badge ${roleCls(activeRole)}">${activeRole}</span>${activeRole === 'admin' ? '<span class="tag tag-gold" style="margin-left:8px">⭐ Superusuário</span>' : ''}${rolesCustom.some(r => r.nome === activeRole) ? `<span class="tag tag-blue" style="margin-left:8px">Customizado</span>` : ''}</div>
+      <div style="font-family:'Cinzel',serif;font-size:.88rem">Perfil: <span class="role-badge ${roleCls(activeRole)}">${activeRole}</span>${activeRole === 'admin' ? `<span class="tag tag-gold" style="margin-left:8px">${lc("star", 12)} Superusuário</span>` : ''}${rolesCustom.some(r => r.nome === activeRole) ? `<span class="tag tag-blue" style="margin-left:8px">Customizado</span>` : ''}</div>
       <div class="fs-xs c3 mt8">${activeCount} permissões ativas</div>
     </div>
     <div style="padding:6px 18px">
@@ -2113,7 +2153,7 @@ if(perm === 'visualizar_ranking' || perm === 'gerenciar_ranking'){
 
 function openNewRoleModal() {
   if (!isSuperAdmin()) { toast('Apenas admin', 'error'); return; }
-  showModal(`<div class="modal-hdr"><span>🎭</span><h2>Novo Perfil de Acesso</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-group"><label>Nome do Perfil *</label><input id="role-nome" placeholder="Ex: secretaria"/><small class="c3 fs-xs">Use letras minúsculas e underscores</small></div><div class="form-group"><label>Descrição</label><input id="role-desc"/></div><div style="border-top:1px solid var(--bdr2);margin:12px 0;padding-top:14px"><div class="fs-xs c3 fw6" style="text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Permissões Iniciais</div>${Object.entries(PERM_DESC).map(([code, { label, desc }]) => `<div class="perm-row" style="padding:8px 0"><div class="perm-lbl"><strong>${label}</strong><span>${desc}</span></div><input type="checkbox" class="new-role-perm" value="${code}" style="accent-color:var(--gold);width:18px;height:18px"/></div>`).join('')}</div></div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveNewRole()">🎭 Criar</button></div>`);
+  showModal(`<div class="modal-hdr"><span>${lc('shield-check', 20)}</span><h2>Novo Perfil de Acesso</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-group"><label>Nome do Perfil *</label><input id="role-nome" placeholder="Ex: secretaria"/><small class="c3 fs-xs">Use letras minúsculas e underscores</small></div><div class="form-group"><label>Descrição</label><input id="role-desc"/></div><div style="border-top:1px solid var(--bdr2);margin:12px 0;padding-top:14px"><div class="fs-xs c3 fw6" style="text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Permissões Iniciais</div>${Object.entries(PERM_DESC).map(([code, { label, desc }]) => `<div class="perm-row" style="padding:8px 0"><div class="perm-lbl"><strong>${label}</strong><span>${desc}</span></div><input type="checkbox" class="new-role-perm" value="${code}" style="accent-color:var(--gold);width:18px;height:18px"/></div>`).join('')}</div></div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveNewRole()">${lc('plus-circle', 14)} Criar</button></div>`);
 }
 
 async function saveNewRole() {
@@ -2197,7 +2237,7 @@ function closeModal() { const mc = $('modal-container'); const ov = mc.querySele
       btn.id = 'btn-' + t;
       btn.dataset.themeBtn = t;
       btn.title = t === 'dark' ? 'Tema Escuro' : 'Tema Claro';
-      btn.textContent = t === 'dark' ? '🌙' : '☀️';
+      btn.innerHTML = t === 'dark' ? lc('moon', 16) : lc('sun', 16);
       btn.onclick = function () { applyTheme(t); };
       wrap.appendChild(btn);
     });

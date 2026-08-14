@@ -613,7 +613,7 @@ ${podeVerEvSetoriais?`
         const hj=new Date().toISOString().slice(0,10);
        const eventosSetoriaisHtml=(evS||[]).length?(evS||[]).map(e=>{
           const fut=e.data>hj;
-          return `<div class="act-item" onclick="openEventoSetorialDetail('${e.id}')" style="cursor:pointer;transition:all .2s">
+          return `<div class="act-item" onclick="navigate('eventos_setoriais')" style="cursor:pointer;transition:all .2s">
             <div class="act-dot" style="background:${fut?'var(--primary-l,#7eb3ff)':'var(--gold,#f0c060)'}"></div>
             <div class="f1">
               <div class="fw5 fs-sm">${ico('cityHall',13)} ${dp.esc(e.resumo||'Evento Setorial')}</div>
