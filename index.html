@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>EclesiaSync — Gestão Eclesiástica</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link
@@ -84,28 +84,42 @@
       </div>
 
       <div class="login-card">
-        <h2 class="login-form-title">Entrar</h2>
-        <p class="login-form-sub">Use suas credenciais para acessar o painel.</p>
-        <div class="form-group">
-          <label>Usuário</label>
-          <div class="input-wrapper">
-            <i data-lucide="user" class="input-icon"></i>
-            <input id="inp-user" type="text" placeholder="Digite seu usuário" autocomplete="username" />
+        <div class="login-card-inner">
+          <div class="login-mob-emblem" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none">
+              <path d="M24 4v10M18 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M9 44V21l15-11 15 11v23H9z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M19 44V30h10v14" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
           </div>
-        </div>
-        <div class="form-group">
-          <label>Senha</label>
-          <div class="input-wrapper">
-            <i data-lucide="lock" class="input-icon"></i>
-            <input id="inp-pass" type="password" placeholder="••••••••" autocomplete="current-password" />
+          <h2 class="login-form-title">Entrar</h2>
+          <p class="login-form-sub">Use suas credenciais para acessar o painel.</p>
+          <div class="form-group">
+            <label for="inp-user">Usuário</label>
+            <div class="input-wrapper">
+              <i data-lucide="user" class="input-icon"></i>
+              <input id="inp-user" type="text" placeholder="Digite seu usuário" autocomplete="username"
+                autocapitalize="none" autocorrect="off" spellcheck="false" />
+            </div>
           </div>
+          <div class="form-group">
+            <label for="inp-pass">Senha</label>
+            <div class="input-wrapper">
+              <i data-lucide="lock" class="input-icon"></i>
+              <input id="inp-pass" type="password" placeholder="••••••••" autocomplete="current-password" />
+              <button type="button" class="pass-toggle" id="pass-toggle" aria-label="Mostrar senha" aria-pressed="false">
+                <i data-lucide="eye" class="pass-toggle-icon icon-show"></i>
+                <i data-lucide="eye-off" class="pass-toggle-icon icon-hide"></i>
+              </button>
+            </div>
+          </div>
+          <p id="login-err" class="login-err-msg hidden" role="alert" aria-live="assertive"></p>
+          <button id="btn-login" class="btn btn-primary btn-full">
+            <i data-lucide="log-in" class="btn-icon"></i>
+            <span>Entrar no Sistema</span>
+          </button>
+          <p class="login-foot-note">Acesso restrito à administração e liderança</p>
         </div>
-        <p id="login-err" class="hidden" style="color:var(--rose);font-size:.82rem;margin-bottom:12px"></p>
-        <button id="btn-login" class="btn btn-primary btn-full">
-          <i data-lucide="log-in" class="btn-icon"></i>
-          <span>Entrar no Sistema</span>
-        </button>
-        <p class="login-foot-note">Acesso restrito à administração e liderança</p>
       </div>
 
     </div>
@@ -161,11 +175,21 @@
       <header class="topbar">
         <button class="hamburger" id="hamburger"><i data-lucide="menu"></i></button>
         <div class="topbar-title">
-          <span id="page-title">Dashboard</span>
+          <span class="topbar-title-row">
+            <span id="page-title">Dashboard</span>
+            <button class="help-trigger" id="help-trigger" onclick="openHelpCenter()" title="Central de Ajuda" aria-label="Abrir central de ajuda">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.5 9a2.5 2.5 0 0 1 4.9.8c0 1.7-2.4 2-2.4 3.5"/>
+                <path d="M12 17.5v.01"/>
+              </svg>
+            </button>
+          </span>
           <small id="topbar-date"></small>
         </div>
         <div id="theme-panel-container"></div>
-        <div class="flex items-center gap12">
+        <div class="topbar-user-wrap">
+          <span class="topbar-user-av" id="topbar-user-av"></span>
           <span class="fs-sm c2 fw5" id="topbar-user"></span>
         </div>
       </header>
@@ -174,26 +198,53 @@
   </div>
   <div id="modal-container"></div>
 
+  <!-- CENTRAL DE AJUDA -->
+  <div id="help-center" class="help-center hidden" role="dialog" aria-modal="true" aria-label="Central de Ajuda" onclick="helpOverlayClick(event)">
+    <div class="help-panel" onclick="event.stopPropagation()">
+      <div class="help-topbar">
+        <button class="help-icon-btn hidden" id="help-back-btn" onclick="helpBack()" aria-label="Voltar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <div class="help-search-wrap">
+          <svg class="help-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="help-search-input" placeholder="Buscar artigos ou funcionalidades..." oninput="helpSearch(this.value)" autocomplete="off"/>
+        </div>
+        <button class="help-icon-btn" onclick="closeHelpCenter()" aria-label="Fechar central de ajuda">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="help-body" id="help-body"></div>
+    </div>
+  </div>
+
   <!--
-    ORDEM DOS SCRIPTS — não altere:
-    1. script_v5.js         → lógica principal
-    2. financeiro_module.js → módulo financeiro (sobrescreve checkLicenca)
-    3. ranking_module.js    → módulo ranking (injeta menu + renderRanking)
-    4. dashboard_patch.js   → sobrescreve renderDashboard + regras de evento
-    5. theme_engine.js      → tema claro/escuro
+    app.js = script_v5.js + financeiro_module.js + ranking_module.js +
+    dashboard_patch.js + adicao.js + ajuste.js + patch_umadalpe_eventos.js,
+    concatenados nessa ordem exata (cada bloco pode sobrescrever funções
+    do bloco anterior — a ordem interna do arquivo importa tanto quanto
+    a ordem dos <script> importava antes; não reordenar os blocos).
   -->
-  <script src="script_v5.js"></script>
-  <script src="financeiro_module.js"></script>
-  <script src="ranking_module.js"></script>
-  <script src="dashboard_patch.js"></script>
-  <script src="adicao.js"></script>
-  <script src="ajuste.js"></script>
-  <script src="patch_umadalpe_eventos.js"></script>
+  <script src="app.js"></script>
 
   <script>
     // Inicializa ícones Lucide após todos os scripts carregarem
     document.addEventListener('DOMContentLoaded', () => {
       if (typeof lucide !== 'undefined') lucide.createIcons();
+    });
+
+    // Mostrar/ocultar senha no login — puramente cosmético, não interfere
+    // na leitura de #inp-pass.value feita por doLogin() em script_v5.js
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggle = document.getElementById('pass-toggle');
+      const input = document.getElementById('inp-pass');
+      if (!toggle || !input) return;
+      toggle.addEventListener('click', () => {
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        toggle.classList.toggle('active', show);
+        toggle.setAttribute('aria-pressed', String(show));
+        toggle.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha');
+      });
     });
   </script>
 </body>

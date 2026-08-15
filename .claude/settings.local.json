@@ -13,7 +13,16 @@
       "Bash(node --check /tmp/combined_check2.js)",
       "Bash(cat script_v5.js financeiro_module.js ranking_module.js dashboard_patch.js adicao.js ajuste.js patch_umadalpe_eventos.js)",
       "Bash(pkill -f \"http.server 879\")",
-      "Bash(node --check script_v5.js)"
+      "Bash(node --check script_v5.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5500)",
+      "mcp__48430fca-5f08-4c9f-8b5b-2426a680d69f__list_extensions",
+      "mcp__48430fca-5f08-4c9f-8b5b-2426a680d69f__get_advisors",
+      "Bash(node -e ' *)",
+      "mcp__48430fca-5f08-4c9f-8b5b-2426a680d69f__execute_sql",
+      "Bash(node --check dashboard_patch.js)",
+      "Bash(node --check style.css)",
+      "Bash(node --check app.js)",
+      "Bash(grep -oE '^\\\\s*[a-zA-Z]+:\\\\s*`<svg' app.js)"
     ]
   }
 }

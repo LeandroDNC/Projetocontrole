@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "eclesiasync-static",
+      "url": "http://localhost:5500",
+      "port": 5500
+    }
+  ]
+}

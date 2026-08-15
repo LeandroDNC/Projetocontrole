@@ -5,8 +5,6 @@
     <meta charset="UTF-8">
     <title>Calendário UMADALPE 2026</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="assets/calendar.css">
-    <link rel="stylesheet" href="assets/modal.css">
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 
 </head>
@@ -266,10 +264,11 @@
 
         .day-card {
             border-radius: 5px;
-            width: 70%;
-            height: 5vh;
-            padding: 8px 8px;
-            font-size: 10px;
+            width: 100%;
+            height: auto;
+            min-height: 44px;
+            padding: 8px 6px;
+            font-size: 11px;
         }
 
         .week-header {
@@ -342,9 +341,9 @@
     }
 
     .modalcoment .close {
-        position: fixed;
-
-        left: calc(50% + 200px - 26px);
+        position: absolute;
+        top: 12px;
+        right: 14px;
         width: 38px;
         height: 38px;
         border-radius: 50%;
@@ -623,8 +622,9 @@
         }
 
         .modalcoment .close {
-            position: fixed;
-            left: calc(50% + 150px - 26px);
+            position: absolute;
+            top: 12px;
+            right: 14px;
             width: 38px;
             height: 38px;
             border-radius: 50%;

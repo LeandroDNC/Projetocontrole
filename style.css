@@ -42,19 +42,21 @@
    TEMA CLARO
 ════════════════════════════ */
 [data-theme="light"] {
-  --bg: #eef1fa;
+  /* Fundo com lavanda visível (não quase-branco) para os cards brancos
+     realmente flutuarem por cima — referência enviada pelo usuário:
+     bg claramente mais escuro que --bg-card, sombra fazendo o trabalho
+     de separação em vez de depender só da borda. */
+  --bg: #e7e9f7;
   --bg-card: #ffffff;
-  --bg-card2: #f4f6fc;
+  --bg-card2: #f1f2fb;
   --bg-side: #ffffff;
   --side-text: #1e293b;
 
   --white: rgba(253, 253, 253, 0.2);
-  /* Cor primária do tema claro passa a ser azul, seguindo a
-     referência de design enviada — como o app inteiro já usa
-     var(--gold)/var(--gold-l) para a cor de destaque (botões,
-     ícones, badges, bordas), só reapontar essas duas variáveis
-     já muda a identidade do tema claro sem tocar em nenhuma
-     outra regra CSS. */
+  /* Acento azul — como o app inteiro já usa var(--gold)/var(--gold-l)
+     para a cor de destaque (botões, ícones, badges, bordas), só
+     reapontar essas variáveis já muda a identidade do tema claro sem
+     tocar em nenhuma outra regra CSS. */
   --gold: #4f7dfb;
   --gold-l: #6f97fd;
   --gold-rgb: 79, 125, 251;
@@ -67,7 +69,7 @@
   --txt3: #94a3b8;
   --bdr: rgba(79, 125, 251, .16);
   --bdr2: rgba(30, 41, 59, .07);
-  --shadow: 0 12px 32px rgba(79, 125, 251, .12);
+  --shadow: 0 16px 36px rgba(79, 125, 251, .18);
 }
 
 /* ════════════════════════════
@@ -273,18 +275,6 @@
   color: var(--txt2);
   text-align: center;
   line-height: 1.3;
-}
-
-.theme-card button {
-  opacity: 0.5;
-}
-
-.theme-card button.active {
-  opacity: 1;
-  background: var(--gold);
-  color: #fff;
-  border-radius: 20px;
-  border-color: var(--gold);
 }
 
 .cb-btn {
@@ -600,29 +590,87 @@ textarea:focus {
 }
 
 /* ─ BOTÕES ─ */
-.theme-card {
-  display: flex;
-  gap: 18px;
-  margin: 0 1rem;
-  width: calc(100% - 1rem);
-  padding: 10px;
-  border: 1px solid var(--bdr);
-  border-radius: 40px;
-  background: var(--bg-card)
-}
-
-#btn-dark {
-  width: 100%;
+/* Switch único de tema (lua ↔ sol) — substitui os dois botões separados
+   que ficavam apertados na topbar */
+.theme-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 52px;
+  height: 26px;
+  padding: 0 6px;
+  flex-shrink: 0;
   background: rgba(255, 255, 255, .06);
-  color: var(--txt);
-  border: 1px solid var(--bdr2)
+  border: 1px solid var(--bdr2);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: var(--ease);
 }
 
-#btn-light {
-  width: 100%;
-  background: rgba(0, 0, 0, .05);
-  color: var(--txt);
-  border: 1px solid var(--bdr2)
+[data-theme="light"] .theme-switch {
+  background: rgba(0, 0, 0, .04);
+}
+
+.theme-switch:hover {
+  border-color: var(--gold);
+}
+
+.theme-switch-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  color: var(--txt3);
+  transition: color .3s ease;
+}
+
+.theme-switch:not(.is-light) .theme-switch-ico-moon,
+.theme-switch.is-light .theme-switch-ico-sun {
+  color: var(--gold);
+}
+
+.theme-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), var(--gold-l));
+  box-shadow: 0 2px 6px rgba(var(--gold-rgb), .5);
+  transition: transform .3s cubic-bezier(.4, 0, .2, 1);
+}
+
+.theme-switch.is-light .theme-switch-thumb {
+  transform: translateX(28px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-switch-thumb {
+    transition: none;
+  }
+}
+
+/* Usuário na topbar — pequeno avatar + primeiro nome */
+.topbar-user-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-user-av {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .65rem;
+  font-weight: 700;
+  color: #fff;
 }
 
 .btn {
@@ -1114,29 +1162,6 @@ textarea:focus {
   100% { opacity: 1; transform: translateY(0); }
 }
 
-.login-logo {
-  text-align: center;
-  margin-bottom: 40px;
-}
-
-.login-logo h1 {
-  font-family: 'Cinzel', serif;
-  font-size: 2.2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--gold-l) 0%, var(--gold) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: 2px;
-  margin-bottom: 8px;
-}
-
-.login-logo p {
-  font-size: 0.9rem;
-  color: var(--txt2);
-  font-weight: 400;
-  letter-spacing: 0.5px;
-}
-
 .input-wrapper {
   position: relative;
   display: flex;
@@ -1221,53 +1246,6 @@ textarea:focus {
   vertical-align: middle;
 }
 
-/* Botão de tema no login */
-.login-theme-row {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-[data-theme="light"] .login-theme-row {
-  border-top-color: rgba(0, 0, 0, 0.05);
-}
-
-.login-theme-btn {
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  cursor: pointer;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--txt2);
-  transition: var(--ease);
-  font-family: 'DM Sans', sans-serif;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-[data-theme="light"] .login-theme-btn {
-  background: rgba(0, 0, 0, 0.02);
-  border-color: rgba(0, 0, 0, 0.05);
-}
-
-.login-theme-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--gold);
-  color: var(--gold);
-  transform: translateY(-1px);
-}
-
-.login-theme-btn.active {
-  background: rgba(var(--gold-rgb), 0.1);
-  border-color: var(--gold);
-  color: var(--gold);
-}
 
 /* ─ APP ─ */
 #screen-app {
@@ -1696,12 +1674,16 @@ textarea:focus {
 
 /* ─ DASHBOARD ─ */
 .dash-header {
+  margin-bottom: 22px;
+}
+
+.dash-header-top {
   display: flex;
   align-items: flex-start;
-  justify-content: flex-start;
-  margin-bottom: 24px;
+  justify-content: space-between;
+  gap: 12px;
   flex-wrap: wrap;
-  gap: 12px
+  margin-bottom: 14px;
 }
 
 .dash-title {
@@ -1716,70 +1698,115 @@ textarea:focus {
   font-family: 'DM Sans', sans-serif;
 }
 
-.dash-period {
+.dash-header-actions {
   display: flex;
-  gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 10px;
 }
 
-.dash-setor-selector {
-  display: column;
+.dash-month-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--gold);
+  background: rgba(var(--gold-rgb), .1);
+  border: 1px solid rgba(var(--gold-rgb), .25);
+  border-radius: 999px;
+  padding: 7px 14px;
+  white-space: nowrap;
+}
+
+.dash-refresh-btn {
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  background: rgba(59, 130, 246, .08);
-  border: 1px solid rgba(59, 130, 246, .2);
-  border-radius: 10px;
-  padding: 8px 14px
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--bdr2);
+  background: var(--bg-card);
+  color: var(--txt2);
+  cursor: pointer;
+  transition: var(--ease);
+  flex-shrink: 0;
 }
 
-.selector-label {
-  font-size: .72rem;
-  color: #93c5fd;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  white-space: nowrap
+.dash-refresh-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  transform: rotate(90deg);
 }
 
-[data-theme="light"] .selector-label {
-  color: var(--blue);
+.dash-period {
+  display: flex;
 }
 
-.selector-select {
-  background: rgba(255, 255, 255, .06);
-  border: 1px solid rgba(59, 130, 246, .3);
+/* Card de filtro (setor/congregação) — só aparece pra quem pode filtrar */
+.dash-filter-card {
+  background: var(--bg-card);
+  border: 1px solid var(--bdr2);
   border-radius: var(--r2);
+  padding: 8px 12px;
+  box-shadow: var(--shadow);
+  width: 100%;
+  max-width: 340px;
+}
+
+.dash-filter-fields {
+  display: flex;
+  gap: 8px;
+}
+
+.dash-filter-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.dash-filter-field label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .58rem;
+  font-weight: 700;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 3px;
+}
+
+.dash-filter-select {
+  width: 100%;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid var(--bdr2);
+  border-radius: 999px;
   color: var(--txt);
-  font-size: .82rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .76rem;
   padding: 5px 10px;
   outline: none;
-  cursor: pointer
+  cursor: pointer;
+  transition: var(--ease);
 }
 
-[data-theme="light"] .selector-select {
-  background: rgba(0, 0, 0, .04);
-  color: var(--txt);
+[data-theme="light"] .dash-filter-select {
+  background: rgba(0, 0, 0, .03);
 }
 
-.selector-select:focus {
-  border-color: var(--blue)
+.dash-filter-select:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(var(--gold-rgb), .1);
 }
 
-.selector-badge {
-  font-size: .65rem;
-  padding: 2px 8px;
-  border-radius: 99px;
-  background: rgba(59, 130, 246, .15);
-  color: #93c5fd;
-  white-space: nowrap;
+.dash-filter-foot {
+  margin-top: 4px;
   text-align: center;
-}
-
-[data-theme="light"] .selector-badge {
-  color: var(--blue);
+  font-size: .58rem;
+  font-weight: 700;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: .05em;
 }
 
 .dash-setor-locked {
@@ -1788,14 +1815,16 @@ textarea:focus {
   gap: 6px;
   font-size: .82rem;
   color: var(--txt2);
-  background: rgba(255, 255, 255, .04);
+  background: var(--bg-card);
   border: 1px solid var(--bdr2);
-  border-radius: 10px;
-  padding: 8px 14px
+  border-radius: 999px;
+  padding: 8px 16px;
 }
 
-[data-theme="light"] .dash-setor-locked {
-  background: rgba(0, 0, 0, .04);
+@media (max-width: 480px) {
+  .dash-filter-card {
+    max-width: 100%;
+  }
 }
 
 /* ─ STATS GRID ─ */
@@ -1914,9 +1943,30 @@ textarea:focus {
   position: relative
 }
 
+/* Estilo completo mesmo fora de .form-group — antes o input de busca
+   (ex.: tela de Membros) dependia só disso e não tinha fundo/borda/cor
+   nenhuma, porque essas propriedades só existiam em ".form-group input" */
 .search-wrap input {
-  padding-left: 36px;
-  width: 220px
+  width: 220px;
+  padding: 11px 15px 11px 36px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid var(--bdr2);
+  border-radius: var(--r2);
+  color: var(--txt);
+  font-family: 'DM Sans', sans-serif;
+  font-size: .93rem;
+  outline: none;
+  transition: var(--ease);
+}
+
+[data-theme="light"] .search-wrap input {
+  background: rgba(0, 0, 0, .04);
+}
+
+.search-wrap input:focus {
+  border-color: var(--gold);
+  background: rgba(var(--gold-rgb), .04);
+  box-shadow: 0 0 0 3px rgba(var(--gold-rgb), .1);
 }
 
 .search-ico {
@@ -1927,6 +1977,12 @@ textarea:focus {
   color: var(--txt3);
   font-size: 13px;
   pointer-events: none
+}
+
+@media (max-width: 600px) {
+  .search-wrap input {
+    width: 100%;
+  }
 }
 
 /* ─ CARDS ─ */
@@ -2401,6 +2457,221 @@ textarea:focus {
   display: flex;
   gap: 8px;
   flex-wrap: wrap
+}
+
+/* ─ RELATÓRIOS — versão enxuta (menos "parede de cards") ─ */
+.rel-filter-bar {
+  padding: 14px 18px;
+  margin-bottom: 18px;
+}
+
+.rel-filter-bar .filter-fields {
+  margin-bottom: 10px;
+}
+
+.chip-btn {
+  padding: 6px 13px;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--txt2);
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid var(--bdr2);
+  border-radius: 99px;
+  cursor: pointer;
+  transition: var(--ease);
+  font-family: 'DM Sans', sans-serif;
+}
+
+[data-theme="light"] .chip-btn {
+  background: rgba(0, 0, 0, .03);
+}
+
+.chip-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(var(--gold-rgb), .08);
+}
+
+.rel-stats-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.rel-stat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--bdr2);
+  border-radius: var(--r2);
+  padding: 12px 14px;
+  transition: var(--ease);
+}
+
+.rel-stat:hover {
+  border-color: rgba(var(--gold-rgb), .3);
+  transform: translateY(-2px);
+}
+
+.rel-stat-ico {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rel-stat-val {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.rel-stat-lbl {
+  font-size: .68rem;
+  color: var(--txt2);
+  white-space: nowrap;
+}
+
+.rel-fin-strip {
+  display: flex;
+  align-items: stretch;
+  background: linear-gradient(135deg, rgba(var(--gold-rgb), .1), rgba(var(--gold-rgb), .03));
+  border: 1px solid rgba(var(--gold-rgb), .22);
+  border-radius: var(--r);
+  padding: 16px 22px;
+  margin-bottom: 26px;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+
+.rel-fin-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 130px;
+}
+
+.rel-fin-lbl {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: .74rem;
+  color: var(--txt2);
+  font-weight: 600;
+}
+
+.rel-fin-val {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--txt);
+}
+
+.rel-fin-total .rel-fin-val {
+  color: var(--gold);
+}
+
+.rel-fin-sep {
+  width: 1px;
+  background: rgba(var(--gold-rgb), .2);
+  align-self: stretch;
+}
+
+@media (max-width: 760px) {
+  .rel-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rel-fin-strip {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .rel-fin-sep {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .rel-stats-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Totalizadores UMADALPE — lista compacta em vez de parede de stat-cards */
+.rel-total-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--bdr2);
+  border-radius: var(--r);
+  padding: 6px 20px;
+  margin-bottom: 24px;
+}
+
+.rel-total-group-lbl {
+  grid-column: 1 / -1;
+  font-size: .68rem;
+  font-weight: 700;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  padding: 14px 0 6px;
+  border-top: 1px solid var(--bdr2);
+}
+
+.rel-total-group-lbl:first-child {
+  border-top: none;
+  padding-top: 12px;
+}
+
+.rel-total-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--bdr2);
+  font-size: .85rem;
+}
+
+.rel-total-group-lbl + .rel-total-row {
+  border-top: none;
+}
+
+.rel-total-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: rgba(var(--gold-rgb), .1);
+  color: var(--gold);
+}
+
+.rel-total-lbl {
+  flex: 1;
+  color: var(--txt2);
+  min-width: 0;
+}
+
+.rel-total-val {
+  font-weight: 700;
+  color: var(--txt);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .rel-total-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ─ AGENDA STRIP ─ */
@@ -3369,7 +3640,22 @@ textarea:focus {
   }
 
   .hamburger {
-    display: flex
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin-left: -11px;
+  }
+
+  .notif {
+    width: 40px;
+    height: 40px;
+  }
+
+  .modal-close {
+    width: 40px;
+    height: 40px;
   }
 
   .mob-overlay.show {
@@ -3385,6 +3671,10 @@ textarea:focus {
   }
 
   .agenda-grid-7 {
+    grid-template-columns: repeat(4, 1fr)
+  }
+
+  .struct-grid {
     grid-template-columns: repeat(4, 1fr)
   }
 
@@ -3446,12 +3736,6 @@ textarea:focus {
     padding: 0 14px;
     gap: 8px
   }
-.dash-period {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    width: 100%
-  }
   .topbar-title {
     font-size: .88rem
   }
@@ -3500,20 +3784,25 @@ textarea:focus {
   }
 
   .struct-grid {
-    grid-template-columns: 1fr 1fr
-  }
-
-  .dash-setor-selector {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px
-  }
-
-  .dash-period {
-    flex-direction: column;
-    align-items: flex-start;
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
-    width: 100%
+  }
+
+  .struct-card {
+    padding: 10px 8px;
+  }
+
+  .struct-card .s-icon {
+    font-size: 15px;
+    margin-bottom: 3px;
+  }
+
+  .struct-card .s-label {
+    font-size: .58rem;
+  }
+
+  .struct-card .s-value {
+    font-size: .74rem;
   }
 
   /* .dash-header {
@@ -3533,7 +3822,7 @@ textarea:focus {
   }
 
   .agenda-grid-7 {
-    grid-template-columns: repeat(3, 1fr)
+    grid-template-columns: repeat(4, 1fr)
   }
 
   .user-card {
@@ -3546,14 +3835,17 @@ textarea:focus {
     justify-content: flex-end
   }
 
-  .rtable-header,
-  .rtable-row {
-    grid-template-columns: 2fr 1fr 1fr
+  /* Em vez de esconder colunas (perdia Eventos/Conv./Ofertas/Dízimos),
+     a tabela de relatórios ganha rolagem horizontal — todas as colunas
+     continuam acessíveis, só passam a exigir um swipe */
+  .tbl-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .rtable-header>*:nth-child(n+4),
-  .rtable-row>*:nth-child(n+4) {
-    display: none
+  .rtable-header,
+  .rtable-row {
+    min-width: 620px;
   }
 
   .role-tabs {
@@ -3659,12 +3951,6 @@ textarea:focus {
   .bloqueado-icon {
     font-size: 44px;
   }
-  .dash-period {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    width: 100%
-  }
 
   .back-btn {
     font-size: .72rem;
@@ -3675,45 +3961,8 @@ textarea:focus {
     margin: 0
   }
 
-  #screen-login {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-    min-height: 100dvh;
-    align-items: center;
-    justify-content: center;
-    padding: 12px 10px;
-    overflow-y: auto;
-  }
-
-  .login-card {
-    margin: 0 auto;
-    border-radius: 20px;
-    width: 100%;
-    max-width: 100%;
-    padding: 40px 24px;
-    background: rgba(17, 24, 39, 0.8);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-  }
-
-  [data-theme="light"] .login-card {
-    background: rgba(255, 255, 255, 0.8);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  }
-
-  .login-logo {
-    margin-bottom: 20px
-  }
-
-  .login-logo h1 {
-    font-size: 1.3rem
-  }
-
-  .login-logo p {
-    font-size: .75rem
-  }
+  /* Responsividade específica do login foi consolidada numa seção
+     única — ver "LOGIN · RESPONSIVO" mais abaixo no arquivo */
 
   .form-group {
     margin-bottom: 14px
@@ -3785,25 +4034,18 @@ textarea:focus {
   }
 
   .agenda-grid-7 {
-    grid-template-columns: repeat(2, 1fr)
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
   }
 
   .agenda-day {
-    min-height: 70px
+    min-height: 60px;
+    padding: 6px 4px;
   }
 
   .struct-grid {
-    grid-template-columns: 1fr 1fr
-  }
-
-  .rtable-header,
-  .rtable-row {
-    grid-template-columns: 2fr 1fr
-  }
-
-  .rtable-header>*:nth-child(n+3),
-  .rtable-row>*:nth-child(n+3) {
-    display: none
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
   }
 
   .freq-item {
@@ -3866,7 +4108,8 @@ textarea:focus {
   }
 
   .struct-grid {
-    grid-template-columns: 1fr
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
   }
 
   .stat-val {
@@ -3874,7 +4117,13 @@ textarea:focus {
   }
 
   .agenda-grid-7 {
-    grid-template-columns: repeat(2, 1fr)
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+  }
+
+  .agenda-day {
+    min-height: 52px;
+    padding: 5px 3px;
   }
 
 
@@ -4177,36 +4426,7 @@ textarea:focus {
   opacity: .65;
 }
 
-/* ──────────────────────────────────────────────────────────
-   FIX 2 — Filtro de Setor/Congregação cortando nomes no mobile
-════════════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
-  .dash-setor-selector {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    width: 100%;
-    gap: 8px !important;
-  }
-
-  .dash-setor-selector .selector-select {
-    width: 100% !important;
-    max-width: 100%;
-    white-space: normal;
-  }
-
-  .dash-setor-selector .selector-label {
-    white-space: normal;
-  }
-
-  .dash-period {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    width: 100% !important;
-    gap: 8px !important;
-  }
-
   /* Menu lateral (mobile) — texto e ícones pretos no tema claro */
   [data-theme="light"] .sidebar .nav-item,
   [data-theme="light"] .sidebar .nav-item .nav-lbl,
@@ -4946,15 +5166,111 @@ body {
   letter-spacing: .02em;
 }
 
-@media (max-width: 480px) {
-  .login-network { opacity: .22; }
-  .login-emblem { width: 44px; height: 44px; }
-  .login-emblem svg { width: 22px; height: 22px; }
+/* ── Emblema exibido só no modo telefone (≤600px, ver breakpoint
+   abaixo) — nesse modo o painel de marca inteiro fica oculto, então
+   este emblema pequeno assume o papel de identidade visual mínima ── */
+.login-mob-emblem {
+  display: none;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(var(--gold-rgb), .16), rgba(var(--gold-rgb), .04));
+  border: 1px solid rgba(var(--gold-rgb), .28);
+  color: var(--gold-l);
 }
 
-/* Empilha os dois painéis do login em telas estreitas — painel azul
-   vira topo (onda horizontal), formulário vira base (onda vertical some) */
-@media (max-width: 760px) {
+.login-mob-emblem svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* ── Botão de mostrar/ocultar senha ── */
+.login-card input#inp-pass {
+  padding-right: 44px;
+}
+
+.pass-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--txt3);
+  transition: var(--ease);
+}
+
+.pass-toggle:hover {
+  color: var(--gold);
+  background: rgba(var(--gold-rgb), .08);
+}
+
+.pass-toggle-icon {
+  width: 17px;
+  height: 17px;
+}
+
+.pass-toggle .icon-hide {
+  display: none;
+}
+
+.pass-toggle.active .icon-show {
+  display: none;
+}
+
+.pass-toggle.active .icon-hide {
+  display: inline-flex;
+}
+
+/* ── Mensagem de erro/feedback do login ── */
+.login-err-msg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(244, 63, 94, .1);
+  border: 1px solid rgba(244, 63, 94, .25);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  color: var(--rose);
+  font-size: .82rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.login-err-msg::before {
+  content: '!';
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--rose);
+  color: #fff;
+  font-size: .68rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ══════════════════════════════════════════════════════════
+   LOGIN · RESPONSIVO (seção única — não duplicar em outro lugar)
+   > 760px   → painel de marca + formulário lado a lado (regras acima)
+   601–760px → painéis empilhados, marca condensada no topo
+   ≤ 600px   → só o formulário, tela cheia, sem "cartão flutuante"
+               (layout inspirado na referência enviada: título grande,
+               campos com ícone, botão em destaque, aviso no rodapé)
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 760px) and (min-width: 601px) {
   .login-split {
     flex-direction: column;
     max-width: 460px;
@@ -4981,6 +5297,10 @@ body {
     display: none;
   }
 
+  .login-network {
+    opacity: .22;
+  }
+
   .login-wave-seam {
     width: auto;
     height: 0;
@@ -5000,6 +5320,85 @@ body {
 
   .login-card {
     padding: 32px 26px 28px;
+  }
+}
+
+@media (max-width: 600px) {
+  #screen-login {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .login-split {
+    max-width: 100%;
+    min-height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+    animation: none;
+  }
+
+  /* Painel de marca não cabe bem numa tela de telefone — some, e o
+     emblema pequeno (.login-mob-emblem) assume o lugar dele */
+  .login-brand-panel,
+  .login-wave-seam {
+    display: none;
+  }
+
+  .login-mob-emblem {
+    display: flex;
+  }
+
+  .login-card {
+    flex: 1;
+    justify-content: center;
+    padding: 28px 22px;
+    min-height: 100dvh;
+  }
+
+  .login-card-inner {
+    max-width: 380px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .login-form-title {
+    text-align: center;
+    font-size: 1.7rem;
+  }
+
+  .login-form-sub {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .login-card input {
+    height: 50px;
+    font-size: 1rem;
+  }
+
+  .btn-primary.btn-full {
+    height: 54px;
+    border-radius: var(--r);
+    font-size: .95rem;
+  }
+
+  .login-foot-note {
+    margin-top: 22px;
+  }
+}
+
+@media (max-width: 380px) {
+  .login-form-title {
+    font-size: 1.5rem;
+  }
+
+  .login-card {
+    padding: 24px 18px;
   }
 }
 
@@ -5036,9 +5435,23 @@ body {
 [data-theme="light"] body {
   background-image:
     url("assets/wallpaper-light.svg"),
-    radial-gradient(circle, rgba(79, 125, 251, .05), transparent 70%),
+    radial-gradient(circle, rgba(var(--gold-rgb), .07), transparent 70%),
     radial-gradient(circle, rgba(201, 168, 76, .05), transparent 70%),
     var(--bg) !important;
+}
+
+/* No tema claro os cards brancos precisam de sombra em repouso (não só
+   no hover) para separarem do fundo lavanda — sem isso tudo lê como
+   uma massa branca única, que foi exatamente o feedback recebido */
+[data-theme="light"] .stat-card,
+[data-theme="light"] .item-card,
+[data-theme="light"] .chart-card,
+[data-theme="light"] .struct-card,
+[data-theme="light"] .member-row,
+[data-theme="light"] .act-item,
+[data-theme="light"] .user-card,
+[data-theme="light"] .tbl-wrap {
+  box-shadow: 0 4px 16px rgba(79, 125, 251, .08);
 }
 
 /* Backdrop de modal — mais decisivo, garante que o fundo fique
@@ -5393,11 +5806,15 @@ body {
    fazia o botão principal ficar sem cor de fundo nenhuma).
 ══════════════════════════════════════════════════════════ */
 
-/* Dropdown "+ Evento" e afins — mesmo cartão arredondado usado no resto */
+/* Dropdown "+ Evento" e afins — mesmo cartão arredondado usado no resto.
+   overflow-y:auto (não "hidden") é proposital: com 13 itens em 4 grupos,
+   o menu passa da altura máxima e precisa rolar — "hidden" aqui cortava
+   o grupo "Visitas" de vez, sem dar nenhum jeito de chegar até ele. */
 .dropdown-menu {
   border-radius: 16px !important;
   box-shadow: 0 20px 48px rgba(0, 0, 0, .22), 0 0 0 1px var(--bdr2);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .dropdown-item {
@@ -5531,31 +5948,463 @@ body {
 .stat-card:has(.ic-teal)::after   { color: rgba(20, 184, 166, .14); }
 .stat-card:has(.ic-violet)::after { color: rgba(139, 92, 246, .12); }
 
-/* Filtros do dashboard (Setor / Período) em formato de pílula,
-   como os chips "SETOR 1" / "Julho de 2026" da referência */
-.dash-setor-selector {
-  border-radius: 18px !important;
+/* ══════════════════════════════════════════════════════════
+   CENTRAL DE AJUDA
+   ══════════════════════════════════════════════════════════ */
+.topbar-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.selector-select {
-  border-radius: 999px !important;
+.help-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  color: var(--txt3);
+  cursor: pointer;
+  transition: var(--ease);
 }
 
-.dash-period .tag {
+.help-trigger svg {
+  width: 17px;
+  height: 17px;
+}
+
+.help-trigger:hover {
+  color: var(--gold);
+  background: rgba(var(--gold-rgb), .1);
+}
+
+.help-center {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 5, 12, .6);
+  backdrop-filter: blur(3px);
+  padding: 26px;
+  animation: fadeUp .2s ease both;
+}
+
+.help-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 860px;
+  height: 86vh;
+  max-height: 760px;
+  background: var(--bg);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, .5);
+}
+
+.help-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--bdr2);
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
+
+.help-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--bdr2);
+  background: none;
+  color: var(--txt2);
+  cursor: pointer;
+  transition: var(--ease);
+}
+
+.help-icon-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.help-icon-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.help-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.help-search-ico {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 15px;
+  height: 15px;
+  color: var(--txt3);
+  pointer-events: none;
+}
+
+.help-search-wrap input {
+  width: 100%;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid var(--bdr2);
   border-radius: 999px;
-  padding: 7px 14px;
+  color: var(--txt);
+  font-family: 'DM Sans', sans-serif;
+  font-size: .88rem;
+  padding: 10px 14px 10px 38px;
+  outline: none;
+  transition: var(--ease);
+}
+
+[data-theme="light"] .help-search-wrap input {
+  background: rgba(0, 0, 0, .03);
+}
+
+.help-search-wrap input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(var(--gold-rgb), .1);
+}
+
+.help-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 26px 40px;
+}
+
+.help-hero {
+  text-align: center;
+  margin-bottom: 26px;
+}
+
+.help-hero h2 {
+  font-size: 1.35rem;
+  color: var(--txt);
+  margin-bottom: 6px;
+}
+
+.help-hero p {
+  font-size: .88rem;
+  color: var(--txt3);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.help-collections-lbl {
+  font-size: .68rem;
+  font-weight: 700;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 12px;
+}
+
+.help-collections-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.help-coll-card {
+  background: var(--bg-card);
+  border: 1px solid var(--bdr2);
+  border-radius: var(--r);
+  padding: 16px;
+  cursor: pointer;
+  transition: var(--ease);
+}
+
+.help-coll-card:hover {
+  border-color: rgba(var(--gold-rgb), .35);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.help-coll-ico,
+.help-coll-header-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(var(--gold-rgb), .12);
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+
+.help-coll-title {
+  font-size: .92rem;
+  font-weight: 700;
+  color: var(--txt);
+  margin-bottom: 3px;
+}
+
+.help-coll-desc {
+  font-size: .78rem;
+  color: var(--txt3);
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+.help-coll-count {
+  font-size: .68rem;
+  font-weight: 600;
+  color: var(--txt3);
+  background: rgba(255, 255, 255, .05);
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+
+[data-theme="light"] .help-coll-count {
+  background: rgba(0, 0, 0, .04);
+}
+
+.help-crumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .78rem;
+  color: var(--txt3);
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.help-crumb span:not(.help-crumb-sep):not(.help-crumb-cur) {
+  cursor: pointer;
+  transition: var(--ease);
+}
+
+.help-crumb span:not(.help-crumb-sep):not(.help-crumb-cur):hover {
+  color: var(--gold);
+}
+
+.help-crumb-cur {
+  color: var(--txt2);
   font-weight: 600;
 }
 
-/* Botão de atualizar (refresh) do dashboard, redondo como na referência */
-.dash-setor-selector .btn-secondary[title="Atualizar"] {
-  border-radius: 50% !important;
-  width: 34px;
-  height: 34px;
-  padding: 0 !important;
-  display: inline-flex;
+.help-coll-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.help-coll-header-ico {
+  width: 46px;
+  height: 46px;
+  margin-bottom: 0;
+}
+
+.help-coll-header h2 {
+  font-size: 1.15rem;
+  color: var(--txt);
+  margin-bottom: 3px;
+}
+
+.help-coll-header p {
+  font-size: .84rem;
+  color: var(--txt3);
+}
+
+.help-article-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.help-article-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--bdr2);
+  border-radius: var(--r2);
+  padding: 13px 14px;
+  cursor: pointer;
+  transition: var(--ease);
+}
+
+.help-article-row:hover {
+  border-color: rgba(var(--gold-rgb), .3);
+  background: var(--bg-card2);
+}
+
+.help-article-row-ico {
+  display: flex;
   align-items: center;
   justify-content: center;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
+  border-radius: 9px;
+  background: rgba(var(--gold-rgb), .1);
+  color: var(--gold);
+}
+
+.help-article-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.help-article-row-title {
+  font-size: .87rem;
+  font-weight: 600;
+  color: var(--txt);
+  margin-bottom: 2px;
+}
+
+.help-article-row-desc {
+  font-size: .76rem;
+  color: var(--txt3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.help-article-row-chev {
+  flex-shrink: 0;
+  color: var(--txt3);
+}
+
+.help-article {
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.help-article h1 {
+  font-size: 1.3rem;
+  color: var(--txt);
+  margin-bottom: 8px;
+  text-wrap: balance;
+}
+
+.help-article-lede {
+  font-size: .92rem;
+  color: var(--txt2);
+  line-height: 1.6;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--bdr2);
+}
+
+.help-section {
+  margin-bottom: 20px;
+}
+
+.help-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .92rem;
+  font-weight: 700;
+  color: var(--txt);
+  margin-bottom: 8px;
+}
+
+.help-section-emoji {
+  font-size: 1rem;
+}
+
+.help-section p {
+  font-size: .87rem;
+  color: var(--txt2);
+  line-height: 1.65;
+  margin-bottom: 8px;
+}
+
+.help-section ul {
+  padding-left: 20px;
+  margin: 0;
+}
+
+.help-section li {
+  font-size: .87rem;
+  color: var(--txt2);
+  line-height: 1.65;
+  margin-bottom: 6px;
+}
+
+.help-article-foot {
+  max-width: 620px;
+  margin: 26px auto 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--bdr2);
+}
+
+.help-empty {
+  text-align: center;
+  color: var(--txt3);
+  font-size: .88rem;
+  padding: 40px 20px;
+}
+
+.help-empty svg {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 10px;
+  opacity: .5;
+}
+
+@media (max-width: 700px) {
+  .help-center {
+    padding: 0;
+  }
+
+  .help-panel {
+    max-width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .help-collections-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .help-body {
+    padding: 20px 16px 32px;
+  }
+}
+
+@media (max-width: 420px) {
+  .help-collections-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .help-coll-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .help-coll-ico {
+    margin-bottom: 0;
+  }
+
+  .help-coll-desc {
+    margin-bottom: 4px;
+  }
 }
 
