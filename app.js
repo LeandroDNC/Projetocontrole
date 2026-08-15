@@ -23,6 +23,37 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+/* ── FIX: gráficos "em branco" ao entrar numa tela ────────────────────
+   Ao navegar no app (SPA), o <canvas> do gráfico é criado dentro do
+   #page-content enquanto ele ainda está com a animação de entrada
+   (transform/opacity da classe .page, keyframe fadeUp). Em navegadores
+   baseados no Chromium o canvas às vezes fica "congelado" em branco nesse
+   cenário e só repinta quando ocorre um resize da janela — por isso hoje
+   o gráfico só aparece depois de recarregar a página (F5).
+   Solução: logo após criar QUALQUER gráfico, agenda-se um resize() nos
+   próximos frames. O resize força o Chart.js a re-medir o container e a
+   repintar o canvas — exatamente o efeito que o reload provoca, mas sem
+   precisar recarregar. Não altera dados, escalas nem animação. */
+if (typeof Chart !== 'undefined' && !Chart.__blankFixApplied) {
+  const _OrigChart = Chart;
+  class ChartAutoResize extends _OrigChart {
+    constructor() {
+      super(...arguments);
+      const self = this;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        try {
+          if (self.canvas && self.canvas.isConnected) self.resize();
+        } catch (_) { /* gráfico já destruído — ignora */ }
+      }));
+    }
+  }
+  ChartAutoResize.__blankFixApplied = true;
+  // Reatribui o global para que todo `new Chart(...)` do app use a subclasse.
+  // As propriedades estáticas (defaults, overrides, getChart, register…) são
+  // herdadas da classe original pela cadeia de protótipo — nada se perde.
+  window.Chart = ChartAutoResize;
+}
+
 /* ── ANIMAÇÃO PADRÃO DOS GRÁFICOS (Chart.js) ──────────────────────────
    Config única, global, aplicada a todo gráfico criado no app (relatórios,
    frequência, financeiro, dashboard, ranking) — entrada escalonada ponto a
@@ -76,6 +107,18 @@ const AVATAR_COLORS = ['#3b82f6', '#8b5cf6', '#14b8a6', '#f43f5e', '#f59e0b', '#
 const avatarColor = n => AVATAR_COLORS[(n || 'A').charCodeAt(0) % AVATAR_COLORS.length];
 const initials = n => (n || '?').trim().split(/\s+/).slice(0, 2).map(x => x[0]).join('').toUpperCase();
 const escHtml = s => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+/* Escape para valores que vão DENTRO de um atributo onclick="...('AQUI')".
+   O escHtml sozinho não basta nesse contexto: o navegador desfaz as entidades
+   HTML antes de o JS ser avaliado, então aspas/barras precisam ser escapadas
+   em nível de string JS também. Usar sempre que um dado vindo do banco for
+   interpolado dentro de um handler inline. */
+const escAttr = s => String(s ?? '')
+  .replace(/\\/g, '\\\\')
+  .replace(/'/g, "\\'")
+  .replace(/"/g, '&quot;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/\r?\n/g, ' ');
 const fmtMoney = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
 const toast = (msg, icon = 'success') => Swal.fire({
@@ -231,25 +274,95 @@ async function loadAllCongs() {
 
 /* ── CONTROLE DE SESSÃO ──────────────────────────────────── */
 const SESSION_KEY = 'ecclesia_session_token';
-function generateSessionToken() { return Math.random().toString(36).substring(2) + Date.now().toString(36); }
 
-async function checkAndSetSession(userId) {
-  const newToken = generateSessionToken();
+/* Token de sessão emitido pelo BANCO no login (ver security_hardening.sql).
+   É a credencial que prova ao servidor quem é o usuário — as operações
+   sensíveis (permissões, dados de menores) exigem este token e o próprio
+   banco confere o papel do usuário, em vez de confiar no isSuperAdmin()
+   que roda aqui no navegador e pode ser burlado pelo console. */
+function getSessionToken() {
+  try { return localStorage.getItem(SESSION_KEY) || null; } catch (_) { return null; }
+}
+
+/* Chama uma função segura do banco; se ela ainda NÃO existir no projeto
+   (security_hardening.sql não rodado), executa o caminho antigo.
+
+   O detalhe importante: só caímos no caminho antigo quando a função está
+   AUSENTE. Se ela existe e respondeu "acesso negado", a negação é
+   respeitada e propagada — senão a checagem de segurança do servidor
+   seria contornável simplesmente falhando de propósito. */
+async function rpcSeguro(fnName, args, fallback) {
+  const { data, error } = await db.rpc(fnName, args);
+  if (!error) return { data, ok: true };
+
+  // PGRST202 = função não encontrada no cache do PostgREST.
+  // 42883 = undefined_function no Postgres.
+  const ausente = error.code === 'PGRST202' || error.code === '42883' ||
+    /could not find the function|does not exist/i.test(error.message || '');
+
+  if (ausente && typeof fallback === 'function') {
+    console.warn(`[seguranca] ${fnName} ainda não existe no banco — usando caminho antigo. ` +
+      `Rode security_hardening.sql para ativar a verificação no servidor.`);
+    return await fallback();
+  }
+  return { error, ok: false };
+}
+/* SEGURANÇA: token de sessão precisa ser imprevisível. Math.random() NÃO é
+   um gerador criptográfico — sua saída é derivável a partir de poucas amostras,
+   o que permitiria a um atacante prever/forjar o token de sessão de outro
+   usuário. crypto.getRandomValues() é o gerador seguro do navegador (padrão
+   Web Crypto, disponível em todos os navegadores atuais). 32 bytes = 256 bits
+   de entropia, em hex. */
+function generateSessionToken() {
+  const buf = new Uint8Array(32);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* Recebe o token emitido pelo banco no login (rpc_login). Se o projeto
+   ainda não rodou o security_hardening.sql, o rpc_login antigo não
+   devolve token — nesse caso mantemos o comportamento anterior para não
+   quebrar o sistema, apenas com token gerado de forma criptográfica. */
+async function checkAndSetSession(userId, tokenDoBanco) {
   try {
+    if (tokenDoBanco) {
+      localStorage.setItem(SESSION_KEY, tokenDoBanco);
+      startSessionCheck(userId, tokenDoBanco);
+      return;
+    }
+    // Caminho antigo (banco ainda sem o endurecimento aplicado)
+    const newToken = generateSessionToken();
     await q('sistema_usuarios').update({ session_token: newToken }).eq('id', userId);
     localStorage.setItem(SESSION_KEY, newToken);
     startSessionCheck(userId, newToken);
   } catch (e) { console.warn('Session control indisponível', e); }
 }
 
+function encerrarSessaoLocal(texto) {
+  if (window._sessionInterval) clearInterval(window._sessionInterval);
+  Swal.fire({
+    title: 'Sessão encerrada', text: texto, icon: 'warning',
+    confirmButtonText: 'OK', allowOutsideClick: false,
+    background: '#111827', color: '#f1f5f9'
+  }).then(() => { localStorage.clear(); location.reload(); });
+}
+
 function startSessionCheck(userId, token) {
   if (window._sessionInterval) clearInterval(window._sessionInterval);
   window._sessionInterval = setInterval(async () => {
     try {
-      const { data } = await q('sistema_usuarios').select('session_token').eq('id', userId).single();
-      if (data?.session_token && data.session_token !== token) {
-        clearInterval(window._sessionInterval);
-        Swal.fire({ title: 'Sessão encerrada', text: 'Você já está logado em outro dispositivo.', icon: 'warning', confirmButtonText: 'OK', allowOutsideClick: false, background: '#111827', color: '#f1f5f9' }).then(() => { localStorage.clear(); location.reload(); });
+      // Caminho novo: o banco diz se a sessão ainda vale (sem expor o
+      // token de ninguém). Caminho antigo: compara a coluna session_token.
+      const { data, error } = await db.rpc('rpc_sessao_valida', { p_token: token });
+      if (!error) {
+        if (data === false) {
+          encerrarSessaoLocal('Sua sessão expirou ou você entrou em outro dispositivo.');
+        }
+        return;
+      }
+      const { data: row } = await q('sistema_usuarios').select('session_token').eq('id', userId).single();
+      if (row?.session_token && row.session_token !== token) {
+        encerrarSessaoLocal('Você já está logado em outro dispositivo.');
       }
     } catch (e) { }
   }, 30000);
@@ -304,6 +417,14 @@ async function doLogin() {
   const { data: rows, error } = await db.rpc('rpc_login', { p_username: username, p_password: pass });
   const user = Array.isArray(rows) ? rows[0] : rows;
   if (error) {
+    // Bloqueio por excesso de tentativas (força bruta) vem do banco como
+    // uma exceção com texto pronto para o usuário — mostramos ele direto,
+    // sem o prefixo de "erro técnico", que confundiria quem só errou a senha.
+    if (/muitas tentativas/i.test(error.message || '')) {
+      errEl.textContent = 'Muitas tentativas de login. Aguarde 15 minutos e tente novamente.';
+      errEl.classList.remove('hidden');
+      $('btn-login').disabled = false; $('btn-login').innerHTML = `${lc('log-in', 18, 'btn-icon')} Entrar no Sistema`; refreshLucide(); return;
+    }
     // Erro técnico (função ainda não existe, cache do PostgREST desatualizado,
     // permissão faltando etc.) — mostramos o motivo real em vez de mascarar
     // como "senha errada", para dar pra diagnosticar. Detalhe completo no console.
@@ -321,10 +442,16 @@ async function doLogin() {
   const licOk = await checkLicenca(user.id);
   if (!licOk) return;
 
+  // O token de sessão não faz parte do "perfil" do usuário: guardamos ele
+  // separado (SESSION_KEY) e fora do objeto salvo, para não sair espalhado
+  // em cache/telas que serializam currentUser.
+  const sessionToken = user.session_token || null;
+  delete user.session_token;
+
   localStorage.setItem('ecclesia_user', JSON.stringify(user));
   currentUser = user;
   await loadPermissions(); await loadUserSetor(); await loadUserCong(); await loadAllCongs();
-  await checkAndSetSession(user.id);
+  await checkAndSetSession(user.id, sessionToken);
   dashSetorFiltro = currentUser?.setor_id || null;
   dashCongFiltro = null;
   relSetorFiltro = currentUser?.setor_id || null;
@@ -438,7 +565,13 @@ document.querySelectorAll('.nav-item').forEach(el => {
 $('user-pill').addEventListener('click', async () => {
   const r = await confirmDialog('Sair do sistema', 'Deseja encerrar sua sessão?');
   if (r.isConfirmed) {
-    try { await q('sistema_usuarios').update({ session_token: null }).eq('id', currentUser.id); } catch (e) { }
+    // Revoga a sessão NO SERVIDOR — sem isso, o token continuaria válido
+    // mesmo depois de "sair", e quem tivesse uma cópia dele seguiria dentro.
+    await rpcSeguro('rpc_logout', { p_token: getSessionToken() },
+      async () => {
+        try { await q('sistema_usuarios').update({ session_token: null }).eq('id', currentUser.id); } catch (e) { }
+        return { ok: true };
+      });
     if (window._sessionInterval) clearInterval(window._sessionInterval);
     localStorage.clear(); location.reload();
   }
@@ -776,7 +909,7 @@ async function renderFinanceiro() {
         </div>
         <div class="user-card-actions">
           <button class="btn btn-secondary btn-sm" onclick="openEditLicenca('${l.id}')">${lc('pencil', 14)} Editar</button>
-          <button class="btn btn-teal btn-sm" onclick="renovarLicenca('${l.id}','${escHtml(l.user?.nome || '')}')">${lc('refresh-cw', 14)} Renovar</button>
+          <button class="btn btn-teal btn-sm" onclick="renovarLicenca('${l.id}','${escAttr(l.user?.nome || '')}')">${lc('refresh-cw', 14)} Renovar</button>
           ${isSuperAdmin() ? `<button class="btn btn-danger btn-sm" onclick="delLicenca('${l.id}')">${lc('trash-2', 14)}</button>` : ''}
         </div>
       </div>`;
@@ -1039,14 +1172,14 @@ async function renderSetoresMain(pc) {
   ${!canSeeAllSetores() && !isSuperAdmin() ? `<div class="access-notice"><span>${lc('lock', 14)}</span> Você está visualizando apenas o seu setor.</div>` : ''}
   <div class="cards-grid">
     ${filtered.length ? filtered.map((s, i) => `
-      <div class="item-card" style="animation-delay:${i * .05}s" onclick="openSetor('${s.id}','${escHtml(s.nome)}','${s.regiao || ''}')">
+      <div class="item-card" style="animation-delay:${i * .05}s" onclick="openSetor('${s.id}','${escAttr(s.nome)}','${escAttr(s.regiao || '')}')">
         <div class="card-head"><div class="card-ico">${lc('map-pin', 17)}</div>
           <div><div class="card-name">${escHtml(s.nome)}</div><div class="card-sub">Região ${s.regiao || '—'}</div></div>
         </div>
         <div class="card-meta"><span class="tag tag-gold">${lc('church', 12)} ${congCount(s.id)} Cong.</span><span class="tag tag-blue">${lc('users', 12)} ${memCount(s.id)} Membros</span></div>
         <div class="card-actions" onclick="event.stopPropagation()">
-          ${hasPerm('excluir_registros') ? `<button class="btn btn-danger btn-sm" onclick="delSetor('${s.id}','${escHtml(s.nome)}')">${lc('trash-2', 14)}</button>` : ''}
-          <button class="btn btn-secondary btn-sm" onclick="openSetor('${s.id}','${escHtml(s.nome)}','${s.regiao || ''}')">${lc('arrow-right', 14)} Abrir</button>
+          ${hasPerm('excluir_registros') ? `<button class="btn btn-danger btn-sm" onclick="delSetor('${s.id}','${escAttr(s.nome)}')">${lc('trash-2', 14)}</button>` : ''}
+          <button class="btn btn-secondary btn-sm" onclick="openSetor('${s.id}','${escAttr(s.nome)}','${escAttr(s.regiao || '')}')">${lc('arrow-right', 14)} Abrir</button>
         </div>
       </div>`).join('')
       : '<div class="empty"><div class="empty-ico">${lc("map-pin",44)}</div><p>Nenhum setor encontrado.</p></div>'}
@@ -1090,7 +1223,7 @@ async function renderCongregacoes(pc) {
       <div class="card-meta"><span class="tag tag-teal">${lc("users", 18)} ${memCount(c.id)} membros</span></div>
       <div class="card-actions" onclick="event.stopPropagation()">
         ${hasPerm('gerenciar_congregacoes') ? `<button class="btn btn-secondary btn-sm" onclick="openEditCongModal('${c.id}')">${lc("pencil", 14)}</button>` : ''}
-        ${hasPerm('excluir_registros') ? `<button class="btn btn-danger btn-sm" onclick="delCong('${c.id}','${escHtml(c.nome)}')">${lc("trash-2", 14)}</button>` : ''}
+        ${hasPerm('excluir_registros') ? `<button class="btn btn-danger btn-sm" onclick="delCong('${c.id}','${escAttr(c.nome)}')">${lc("trash-2", 14)}</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="openCong('${c.id}',${JSON.stringify(c).replace(/"/g, '&quot;')})">${lc("arrow-right", 14)}</button>
       </div>
     </div>`).join('')}</div>`
@@ -1241,7 +1374,7 @@ async function renderCongregacao(pc) {
       ${m.frequenta_ebd ? `<span class="tag tag-blue fs-xs">${lc("book-open", 14)} EBD</span>` : ''}
       <div class="mem-actions" onclick="event.stopPropagation()">
         <button class="btn btn-teal btn-sm" onclick="openMemberModal('${m.id}')">Ver</button>
-        ${hasPerm('excluir_registros') ? `<button class="btn btn-danger btn-sm" onclick="delMembro('${m.id}','${escHtml(m.nome)}')">${lc("trash-2", 14)}</button>` : ''}
+        ${hasPerm('excluir_registros') ? `<button class="btn btn-danger btn-sm" onclick="delMembro('${m.id}','${escAttr(m.nome)}')">${lc("trash-2", 14)}</button>` : ''}
       </div>
     </div>`).join('')}</div>` : `<div class="empty"><div class="empty-ico">${lc("users", 18)}</div><p>Nenhum membro cadastrado.</p></div>`}`;
 }
@@ -1675,8 +1808,8 @@ async function renderUsuarios() {
       </div>
       <div class="user-card-actions">
         <button class="btn btn-secondary btn-sm" onclick="openUserModal('${u.id}')">${lc("pencil", 14)}</button>
-        ${isSuperAdmin() ? `<button class="btn btn-secondary btn-sm" onclick="openUserPermModal('${u.id}','${escHtml(u.nome)}')">${lc("shield-off", 14)}</button>` : ''}
-        <button class="btn btn-danger btn-sm" onclick="delUser('${u.id}','${escHtml(u.nome)}')">${lc("trash-2", 14)}</button>
+        ${isSuperAdmin() ? `<button class="btn btn-secondary btn-sm" onclick="openUserPermModal('${u.id}','${escAttr(u.nome)}')">${lc("shield-off", 14)}</button>` : ''}
+        <button class="btn btn-danger btn-sm" onclick="delUser('${u.id}','${escAttr(u.nome)}')">${lc("trash-2", 14)}</button>
       </div>
     </div>`).join('')}
   </div>`;
@@ -1768,8 +1901,18 @@ async function openUserPermModal(userId, userName) {
 async function toggleUserPerm(userId, perm, current) {
   if (!isSuperAdmin()) { toast('Sem permissão', 'error'); return; }
   const novoValor = !current;
-  try { const { error } = await db.rpc('toggle_user_permission', { p_target_user: userId, p_perm: perm, p_ativo: novoValor }); if (error) throw error; }
-  catch (e) { const { error } = await q('user_permissions').upsert({ user_id: userId, permission_code: perm, ativo: novoValor }, { onConflict: 'user_id,permission_code' }); if (error) { toast(error.message, 'error'); return; } }
+  // A autorização de verdade acontece no banco (rpc_set_user_permission
+  // confere que o usuário da sessão é admin). O isSuperAdmin() acima é só
+  // para não mostrar o controle a quem não deve — não é a barreira.
+  const r = await rpcSeguro('rpc_set_user_permission',
+    { p_token: getSessionToken(), p_target_user: userId, p_perm: perm, p_ativo: novoValor },
+    async () => {
+      const { error } = await db.rpc('toggle_user_permission', { p_target_user: userId, p_perm: perm, p_ativo: novoValor });
+      if (!error) return { ok: true };
+      const { error: e2 } = await q('user_permissions').upsert({ user_id: userId, permission_code: perm, ativo: novoValor }, { onConflict: 'user_id,permission_code' });
+      return e2 ? { error: e2, ok: false } : { ok: true };
+    });
+  if (!r.ok) { toast(r.error?.message || 'Não foi possível alterar a permissão', 'error'); return; }
   toast(`Permissão ${novoValor ? 'concedida' : 'removida'}`);
   const uName = document.querySelector('#modal-container .modal-hdr h2')?.textContent.replace('Permissões — ', '') || '';
   if(perm === 'visualizar_ranking' || perm === 'gerenciar_ranking'){
@@ -2106,7 +2249,7 @@ async function renderFrequencia() {
           <div class="freq-bar-row"><span class="freq-bar-label">Cultos</span><div class="freq-bar-wrap"><div class="freq-bar" style="width:${m.pctCultos}%;background:${corC}"></div></div><span class="freq-pct" style="color:${corC}">${m.pctCultos}%</span></div>
         </div>
         <div class="freq-item-info"><span class="tag fs-xs">${m.totalParticipou}/${totalEventos} ev.</span><span class="tag fs-xs">${m.cultosParticipou}/${totalCultos} cul.</span></div>
-        <button class="btn btn-secondary btn-sm" onclick="openFreqDetalhe('${m.id}','${escHtml(m.nome)}')">Ver ${lc("arrow-right", 14)}</button>
+        <button class="btn btn-secondary btn-sm" onclick="openFreqDetalhe('${m.id}','${escAttr(m.nome)}')">Ver ${lc("arrow-right", 14)}</button>
       </div>`;
     }).join('') : `<div class="empty"><div class="empty-ico">${lc("trending-up", 44)}</div><p>Nenhum membro encontrado.</p></div>`}
   </div>
@@ -2224,8 +2367,8 @@ async function renderPermissoes() {
     ${lc("star", 14)} <strong>admin</strong> = superusuário.<br>${lc("coins", 14)} <strong>Ver Financeiro</strong>: oculta ofertas/dízimos.<br>${lc("lock", 14)} <strong>Filtrar Setor</strong> = somente leitura.<br>${lc("wallet", 14)} <strong>Gerenciar Financeiro</strong>: acesso ao módulo de licenças.<br>${lc("building-2", 14)} <strong>Criar Eventos Setoriais</strong>: cria eventos e vê usuários do setor.
   </div>
   <div class="role-tabs">
-    ${todasRoles.map(r => `<button class="btn ${r === activeRole ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="setActiveRole('${r}')"><span class="role-badge ${roleCls(r)}">${r}</span></button>`).join('')}
-    ${rolesCustom.map(r => `<button class="btn btn-danger btn-sm" onclick="delRole('${r.nome}')" title="Excluir perfil (somente admin)">${lc("trash-2", 14)}</button>`).join('')}
+    ${todasRoles.map(r => `<button class="btn ${r === activeRole ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="setActiveRole('${escAttr(r)}')"><span class="role-badge ${roleCls(r)}">${escHtml(r)}</span></button>`).join('')}
+    ${rolesCustom.map(r => `<button class="btn btn-danger btn-sm" onclick="delRole('${escAttr(r.nome)}')" title="Excluir perfil (somente admin)">${lc("trash-2", 14)}</button>`).join('')}
   </div>
   <div class="tbl-wrap" style="max-width:680px">
     <div style="padding:15px 18px;border-bottom:1px solid var(--bdr2)">
@@ -2242,8 +2385,18 @@ function setActiveRole(r) { activeRole = r; renderPermissoes(); }
 async function toggleRolePerm(perm, current) {
   if (!isSuperAdmin()) { toast('Sem permissão', 'error'); return; }
   const novoValor = !current;
-  try { const { error } = await db.rpc('toggle_role_permission', { p_role: activeRole, p_perm: perm, p_ativo: novoValor }); if (error) throw error; }
-  catch (e) { await Promise.all([q('role_permissions').upsert({ role: activeRole, permission_code: perm, ativo: novoValor }, { onConflict: 'role,permission_code' }), q('permissoes').upsert({ role: activeRole, permissao: perm, ativo: novoValor }, { onConflict: 'role,permissao' })]); }
+  const r = await rpcSeguro('rpc_set_role_permission',
+    { p_token: getSessionToken(), p_role: activeRole, p_perm: perm, p_ativo: novoValor },
+    async () => {
+      const { error } = await db.rpc('toggle_role_permission', { p_role: activeRole, p_perm: perm, p_ativo: novoValor });
+      if (!error) return { ok: true };
+      await Promise.all([
+        q('role_permissions').upsert({ role: activeRole, permission_code: perm, ativo: novoValor }, { onConflict: 'role,permission_code' }),
+        q('permissoes').upsert({ role: activeRole, permissao: perm, ativo: novoValor }, { onConflict: 'role,permissao' })
+      ]);
+      return { ok: true };
+    });
+  if (!r.ok) { toast(r.error?.message || 'Não foi possível alterar a permissão', 'error'); return; }
  permissionsCache[perm] = novoValor;
 toast(`Permissão ${novoValor ? 'concedida' : 'removida'}`);
 renderPermissoes();
@@ -2264,9 +2417,15 @@ async function saveNewRole() {
   if (!nome) { toast('Nome obrigatório', 'error'); return; }
   if (['admin', 'dirigente', 'adjunto', 'usuario'].includes(nome)) { toast('Nome reservado', 'error'); return; }
   const permsChecked = [...document.querySelectorAll('.new-role-perm:checked')].map(c => c.value);
-  const { error: roleError } = await q('roles').insert({ nome, descricao: desc });
-  if (roleError) { toast(roleError.message, 'error'); return; }
-  if (permsChecked.length) await q('role_permissions').insert(permsChecked.map(p => ({ role: nome, permission_code: p, ativo: true })));
+  const r = await rpcSeguro('rpc_criar_role',
+    { p_token: getSessionToken(), p_nome: nome, p_descricao: desc, p_perms: permsChecked },
+    async () => {
+      const { error: roleError } = await q('roles').insert({ nome, descricao: desc });
+      if (roleError) return { error: roleError, ok: false };
+      if (permsChecked.length) await q('role_permissions').insert(permsChecked.map(p => ({ role: nome, permission_code: p, ativo: true })));
+      return { ok: true };
+    });
+  if (!r.ok) { toast(r.error?.message || 'Não foi possível criar o perfil', 'error'); return; }
   toast(`Perfil "${nome}" criado!`); closeModal(); activeRole = nome; renderPermissoes();
 }
 
@@ -2275,7 +2434,13 @@ async function delRole(roleName) {
   if (!isSuperAdmin()) { toast('Apenas administradores podem excluir perfis', 'error'); return; }
   const r = await confirmDialog('Excluir Perfil', `O perfil "${roleName}" será removido permanentemente.`);
   if (!r.isConfirmed) return;
-  await Promise.all([q('roles').delete().eq('nome', roleName), q('role_permissions').delete().eq('role', roleName)]);
+  const rDel = await rpcSeguro('rpc_excluir_role',
+    { p_token: getSessionToken(), p_nome: roleName },
+    async () => {
+      await Promise.all([q('roles').delete().eq('nome', roleName), q('role_permissions').delete().eq('role', roleName)]);
+      return { ok: true };
+    });
+  if (!rDel.ok) { toast(rDel.error?.message || 'Não foi possível excluir o perfil', 'error'); return; }
   toast(`Perfil "${roleName}" removido!`); activeRole = 'admin'; renderPermissoes();
 }
 
@@ -2428,11 +2593,18 @@ window.renderJovensForaUmadalpe = async function () {
   const sidFiltro = podeTodosSetores ? (window._jfuSetorFiltro || '') : (currentUser?.setor_id || '');
   const { data: setoresAll } = podeTodosSetores ? await q('setores').select('id,nome').order('nome') : { data: [] };
 
-  let qJ = q('jovens_fora_umadalpe').select('*, congregacoes(nome), setores(nome)').order('nome');
-  if (sidFiltro) qJ = qJ.eq('setor_id', sidFiltro);
-  else if (!podeTodosSetores && currentUser?.setor_id) qJ = qJ.eq('setor_id', currentUser.setor_id);
-
-  const { data: jovens, error } = await qJ;
+  // Dados de menores: a listagem passa pela função verificada do banco, que
+  // confere permissão e limita ao setor do usuário no próprio servidor.
+  const rJ = await rpcSeguro('rpc_jfu_listar',
+    { p_token: getSessionToken(), p_setor_id: sidFiltro || null },
+    async () => {
+      let qJ = q('jovens_fora_umadalpe').select('*, congregacoes(nome), setores(nome)').order('nome');
+      if (sidFiltro) qJ = qJ.eq('setor_id', sidFiltro);
+      else if (!podeTodosSetores && currentUser?.setor_id) qJ = qJ.eq('setor_id', currentUser.setor_id);
+      const { data, error } = await qJ;
+      return { data, error, ok: !error };
+    });
+  const jovens = rJ.data, error = rJ.ok ? null : rJ.error;
   if (error) { pc.innerHTML = `<div class="empty"><div class="empty-ico">${lc('alert-triangle', 44)}</div><p>${error.message}</p></div>`; return; }
 
   window._jfuCache = jovens || [];
@@ -2477,7 +2649,7 @@ function renderJovensFUCards(jovens) {
       <div class="user-card-actions">
         <button class="btn btn-secondary btn-sm" onclick="openViewJovemFU('${j.id}')">${lc('eye', 14)}</button>
         ${canManage ? `<button class="btn btn-secondary btn-sm" onclick="openEditJovemFU('${j.id}')">${lc('pencil', 14)}</button>` : ''}
-        ${canManage ? `<button class="btn btn-danger btn-sm" onclick="delJovemFU('${j.id}','${escHtml(j.nome)}')">${lc('trash-2', 14)}</button>` : ''}
+        ${canManage ? `<button class="btn btn-danger btn-sm" onclick="delJovemFU('${escAttr(j.id)}','${escAttr(j.nome)}')">${lc('trash-2', 14)}</button>` : ''}
       </div>
     </div>`).join('')}</div>`;
 }
@@ -2550,19 +2722,24 @@ window.submitAddJovemFU = async function () {
     setor_id: document.getElementById('jfu-setor')?.value || null,
     congregacao_id: document.getElementById('jfu-cong')?.value || null,
   };
-  const { error } = await q('jovens_fora_umadalpe').insert(payload);
-  if (error) return toast(error.message, 'error');
+  const rIns = await rpcSeguro('rpc_jfu_salvar',
+    { p_token: getSessionToken(), p_dados: payload },
+    async () => { const { error } = await q('jovens_fora_umadalpe').insert(payload); return { error, ok: !error }; });
+  if (!rIns.ok) return toast(rIns.error?.message || 'Não foi possível salvar', 'error');
   toast('Jovem cadastrado!'); closeModal(); renderJovensForaUmadalpe();
 };
 
 window.openEditJovemFU = async function (id) {
   if (!canGerJovensFU()) { toast('Sem permissão', 'error'); return; }
   showModal(`<div class="modal-hdr"><span>${lc('pencil', 14)}</span><h2>Editar Jovem</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="jfu-edit-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitEditJovemFU('${id}')">${lc('save', 14)} Salvar</button></div>`);
-  const [{ data: j }, { data: setores }, { data: congs }] = await Promise.all([
-    q('jovens_fora_umadalpe').select('*').eq('id', id).single(),
+  const [rObt, { data: setores }, { data: congs }] = await Promise.all([
+    rpcSeguro('rpc_jfu_obter', { p_token: getSessionToken(), p_id: id },
+      async () => { const { data, error } = await q('jovens_fora_umadalpe').select('*').eq('id', id).single(); return { data, error, ok: !error }; }),
     q('setores').select('id,nome').order('nome'),
     q('congregacoes').select('id,nome,setor_id').order('nome'),
   ]);
+  if (!rObt.ok) { toast(rObt.error?.message || 'Não foi possível carregar', 'error'); return; }
+  const j = rObt.data;
   if (!j) return;
   window._cacheCongsJFU = congs || [];
   $('jfu-edit-body').innerHTML = `
@@ -2591,15 +2768,19 @@ window.submitEditJovemFU = async function (id) {
     setor_id: document.getElementById('jfu-setor')?.value || null,
     congregacao_id: document.getElementById('jfu-cong')?.value || null,
   };
-  const { error } = await q('jovens_fora_umadalpe').update(payload).eq('id', id);
-  if (error) return toast(error.message, 'error');
+  const rUpd = await rpcSeguro('rpc_jfu_salvar',
+    { p_token: getSessionToken(), p_dados: { ...payload, id } },
+    async () => { const { error } = await q('jovens_fora_umadalpe').update(payload).eq('id', id); return { error, ok: !error }; });
+  if (!rUpd.ok) return toast(rUpd.error?.message || 'Não foi possível salvar', 'error');
   toast('Jovem atualizado!'); closeModal(); renderJovensForaUmadalpe();
 };
 
 window.openViewJovemFU = async function (id) {
   showModal(loadingPage());
-  const { data: j, error } = await q('jovens_fora_umadalpe').select('*, congregacoes(nome), setores(nome)').eq('id', id).single();
-  if (error || !j) { closeModal(); toast('Erro', 'error'); return; }
+  const rView = await rpcSeguro('rpc_jfu_obter', { p_token: getSessionToken(), p_id: id },
+    async () => { const { data, error } = await q('jovens_fora_umadalpe').select('*, congregacoes(nome), setores(nome)').eq('id', id).single(); return { data, error, ok: !error }; });
+  const j = rView.data;
+  if (!rView.ok || !j) { closeModal(); toast(rView.error?.message || 'Erro', 'error'); return; }
   showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div class="mem-av-lg" style="background:${avatarColor(j.nome)}">${initials(j.nome)}</div><div class="mem-modal-name">${escHtml(j.nome)}</div>${j.sexo ? `<span class="tag tag-blue">${escHtml(j.sexo)}</span>` : ''}</div>
   <div class="mem-info-grid">
     <div class="inf-item"><label>Nascimento</label><span>${j.data_nascimento ? fmtDate(j.data_nascimento) : '—'}</span></div>
@@ -2617,8 +2798,9 @@ window.delJovemFU = async function (id, nome) {
   if (!canGerJovensFU()) { toast('Sem permissão', 'error'); return; }
   const r = await confirmDialog('Excluir jovem?', `Isso removerá "${nome}" permanentemente.`);
   if (!r.isConfirmed) return;
-  const { error } = await q('jovens_fora_umadalpe').delete().eq('id', id);
-  if (error) return toast(error.message, 'error');
+  const rDelJ = await rpcSeguro('rpc_jfu_excluir', { p_token: getSessionToken(), p_id: id },
+    async () => { const { error } = await q('jovens_fora_umadalpe').delete().eq('id', id); return { error, ok: !error }; });
+  if (!rDelJ.ok) return toast(rDelJ.error?.message || 'Não foi possível excluir', 'error');
   toast('Jovem excluído!'); renderJovensForaUmadalpe();
 };
 
@@ -5157,7 +5339,7 @@ function renderMembrosGlobalCards(membros) {
       <div class="user-card-actions">
         <button class="btn btn-secondary btn-sm" onclick="openMemberModal('${m.id}')">${lc('eye', 14)}</button>
         ${canManage ? `<button class="btn btn-secondary btn-sm" onclick="openEditMembro('${m.id}')">${lc('pencil', 14)}</button>` : ''}
-        ${hasPerm('excluir_registros') ? `<button class="btn btn-danger btn-sm" onclick="delMembro('${m.id}','${escHtml(m.nome)}')">${lc('trash-2', 14)}</button>` : ''}
+        ${hasPerm('excluir_registros') ? `<button class="btn btn-danger btn-sm" onclick="delMembro('${m.id}','${escAttr(m.nome)}')">${lc('trash-2', 14)}</button>` : ''}
       </div>
     </div>`).join('')}</div>`;
 }
@@ -5675,14 +5857,14 @@ window.renderSetoresMain = async function (pc) {
   ${!canSeeAllSetores() && !isSuperAdmin() ? `<div class="access-notice"><span>${lc('lock', 14)}</span> Você está visualizando apenas o seu setor.</div>` : ''}
   <div class="cards-grid">
     ${filtered.length ? filtered.map((s, i) => `
-      <div class="item-card" style="animation-delay:${i * .05}s" onclick="openSetor('${s.id}','${escHtml(s.nome)}','${s.regiao || ''}')">
+      <div class="item-card" style="animation-delay:${i * .05}s" onclick="openSetor('${s.id}','${escAttr(s.nome)}','${escAttr(s.regiao || '')}')">
         <div class="card-head"><div class="card-ico">${lc('map-pin', 17)}</div>
           <div><div class="card-name">${escHtml(s.nome)}</div><div class="card-sub">Região ${s.regiao || '—'}</div></div>
         </div>
         <div class="card-meta"><span class="tag tag-gold">${lc('church', 12)} ${congCount(s.id)} Cong.</span><span class="tag tag-blue">${lc('users', 12)} ${memCount(s.id)} Membros</span></div>
         <div class="card-actions" onclick="event.stopPropagation()">
-          ${hasPerm('excluir_registros') ? `<button class="btn btn-danger btn-sm" onclick="delSetor('${s.id}','${escHtml(s.nome)}')">${lc('trash-2', 14)}</button>` : ''}
-          <button class="btn btn-secondary btn-sm" onclick="openSetor('${s.id}','${escHtml(s.nome)}','${s.regiao || ''}')">${lc('arrow-right', 14)} Abrir</button>
+          ${hasPerm('excluir_registros') ? `<button class="btn btn-danger btn-sm" onclick="delSetor('${s.id}','${escAttr(s.nome)}')">${lc('trash-2', 14)}</button>` : ''}
+          <button class="btn btn-secondary btn-sm" onclick="openSetor('${s.id}','${escAttr(s.nome)}','${escAttr(s.regiao || '')}')">${lc('arrow-right', 14)} Abrir</button>
         </div>
       </div>`).join('')
       : `<div class="empty"><div class="empty-ico">${lc('map-pin', 44)}</div><p>Nenhum setor encontrado.</p></div>`}
@@ -6216,7 +6398,7 @@ window.renderFrequencia = async function () {
           <div class="freq-bar-row"><span class="freq-bar-label">Cultos</span><div class="freq-bar-wrap"><div class="freq-bar" style="width:${m.pctCultos}%;background:${corC}"></div></div><span class="freq-pct" style="color:${corC}">${m.pctCultos}%</span></div>
         </div>
         <div class="freq-item-info"><span class="tag fs-xs">${m.totalParticipou}/${totalEventos} ev.</span><span class="tag fs-xs">${m.cultosParticipou}/${totalCultos} cul.</span></div>
-        <button class="btn btn-secondary btn-sm" onclick="openFreqDetalhe('${m.id}','${escHtml(m.nome)}')">Ver ${lc("arrow-right", 14)}</button>
+        <button class="btn btn-secondary btn-sm" onclick="openFreqDetalhe('${m.id}','${escAttr(m.nome)}')">Ver ${lc("arrow-right", 14)}</button>
       </div>`;
     }).join('') : `<div class="empty"><div class="empty-ico">${lc("trending-up", 14)}</div><p>Nenhum membro encontrado.</p></div>`}
   </div>
