@@ -4384,6 +4384,81 @@ function ico(name, size=18, color='currentColor'){
   /* stat-card icons svg */
   .stat-ico svg { width:20px;height:20px; }
   .fin-card-ico svg { width:20px;height:20px; }
+
+  /* ── CARDS "SELO" (badge sobrepondo o topo do card) ─────────────────
+     Componente próprio (.bcard), usado só nos 4 cards do topo do
+     dashboard e na linha de atalhos (Ranking/Frequência/Permissões/
+     Financeiro) — referência enviada pelo usuário. Não reaproveita
+     .stat-card/.shortcut-btn de propósito: essas classes são genéricas
+     e usadas em Financeiro/Setores/Relatórios, que continuam como
+     estavam. */
+  .bcard {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--bdr2);
+    border-radius: 5px;
+    padding: 28px 6px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,.06);
+    transition: var(--ease), transform .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  .bcard-clickable { cursor: pointer; }
+  .bcard-clickable:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(0,0,0,.12);
+  }
+  .bcard-badge {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 56px;
+    height: 56px;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    color: #fff;
+    box-shadow: 0 10px 22px -6px rgba(0,0,0,.4);
+  }
+  .bcard-shortcut .bcard-badge { gap: 0; }
+  .bcard-ico { display: flex; }
+  .bcard-ico svg { width: 18px; height: 18px; }
+  .bcard-num { font-size: .9rem; font-weight: 800; line-height: 1; }
+  .bcard-lbl {
+    margin-top: 24px;
+    font-size: .74rem;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .bcard-badge.bc-gold   { background: linear-gradient(150deg, var(--gold-l), var(--gold)); }
+  .bcard-badge.bc-blue   { background: linear-gradient(150deg, #6ea1ff, var(--blue)); }
+  .bcard-badge.bc-teal   { background: linear-gradient(150deg, #3ee2cd, var(--teal)); }
+  .bcard-badge.bc-violet { background: linear-gradient(150deg, #ab94fb, var(--violet)); }
+  .bcard-lbl.bc-gold   { color: var(--gold); }
+  .bcard-lbl.bc-blue   { color: var(--blue); }
+  .bcard-lbl.bc-teal   { color: var(--teal); }
+  .bcard-lbl.bc-violet { color: var(--violet); }
+
+  @media (max-width:600px){
+    .bcard { padding: 24px 4px 12px; }
+    .bcard-badge { width: 46px; height: 46px; top: -16px; border-radius: 5px;margin:5px 0px 5px 0px; }
+    .bcard-ico svg { width: 15px; height: 15px; }
+    .bcard-num { font-size: .74rem; }
+    .bcard-lbl { font-size: .58rem; margin-top: 18px; line-height: 1.15; }
+  }
+  @media (max-width:360px){
+    .bcard { padding: 20px 3px 10px; }
+    .bcard-badge { width: 40px; height: 40px; top: -14px; }
+    .bcard-lbl { font-size: .54rem; margin-top: 16px; }
+  }
   `;
   document.head.appendChild(s);
 })();
@@ -4511,56 +4586,42 @@ window.renderDashboard = async function(){
 
   <!-- 4 CARDS TOPO — sempre em linha única -->
   <div class="dash-top-grid">
-    <div class="stat-card stat-clickable" onclick="dpNavSetores()">
-      <div class="stat-ico ic-gold">${SVG.map}</div>
-      <div>
-        <div class="stat-val">${rSet.count||0}</div>
-        <div class="stat-lbl">Setores</div>
-        <div class="stat-chg">Total</div>
-      </div>
+    <div class="bcard bcard-clickable" onclick="dpNavSetores()">
+      <div class="bcard-badge bc-gold"><span class="bcard-ico">${SVG.map}</span><span class="bcard-num">${rSet.count||0}</span></div>
+      <div class="bcard-lbl bc-gold">Setores</div>
     </div>
-    <div class="stat-card stat-clickable" onclick="dpNavCongs()">
-      <div class="stat-ico ic-blue">${SVG.church}</div>
-      <div>
-        <div class="stat-val">${rCong.count||0}</div>
-        <div class="stat-lbl">Congregações</div>
-        <div class="stat-chg">Total</div>
-      </div>
+    <div class="bcard bcard-clickable" onclick="dpNavCongs()">
+      <div class="bcard-badge bc-blue"><span class="bcard-ico">${SVG.church}</span><span class="bcard-num">${rCong.count||0}</span></div>
+      <div class="bcard-lbl bc-blue">Congregações</div>
     </div>
-    <div class="stat-card stat-clickable" onclick="dpNavMembros()">
-      <div class="stat-ico ic-teal">${SVG.users}</div>
-      <div>
-        <div class="stat-val">${rMem.count||0}</div>
-        <div class="stat-lbl">Membros</div>
-        <div class="stat-chg">Total</div>
-      </div>
+    <div class="bcard bcard-clickable" onclick="dpNavMembros()">
+      <div class="bcard-badge bc-teal"><span class="bcard-ico">${SVG.users}</span><span class="bcard-num">${rMem.count||0}</span></div>
+      <div class="bcard-lbl bc-teal">Membros</div>
     </div>
-    <div class="stat-card stat-clickable" onclick="dpScrollEventos()">
-      <div class="stat-ico ic-violet">${SVG.calendar}</div>
-      <div>
-        <div class="stat-val">${eventosMes.length}</div>
-        <div class="stat-lbl">Eventos</div>
-        <div class="stat-chg">Este mês</div>
-      </div>
-      
+    <div class="bcard bcard-clickable" onclick="dpScrollEventos()">
+      <div class="bcard-badge bc-violet"><span class="bcard-ico">${SVG.calendar}</span><span class="bcard-num">${eventosMes.length}</span></div>
+      <div class="bcard-lbl bc-violet">Eventos</div>
     </div>
-    
   </div>
    <div class="dash-shortcuts" style="margin-bottom:24px">
     ${((typeof hasPerm==='function'&&(hasPerm('visualizar_ranking')||hasPerm('gerenciar_ranking')))||(typeof isSuperAdmin==='function'&&isSuperAdmin()))?`
-    <div class="shortcut-btn" onclick="navigate('ranking')">
-      <div class="shortcut-ico ic-gold">${SVG.trophy}</div><small>Ranking Mensal</small>
+    <div class="bcard bcard-clickable bcard-shortcut" onclick="navigate('ranking')">
+      <div class="bcard-badge bc-gold"><span class="bcard-ico">${SVG.trophy}</span></div>
+      <div class="bcard-lbl bc-gold">Ranking Mensal</div>
     </div>`:''}
-    <div class="shortcut-btn" onclick="navigate('frequencia')">
-      <div class="shortcut-ico ic-blue">${SVG.freq}</div><small>Frequência</small>
+    <div class="bcard bcard-clickable bcard-shortcut" onclick="navigate('frequencia')">
+      <div class="bcard-badge bc-blue"><span class="bcard-ico">${SVG.freq}</span></div>
+      <div class="bcard-lbl bc-blue">Frequência</div>
     </div>
     ${((typeof hasPerm==='function'&&hasPerm('editar_permissoes'))||(typeof isSuperAdmin==='function'&&isSuperAdmin()))?`
-    <div class="shortcut-btn" onclick="navigate('permissoes')">
-      <div class="shortcut-ico ic-teal">${SVG.shield}</div><small>Permissões</small>
+    <div class="bcard bcard-clickable bcard-shortcut" onclick="navigate('permissoes')">
+      <div class="bcard-badge bc-teal"><span class="bcard-ico">${SVG.shield}</span></div>
+      <div class="bcard-lbl bc-teal">Permissões</div>
     </div>`:''}
     ${canFin?`
-    <div class="shortcut-btn" onclick="navigate('financeiro')">
-      <div class="shortcut-ico ic-violet">${SVG.wallet}</div><small>Financeiro</small>
+    <div class="bcard bcard-clickable bcard-shortcut" onclick="navigate('financeiro')">
+      <div class="bcard-badge bc-violet"><span class="bcard-ico">${SVG.wallet}</span></div>
+      <div class="bcard-lbl bc-violet">Financeiro</div>
     </div>`:''}
   </div>
   <!-- RESUMO DO MÊS (participantes + conversões) -->
