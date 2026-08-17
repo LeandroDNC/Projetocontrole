@@ -40,11 +40,25 @@ if (typeof Chart !== 'undefined' && !Chart.__blankFixApplied) {
     constructor() {
       super(...arguments);
       const self = this;
-      requestAnimationFrame(() => requestAnimationFrame(() => {
+      const repintar = () => {
         try {
-          if (self.canvas && self.canvas.isConnected) self.resize();
+          if (!self.canvas || !self.canvas.isConnected) return;
+          self.resize();   // mantém as dimensões corretas dentro do container
+          self.draw();     // pintura SÍNCRONA — o loop de animação (rAF) do
+                           // Chart.js não compõe o canvas quando ele nasce
+                           // dentro do #page-content em plena animação de
+                           // entrada (fadeUp: translateY cria uma camada de
+                           // composição e o Chromium descarta a pintura async).
+                           // draw() força o blit na hora e "cola".
         } catch (_) { /* gráfico já destruído — ignora */ }
-      }));
+      };
+      // Repinta cobrindo toda a janela da animação de entrada (.page fadeUp .3s)
+      // e também depois que o próprio Chart.js termina sua animação (~850ms).
+      requestAnimationFrame(() => requestAnimationFrame(repintar));
+      setTimeout(repintar, 120);
+      setTimeout(repintar, 340);
+      setTimeout(repintar, 650);
+      setTimeout(repintar, 1000);
     }
   }
   ChartAutoResize.__blankFixApplied = true;
@@ -83,6 +97,19 @@ if (typeof Chart !== 'undefined') {
   }
   Chart.defaults.plugins.tooltip.animation = { duration: 200, easing: 'easeOutQuad' };
 }
+
+/* Reforço determinístico do fix acima: no exato momento em que a animação de
+   entrada do #page-content termina, repinta todos os gráficos vivos. Cobre o
+   caso em que os timeouts do construtor caem fora de sincronia com a animação
+   (dados que chegam do banco em tempos variáveis ao navegar entre telas). */
+document.addEventListener('animationend', e => {
+  if (!e.target || e.target.id !== 'page-content') return;
+  try {
+    if (typeof chartInstances !== 'undefined') {
+      Object.values(chartInstances).forEach(c => { try { c?.resize?.(); c?.draw?.(); } catch (_) {} });
+    }
+  } catch (_) {}
+});
 
 /* ── LUCIDE SVG ICON HELPER ────────────────────────────── */
 function lc(name, size = 18, cls = '') {
@@ -2355,7 +2382,7 @@ async function renderPermissoes() {
     'Filtros e Visibilidade': ['filtrar_setor_dashboard', 'filtrar_congregacao_dashboard', 'ver_relatorio_por_congregacao', 'ver_todos_setores'],
     'Gestão': ['gerenciar_setores', 'gerenciar_congregacoes', 'gerenciar_membros', 'gerenciar_usuarios', 'gerenciar_agenda'],
     'Operações': ['registrar_eventos', 'criar_eventos_setorial', 'excluir_registros'],
-    'Sistema': ['editar_permissoes']
+    'Sistema': ['editar_permissoes', 'gerenciar_usuarios_bloqueados']
   };
   $('page-content').innerHTML = `
   <div class="sec-hdr">
@@ -5786,7 +5813,7 @@ window.openEventModal = async function (tipo) {
     ${camposEspecificos}
     ${pfCamposComunsHtml()}
     ${ehEvangelistico ? pfCamposEvangelisticosHtml() : pfCampoBencaosHtml()}
-    ${pfCampoOfertasHtml()}
+    ${tipo === 'evangelismo' ? '' : pfCampoOfertasHtml()}
     <div class="form-group"><label>${ehEBD ? 'Alunos/Professores (EBD)' : 'Participantes da Congregação'}</label>
     <p class="fs-xs c3" style="margin-bottom:6px">Marque os presentes — o total será calculado automaticamente.</p>
     <div class="member-select-list" id="ev-mems-local">${memsParaLista.map(m => `<label class="check-row"><input type="checkbox" class="ev-mem-check" value="${m.id}" data-nome="${escHtml(m.nome)}"/><div class="av av-sm" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><span>${escHtml(m.nome)} <em class="c3">${escHtml(m.cargo)}${m.papel_ebd ? ' · ' + m.papel_ebd : ''}</em></span></label>`).join('') || '<p class="c3 fs-xs">Nenhum membro cadastrado.</p>'}</div></div>
@@ -7167,7 +7194,7 @@ window.openEventModal = async function (tipo) {
     ${camposEspecificos}
     ${pfCamposComunsHtml()}
     ${ehEvangelistico ? pfCamposEvangelisticosHtml() : pfCampoBencaosHtml()}
-    ${pfCampoOfertasHtml()}
+    ${tipo === 'evangelismo' ? '' : pfCampoOfertasHtml()}
     <div class="form-group"><label>${ehEBD ? 'Alunos/Professores (EBD)' : 'Participantes da Congregação'}</label>
     <p class="fs-xs c3" style="margin-bottom:6px">Marque os presentes — o total será calculado automaticamente.</p>
     <div class="member-select-list" id="ev-mems-local">${memsParaLista.map(m => `<label class="check-row"><input type="checkbox" class="ev-mem-check" value="${m.id}" data-nome="${escHtml(m.nome)}"/><div class="av av-sm" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><span>${escHtml(m.nome)} <em class="c3">${escHtml(m.cargo)}${m.papel_ebd ? ' · ' + m.papel_ebd : ''}</em></span></label>`).join('') || '<p class="c3 fs-xs">Nenhum membro cadastrado.</p>'}</div></div>
@@ -7409,7 +7436,8 @@ const HELP_DATA = [
         id: 'registrar-evento', title: 'Registrar um culto ou evento', desc: 'Os tipos de evento disponíveis.',
         sections: [
           { icon: '💡', h: 'O que é', p: ['Todo culto, EBD, visita, saída evangelística ou atividade da congregação é registrado como um "evento". É a partir desses registros que os relatórios, o ranking e o dashboard calculam seus números — nada é somado manualmente.'] },
-          { icon: '⏱️', h: 'Como fazer', list: ['Toque em "+ Evento" e escolha o tipo (culto, EBD, evangelismo, visita, etc.).', 'Preencha data, participantes e os campos específicos daquele tipo de evento.', 'Salve — o evento entra automaticamente nos totais do setor e da congregação.'] }
+          { icon: '⏱️', h: 'Como fazer', list: ['Toque em "+ Evento" e escolha o tipo (culto, EBD, evangelismo, visita, etc.).', 'Preencha data, participantes e os campos específicos daquele tipo de evento.', 'Salve — o evento entra automaticamente nos totais do setor e da congregação.'] },
+          { icon: '💰', h: 'Campos de oferta', p: ['O campo de Ofertas (R$) só aparece nos tipos de evento em que faz sentido registrar arrecadação — como cultos — e apenas para quem tem permissão de ver dados financeiros. Eventos de Evangelismo não têm campo de oferta, já que a coleta não é registrada nesse tipo de atividade.'] }
         ]
       },
       {
@@ -7451,6 +7479,56 @@ const HELP_DATA = [
         sections: [
           { icon: '💡', h: 'O que é', p: ['O ranking classifica cada congregação em vermelho, amarelo ou verde, de acordo com a quantidade de eventos registrados na semana ou no mês — os limites de cada faixa são configurados pelo administrador.'] },
           { icon: '⏱️', h: 'Como fazer', list: ['Registre os eventos normalmente — a apuração é automática, não existe lançamento manual de pontos.', 'Toque em uma congregação no ranking para ver o detalhamento de como ela chegou naquele nível.'] }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'usuarios', icon: 'user-cog', title: 'Usuários do Sistema', desc: 'Criar acessos e definir papéis',
+    articles: [
+      {
+        id: 'criar-usuario', title: 'Criar e editar um usuário', desc: 'Login, senha, papel e setor.',
+        sections: [
+          { icon: '💡', h: 'O que é', p: ['A tela de Usuários é onde se cadastram as pessoas que fazem login no sistema. Só aparece para quem tem permissão de gerenciar usuários, e quem não enxerga todos os setores vê apenas os usuários do próprio setor.'] },
+          { icon: '⏱️', h: 'Como fazer', list: ['Toque em "+ Novo" para abrir o cadastro.', 'Preencha nome, usuário (login) e senha, escolha o papel (admin, dirigente, adjunto ou usuário) e vincule o setor e a congregação.', 'Use a busca no topo para encontrar alguém pelo nome.', 'Toque em um usuário existente para editar seus dados ou trocar a senha.'] },
+          { icon: '🔒', h: 'Ativar e desativar', p: ['Em vez de excluir, você pode marcar um usuário como inativo — ele perde o acesso mas o histórico dele nos eventos é preservado.'] }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'frequencia', icon: 'trending-up', title: 'Frequência', desc: 'Presença dos membros nos eventos',
+    articles: [
+      {
+        id: 'entender-frequencia', title: 'Entendendo a frequência', desc: 'De onde vêm os percentuais.',
+        sections: [
+          { icon: '💡', h: 'O que é', p: ['A tela de Frequência mostra, para cada membro, quanto ele participou dos eventos no período escolhido. O percentual é calculado a partir de quem foi marcado como presente ao registrar cada evento — por isso é importante marcar os participantes corretamente.'] },
+          { icon: '💡', h: 'Duas medidas', p: ['Cada membro tem dois percentuais: a frequência em relação a TODOS os eventos e a frequência apenas nos cultos e atividades evangelísticas. A lista já vem ordenada de quem participa mais para quem participa menos.'] },
+          { icon: '⏱️', h: 'Como fazer', list: ['Ajuste o período (início e fim) para a faixa de datas que deseja analisar.', 'Se você enxerga mais de um setor, use os filtros de setor e congregação.', 'Quem tem permissão de exportar dados pode gerar a frequência em PDF ou Excel.'] }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'financeiro', icon: 'credit-card', title: 'Financeiro (Licenças)', desc: 'Controle de licenças e vencimentos',
+    articles: [
+      {
+        id: 'licencas', title: 'Controle de licenças', desc: 'Cadastro, renovação e vencimento.',
+        sections: [
+          { icon: '💡', h: 'O que é', p: ['O módulo Financeiro controla as licenças de acesso: cada licença tem uma data de início e fim, e o sistema sinaliza em verde (em dia), amarelo (vence em breve, próximos 7 dias) ou vermelho (vencida). Só aparece para quem tem permissão de gerenciar financeiro.'] },
+          { icon: '⏱️', h: 'Como fazer', list: ['Cadastre uma licença informando o usuário e o período de validade.', 'Use "Renovar" para estender a licença por mais 30 dias sem recadastrar.', 'Acompanhe pela cor e pela barra de progresso quanto tempo falta para cada vencimento.'] }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'calendario', icon: 'calendar-days', title: 'Calendário Anual', desc: 'A agenda geral do ano',
+    articles: [
+      {
+        id: 'ver-calendario', title: 'Consultar o calendário do ano', desc: 'Datas e eventos fixos da UMADALPE.',
+        sections: [
+          { icon: '💡', h: 'O que é', p: ['O Calendário reúne, em uma visão anual, as datas e eventos oficiais — congressos, vigílias, encontros e demais compromissos marcados para o ano inteiro.'] },
+          { icon: '⏱️', h: 'Como fazer', list: ['Abra "Calendário" no menu lateral.', 'Percorra os meses para ver os compromissos de cada período.', 'Use o interruptor de tema (claro/escuro) do próprio calendário para ajustar a leitura.'] }
         ]
       }
     ]
@@ -7594,7 +7672,11 @@ function helpRenderSearch(query) {
   if (!q) return helpRenderHome();
   const results = [];
   HELP_DATA.forEach(c => c.articles.forEach(a => {
-    if ((a.title + ' ' + a.desc).toLowerCase().includes(q)) results.push({ c, a });
+    const sectionText = (a.sections || []).map(s =>
+      [s.h, ...(s.p || []), ...(s.list || [])].join(' ')
+    ).join(' ');
+    const haystack = (c.title + ' ' + a.title + ' ' + a.desc + ' ' + sectionText).toLowerCase();
+    if (haystack.includes(q)) results.push({ c, a });
   }));
   return `
   <div class="help-crumb"><span onclick="helpGoHome()">Central de ajuda</span><span class="help-crumb-sep">›</span><span class="help-crumb-cur">Busca</span></div>
@@ -7618,6 +7700,183 @@ document.addEventListener('keydown', e => {
     if (el && !el.classList.contains('hidden')) closeHelpCenter();
   }
 });
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   FEATURE — Usuários Bloqueados
+   Permissão 'gerenciar_usuarios_bloqueados': quem tiver vê um menu lateral
+   com os usuários travados pela proteção de força-bruta do login e um botão
+   "Liberar" que zera as tentativas no banco (via RPC verificada por token).
+   ══════════════════════════════════════════════════════════════════════ */
+if (typeof PERM_DESC !== 'undefined') {
+  PERM_DESC['gerenciar_usuarios_bloqueados'] = {
+    label: 'Usuários Bloqueados',
+    desc: 'Ver e liberar usuários bloqueados por errarem a senha muitas vezes.'
+  };
+}
+
+const canGerBloqueados = () =>
+  (typeof isSuperAdmin === 'function' && isSuperAdmin()) ||
+  (typeof hasPerm === 'function' && hasPerm('gerenciar_usuarios_bloqueados'));
+
+/* Injeta o item no menu lateral (logo após "Permissões"). Idempotente. */
+function injetarMenuBloqueados() {
+  const nav = document.querySelector('.sidebar-nav');
+  if (!nav || nav.querySelector('[data-page="usuarios_bloqueados"]')) return;
+  if (!canGerBloqueados()) return;
+  const div = document.createElement('div');
+  div.className = 'nav-item';
+  div.dataset.page = 'usuarios_bloqueados';
+  div.innerHTML = `<span class="nav-icon"><i data-lucide="user-x"></i></span><span class="nav-lbl">Usuários Bloqueados</span>`;
+  div.addEventListener('click', () => { navigate('usuarios_bloqueados'); if (typeof toggleMobile === 'function') toggleMobile(false); });
+  const permItem = nav.querySelector('[data-page="permissoes"]');
+  if (permItem) nav.insertBefore(div, permItem.nextSibling); else nav.appendChild(div);
+  if (typeof refreshLucide === 'function') refreshLucide();
+}
+
+/* Encaixa a injeção no fluxo pós-login já existente (pfInjetarMenusExtras roda
+   quando currentUser e as permissões já estão carregados) e mantém um fallback
+   por tempo, para o caso de restauração de sessão ao recarregar a página. */
+if (typeof pfInjetarMenusExtras === 'function' && !window._injBloqueadosPatched) {
+  window._injBloqueadosPatched = true;
+  const _origInjExtras = pfInjetarMenusExtras;
+  window.pfInjetarMenusExtras = function () {
+    _origInjExtras();
+    injetarMenuBloqueados();
+  };
+}
+setTimeout(() => { try { injetarMenuBloqueados(); } catch (_) {} }, 900);
+
+/* Roteamento: intercepta navigate('usuarios_bloqueados') e delega o resto. */
+(function () {
+  const _prevNav = window.navigate;
+  if (typeof _prevNav === 'function' && !window._navPatchedBloqueados) {
+    window._navPatchedBloqueados = true;
+    window.navigate = function (page) {
+      if (page === 'usuarios_bloqueados') {
+        if (currentPage) pushHistory({ page: currentPage, navState: JSON.parse(JSON.stringify(navState)) });
+        currentPage = 'usuarios_bloqueados';
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === 'usuarios_bloqueados'));
+        $('page-title').textContent = 'Usuários Bloqueados';
+        renderUsuariosBloqueados();
+        return;
+      }
+      _prevNav(page);
+    };
+  }
+})();
+
+window.renderUsuariosBloqueados = async function () {
+  const pc = $('page-content'); if (!pc) return;
+  if (!canGerBloqueados()) { pc.innerHTML = `<div class="empty"><div class="empty-ico">${lc('shield-off', 44)}</div><p>Sem permissão.</p></div>`; return; }
+  pc.innerHTML = loadingPage();
+
+  const { data, error } = await db.rpc('rpc_usuarios_bloqueados', { p_token: getSessionToken() });
+  if (error) { pc.innerHTML = `<div class="empty"><div class="empty-ico">${lc('alert-triangle', 44)}</div><p>${escHtml(error.message || 'Erro ao carregar')}</p></div>`; return; }
+
+  const bloqueados = data || [];
+  window._bloqueadosCache = bloqueados;
+  pc.innerHTML = `
+  <div class="sec-hdr">
+    <h2>Usuários Bloqueados <span class="count-badge">${bloqueados.length}</span></h2>
+    <div class="sec-actions">
+      ${backBtn()}
+      <button class="btn btn-secondary btn-sm" onclick="renderUsuariosBloqueados()">${lc('refresh-cw', 14)} Atualizar</button>
+    </div>
+  </div>
+  <p class="fs-xs c3" style="margin-bottom:14px">Usuários travados por errarem a senha 10 vezes em 15 minutos. Toque em <strong>Liberar</strong> para devolver o acesso na hora, sem esperar os 15 minutos.</p>
+  <div id="bloq-list">${renderBloqueadosCards(bloqueados)}</div>`;
+  refreshLucide();
+};
+
+function renderBloqueadosCards(lista) {
+  if (!lista || !lista.length) {
+    return `<div class="empty"><div class="empty-ico">${lc('shield-check', 44)}</div><p>Nenhum usuário bloqueado no momento.</p></div>`;
+  }
+  const agora = Date.now();
+  const hora = t => { try { return new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); } catch (_) { return '—'; } };
+  return `<div style="display:flex;flex-direction:column;gap:8px">${lista.map(b => {
+    const nome = b.nome || b.username;
+    const restam = b.desbloqueio_em ? Math.max(0, Math.ceil((new Date(b.desbloqueio_em).getTime() - agora) / 60000)) : null;
+    return `
+    <div class="user-card">
+      <div class="user-card-main">
+        <div class="av av-sm" style="background:${avatarColor(nome)}">${initials(nome)}</div>
+        <div class="user-card-info">
+          <div class="fw5 fs-sm">${escHtml(nome)} ${b.nome ? `<em class="c3">@${escHtml(b.username)}</em>` : '<span class="tag tag-blue fs-xs">usuário inexistente</span>'}</div>
+          <div class="fs-xs c3">${lc('alert-triangle', 11)} ${b.falhas} tentativas · última ${hora(b.ultima_tentativa)}${restam !== null ? ` · desbloqueio automático em ~${restam} min` : ''}</div>
+        </div>
+      </div>
+      <div class="user-card-actions">
+        <button class="btn btn-primary btn-sm" onclick="liberarUsuarioBloqueado('${escAttr(b.username)}')">${lc('unlock', 14)} Liberar</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+window.liberarUsuarioBloqueado = async function (username) {
+  const { error } = await db.rpc('rpc_liberar_usuario', { p_token: getSessionToken(), p_username: username });
+  if (error) { toast(error.message || 'Erro ao liberar', 'error'); return; }
+  toast(`Acesso de "${username}" liberado!`, 'success');
+  renderUsuariosBloqueados();
+};
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   FEATURE — Botão "voltar" do celular
+   Antes, o back do navegador saía do sistema inteiro (é uma SPA de página
+   única). Agora ele é interpretado como "voltar dentro do app": fecha o que
+   estiver aberto (menu de evento, central de ajuda, modal, menu mobile) e,
+   se não houver nada aberto, volta uma página (goBack). Só quando não há mais
+   para onde voltar é que ele permanece no dashboard, sem sair do sistema.
+   ══════════════════════════════════════════════════════════════════════ */
+(function instalarTrapVoltar() {
+  if (window._ecclesiaBackTrap) return;
+  window._ecclesiaBackTrap = true;
+
+  // Coloca um estado "âncora" no histórico do navegador para que o primeiro
+  // back seja capturado por nós em vez de sair da página.
+  try { history.pushState({ ecclesiaTrap: true }, ''); } catch (_) {}
+
+  window.addEventListener('popstate', function () {
+    // Recoloca a âncora para continuar capturando os próximos "voltar".
+    try { history.pushState({ ecclesiaTrap: true }, ''); } catch (_) {}
+
+    // 1) Menu suspenso de "+ Evento" aberto?
+    const em = document.getElementById('event-menu');
+    if (em && !em.classList.contains('hidden')) { em.classList.add('hidden'); return; }
+
+    // 2) Central de ajuda aberta?
+    const hc = document.getElementById('help-center');
+    if (hc && !hc.classList.contains('hidden')) {
+      if (typeof closeHelpCenter === 'function') closeHelpCenter(); else hc.classList.add('hidden');
+      return;
+    }
+
+    // 3) Algum modal aberto?
+    const overlay = document.querySelector('#modal-container .overlay');
+    if (overlay) { if (typeof closeModal === 'function') closeModal(); return; }
+
+    // 4) Menu lateral aberto no celular?
+    const sb = document.getElementById('sidebar');
+    if (sb && sb.classList.contains('mob-open')) {
+      if (typeof toggleMobile === 'function') toggleMobile(false); else sb.classList.remove('mob-open');
+      return;
+    }
+
+    // 5) App visível: volta uma página se houver histórico interno.
+    const app = document.getElementById('screen-app');
+    const appVisivel = app && !app.classList.contains('hidden');
+    if (appVisivel) {
+      if (typeof navHistory !== 'undefined' && Array.isArray(navHistory) && navHistory.length) {
+        if (typeof goBack === 'function') goBack();
+      }
+      // Sem histórico: permanece no app (a âncora já foi recolocada acima).
+      return;
+    }
+    // Tela de login: não faz nada — mantém o usuário onde está.
+  });
+})();
 
 
 

@@ -1009,6 +1009,25 @@ textarea:focus {
   background: var(--bg-card);
 }
 
+/* Login de painel único (sem o painel azul de marca) */
+.login-split.login-single {
+  max-width: 440px;
+  min-height: 0;
+}
+
+.login-single .login-mob-emblem {
+  display: flex;
+}
+
+.login-brand-name {
+  font-family: 'Cinzel', serif;
+  font-size: 1.6rem;
+  color: var(--txt);
+  letter-spacing: 1px;
+  text-align: center;
+  margin-bottom: 18px;
+}
+
 [data-theme="light"] .login-split {
   box-shadow: 0 30px 70px -20px rgba(30, 41, 59, 0.22);
 }

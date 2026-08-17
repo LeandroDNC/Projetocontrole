@@ -22,66 +22,7 @@
 
   <!-- LOGIN -->
   <div id="screen-login">
-    <div class="login-split">
-
-      <div class="login-brand-panel">
-        <div class="login-orb orb-a"></div>
-        <div class="login-orb orb-b"></div>
-
-        <!-- Rede de setores/congregações conectados — só decorativo, aria-hidden -->
-        <svg class="login-network" viewBox="0 0 600 600" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid slice">
-          <g class="login-network-lines">
-            <line x1="120" y1="140" x2="300" y2="90" />
-            <line x1="300" y1="90" x2="470" y2="150" />
-            <line x1="120" y1="140" x2="90" y2="320" />
-            <line x1="300" y1="90" x2="300" y2="300" />
-            <line x1="470" y1="150" x2="500" y2="330" />
-            <line x1="90" y1="320" x2="300" y2="300" />
-            <line x1="300" y1="300" x2="500" y2="330" />
-            <line x1="90" y1="320" x2="150" y2="480" />
-            <line x1="300" y1="300" x2="320" y2="500" />
-            <line x1="500" y1="330" x2="460" y2="490" />
-            <line x1="150" y1="480" x2="320" y2="500" />
-            <line x1="320" y1="500" x2="460" y2="490" />
-          </g>
-          <g class="login-network-nodes">
-            <circle cx="120" cy="140" r="4" />
-            <circle cx="300" cy="90" r="5" />
-            <circle cx="470" cy="150" r="4" />
-            <circle cx="90" cy="320" r="4" />
-            <circle cx="300" cy="300" r="6" class="login-node-main" />
-            <circle cx="500" cy="330" r="4" />
-            <circle cx="150" cy="480" r="4" />
-            <circle cx="320" cy="500" r="4" />
-            <circle cx="460" cy="490" r="4" />
-          </g>
-        </svg>
-
-        <div class="login-brand-content">
-          <div class="login-emblem" aria-hidden="true">
-            <svg viewBox="0 0 48 48" fill="none">
-              <path d="M24 4v10M18 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M9 44V21l15-11 15 11v23H9z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-              <path d="M19 44V30h10v14" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <h1>EclesiaSync</h1>
-          <p class="login-brand-tag">Sistema de Gestão Eclesiástica</p>
-          <p class="login-brand-desc">Setores, congregações, membros e eventos organizados em um só lugar, para toda a liderança acompanhar.</p>
-        </div>
-      </div>
-
-      <!-- Onda que separa o painel azul do painel do formulário — item de
-           largura/altura zero no flex, só serve de âncora pro SVG absoluto
-           ficar exatamente na costura entre os dois painéis -->
-      <div class="login-wave-seam" aria-hidden="true">
-        <svg class="login-wave login-wave-v" viewBox="0 0 40 400" preserveAspectRatio="none" focusable="false">
-          <path d="M0,0 C34,45 8,95 34,145 C8,195 34,245 8,295 C26,335 16,370 0,400 L0,0 Z" />
-        </svg>
-        <svg class="login-wave login-wave-h" viewBox="0 0 400 40" preserveAspectRatio="none" focusable="false">
-          <path d="M0,0 L400,0 C355,26 305,4 255,26 C205,4 155,26 105,4 C55,22 25,32 0,40 L0,0 Z" />
-        </svg>
-      </div>
+    <div class="login-split login-single">
 
       <div class="login-card">
         <div class="login-card-inner">
@@ -92,6 +33,7 @@
               <path d="M19 44V30h10v14" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
             </svg>
           </div>
+          <h1 class="login-brand-name">EclesiaSync</h1>
           <h2 class="login-form-title">Entrar</h2>
           <p class="login-form-sub">Use suas credenciais para acessar o painel.</p>
           <div class="form-group">
