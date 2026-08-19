@@ -1,0 +1,21 @@
+# ─── Config local do Claude Code (por máquina — não versionar) ───
+.claude/settings.local.json
+.claude/worktrees/
+
+# ─── Dumps / backups do banco (contêm dados reais de usuários — NUNCA subir) ───
+# Obs.: os scripts de migração/setup (security_*.sql, push_notifications.sql)
+# NÃO casam com estes padrões e continuam versionados de propósito.
+backup_dados_*.sql
+backup_*.sql
+*.dump
+
+# ─── Arquivos temporários de desenvolvimento ───
+_srv.js
+*.log
+.env
+.env.*
+
+# ─── Lixo de sistema / editor ───
+.DS_Store
+Thumbs.db
+node_modules/

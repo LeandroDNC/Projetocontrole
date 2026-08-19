@@ -34,31 +34,61 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
    próximos frames. O resize força o Chart.js a re-medir o container e a
    repintar o canvas — exatamente o efeito que o reload provoca, mas sem
    precisar recarregar. Não altera dados, escalas nem animação. */
+/* Força o gráfico a repintar assim que o container tiver um tamanho real.
+   Por que a versão anterior (só timers fixos) ainda falhava às vezes: ela
+   chamava resize()/draw() em momentos fixos independentemente de o canvas já
+   ter largura > 0. Se naquele instante o container ainda estava em 0px (tela
+   ainda não totalmente montada / animação de entrada em curso / aba do
+   gráfico ainda não visível), não adiantava — e o gráfico nascia em branco.
+   Agora: só repinta quando o container tem largura válida, tenta em vários
+   momentos ao longo de ~1s, E observa o container ganhando tamanho
+   (ResizeObserver) e a tela ficando visível (IntersectionObserver). */
+function pfGarantirRenderGrafico(chart) {
+  const cv = chart && chart.canvas;
+  if (!cv) return;
+  let feito = false, ro = null, io = null;
+  const timers = [];
+
+  const vivo = () => chart.canvas && chart.ctx; // ctx vira null ao destruir
+  const largura = () => (cv.parentElement ? cv.parentElement.clientWidth : cv.clientWidth) || 0;
+
+  const limpar = () => { timers.forEach(clearTimeout); if (ro) ro.disconnect(); if (io) io.disconnect(); };
+
+  const tentar = () => {
+    if (feito) return;
+    if (!vivo()) { feito = true; limpar(); return; }
+    if (largura() > 0) {
+      try {
+        chart.resize();  // corrige as dimensões dentro do container
+        chart.draw();    // pintura SÍNCRONA — o Chromium às vezes descarta a
+                         // pintura assíncrona do canvas quando ele nasce dentro
+                         // de um elemento em animação (fadeUp cria camada de
+                         // composição). draw() força o blit na hora.
+      } catch (_) {}
+      feito = true; limpar();  // repintou com tamanho válido — encerra
+    }
+  };
+
+  requestAnimationFrame(() => requestAnimationFrame(tentar));
+  [60, 160, 320, 640, 1000].forEach(t => timers.push(setTimeout(tentar, t)));
+
+  if (window.ResizeObserver && cv.parentElement) {
+    ro = new ResizeObserver(tentar);
+    ro.observe(cv.parentElement);
+  }
+  if (window.IntersectionObserver) {
+    io = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) tentar(); });
+    io.observe(cv);
+  }
+  timers.push(setTimeout(() => { feito = true; limpar(); }, 2500)); // rede de segurança
+}
+
 if (typeof Chart !== 'undefined' && !Chart.__blankFixApplied) {
   const _OrigChart = Chart;
   class ChartAutoResize extends _OrigChart {
     constructor() {
       super(...arguments);
-      const self = this;
-      const repintar = () => {
-        try {
-          if (!self.canvas || !self.canvas.isConnected) return;
-          self.resize();   // mantém as dimensões corretas dentro do container
-          self.draw();     // pintura SÍNCRONA — o loop de animação (rAF) do
-                           // Chart.js não compõe o canvas quando ele nasce
-                           // dentro do #page-content em plena animação de
-                           // entrada (fadeUp: translateY cria uma camada de
-                           // composição e o Chromium descarta a pintura async).
-                           // draw() força o blit na hora e "cola".
-        } catch (_) { /* gráfico já destruído — ignora */ }
-      };
-      // Repinta cobrindo toda a janela da animação de entrada (.page fadeUp .3s)
-      // e também depois que o próprio Chart.js termina sua animação (~850ms).
-      requestAnimationFrame(() => requestAnimationFrame(repintar));
-      setTimeout(repintar, 120);
-      setTimeout(repintar, 340);
-      setTimeout(repintar, 650);
-      setTimeout(repintar, 1000);
+      try { pfGarantirRenderGrafico(this); } catch (_) {}
     }
   }
   ChartAutoResize.__blankFixApplied = true;
@@ -365,13 +395,25 @@ async function checkAndSetSession(userId, tokenDoBanco) {
   } catch (e) { console.warn('Session control indisponível', e); }
 }
 
+/* Limpa os dados de sessão no logout, MAS preserva as preferências que são
+   do APARELHO (não do usuário): o liga/desliga das notificações e o tema.
+   Sem isto, o localStorage.clear() apagava o estado do sino, e ele voltava
+   "desativado" depois de sair e entrar de novo. */
+function pfLimparSessaoPreservandoPrefs() {
+  const preservar = ['ecclesia_notif_on', 'ecclesia_theme'];
+  const salvos = {};
+  preservar.forEach(k => { const v = localStorage.getItem(k); if (v !== null) salvos[k] = v; });
+  localStorage.clear();
+  Object.entries(salvos).forEach(([k, v]) => localStorage.setItem(k, v));
+}
+
 function encerrarSessaoLocal(texto) {
   if (window._sessionInterval) clearInterval(window._sessionInterval);
   Swal.fire({
     title: 'Sessão encerrada', text: texto, icon: 'warning',
     confirmButtonText: 'OK', allowOutsideClick: false,
     background: '#111827', color: '#f1f5f9'
-  }).then(() => { localStorage.clear(); location.reload(); });
+  }).then(() => { pfLimparSessaoPreservandoPrefs(); location.reload(); });
 }
 
 function startSessionCheck(userId, token) {
@@ -510,6 +552,11 @@ function startApp(user) {
   // currentUser e permissionsCache já estejam carregados nesse momento.
   setTimeout(pfInjetarMenusExtras, 50);
 
+  // Sino de notificações no topbar + consumo de deep-link (clique em
+  // notificação abriu o app com ?goto=...).
+  if (typeof pfInjetarSinoNotif === 'function') setTimeout(pfInjetarSinoNotif, 60);
+  if (typeof pfConsumirGoto === 'function') setTimeout(pfConsumirGoto, 300);
+
   navigate('dashboard');
 }
 
@@ -600,7 +647,7 @@ $('user-pill').addEventListener('click', async () => {
         return { ok: true };
       });
     if (window._sessionInterval) clearInterval(window._sessionInterval);
-    localStorage.clear(); location.reload();
+    pfLimparSessaoPreservandoPrefs(); location.reload();
   }
 });
 
@@ -1066,9 +1113,16 @@ async function renderEventosSetoriais() {
 
   <!-- Usuários do Setor -->
   <div class="sec-hdr"><h2>${lc('users', 18)} Usuários do Setor <span class="count-badge">${usuariosSetor.length}</span></h2></div>
-  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:28px">
+  ${usuariosSetor.length ? `
+  <div class="form-group" style="margin-bottom:10px">
+    <div class="input-wrapper">
+      <i data-lucide="search" class="input-icon" style="width:16px;height:16px"></i>
+      <input id="es-setor-user-filter" placeholder="Buscar usuário por nome..." oninput="filterEsSetorUsers(this.value)" style="padding-left:38px"/>
+    </div>
+  </div>` : ''}
+  <div class="es-user-scroll" id="es-setor-user-list" style="margin-bottom:28px">
     ${usuariosSetor.length ? usuariosSetor.map(u => `
-      <div class="user-card">
+      <div class="user-card es-setor-user-row" data-nome="${escAttr(u.nome)}">
         <div class="user-card-main">
           <div class="av av-sm" style="background:${avatarColor(u.nome)}">${initials(u.nome)}</div>
           <div class="user-card-info">
@@ -1077,29 +1131,49 @@ async function renderEventosSetoriais() {
           </div>
         </div>
       </div>`).join('') : `<div class="empty"><div class="empty-ico">${lc('users', 44)}</div><p>Nenhum usuário neste setor.</p></div>`}
+    <div class="empty es-user-empty hidden" id="es-setor-user-empty" style="padding:16px"><p class="c3 fs-xs">Nenhum usuário com esse nome.</p></div>
   </div>
 
   <!-- Eventos Setoriais -->
   <div class="sec-hdr"><h2>Eventos Registrados <span class="count-badge">${(eventos || []).length}</span></h2></div>
   <div style="display:flex;flex-direction:column;gap:8px">
-    ${(eventos || []).length ? (eventos || []).map(e => `
-      <div class="ev-card">
+    ${(eventos || []).length ? (eventos || []).map(e => {
+      const futuro = e.data > new Date().toISOString().slice(0, 10);
+      const rascunho = e.status === 'rascunho' || futuro;
+      return `
+      <div class="ev-card ev-card-click" onclick="openEventoSetorialDetail('${e.id}')" style="cursor:pointer">
         <div class="ev-card-left">
-          <div class="act-dot" style="background:var(--violet)"></div>
+          <div class="act-dot" style="background:${rascunho ? 'var(--txt3)' : 'var(--violet)'}"></div>
           <div>
-            <div class="fw5 fs-sm">${lc('building-2', 14)} ${escHtml(e.resumo || tipoLabel(e.tipo))}</div>
+            <div class="fw5 fs-sm">${lc('building-2', 14)} ${escHtml(e.resumo || tipoLabel(e.tipo))} ${rascunho ? '<span class="tag tag-secondary" style="font-size:.58rem">Agendado</span>' : ''}</div>
             <div class="fs-xs c3">${setorNome(e.setor_id)} · ${fmtDate(e.data)}</div>
           </div>
         </div>
-        <div class="ev-card-right">
+        <div class="ev-card-right" onclick="event.stopPropagation()">
           <span class="tag">${e.participantes || 0} pessoas</span>
+          ${rascunho && canEventoSetorial() ? `<button class="btn btn-primary btn-sm" onclick="openFinalizarEventoSetorial('${e.id}')" title="Preencher os dados após a realização">${lc('check-circle', 14)} Finalizar</button>` : ''}
           ${isSuperAdmin() || hasPerm('excluir_registros') ? `<button class="btn btn-danger btn-sm" onclick="delEvento('${e.id}')">${lc('trash-2', 14)}</button>` : ''}
         </div>
-      </div>`).join('') :
+      </div>`;
+    }).join('') :
       `<div class="empty"><div class="empty-ico">${lc('building-2', 44)}</div><p>Nenhum evento setorial registrado.</p></div>`}
   </div>`;
   refreshLucide();
 }
+
+/* Filtro por nome da lista "Usuários do Setor" (Eventos Setoriais). */
+window.filterEsSetorUsers = function (val) {
+  const t = (val || '').trim().toLowerCase();
+  const rows = document.querySelectorAll('#es-setor-user-list .es-setor-user-row');
+  let visiveis = 0;
+  rows.forEach(row => {
+    const ok = (row.dataset.nome || '').toLowerCase().includes(t);
+    row.style.display = ok ? '' : 'none';
+    if (ok) visiveis++;
+  });
+  const vazio = document.getElementById('es-setor-user-empty');
+  if (vazio) vazio.classList.toggle('hidden', visiveis > 0);
+};
 
 async function openEventoSetorialModal() {
   const { data: setores } = await q('setores').select('id,nome').order('nome');
@@ -1591,11 +1665,21 @@ async function openEventoSetorialDetail(id) {
   const setorNome = (setores || []).find(s => s.id === ev.setor_id)?.nome || '—';
   let participantesHtml = '';
   if (ev.participante_ids?.length > 0) {
-    const { data: partics } = await q('sistema_usuarios').select('id,nome,cargo').in('id', ev.participante_ids);
-    if ((partics || []).length) participantesHtml = `<div style="padding:0 30px 8px"><div class="sec-hdr" style="margin-bottom:10px"><h2 style="font-size:.9rem">Participantes (${partics.length})</h2></div><div class="partic-list">${partics.map(p => `<div class="partic-row"><div class="av av-sm" style="background:${avatarColor(p.nome)}">${initials(p.nome)}</div><span class="fs-sm">${escHtml(p.nome)} <em class="c3 fs-xs">${escHtml(p.cargo || '')}</em></span></div>`).join('')}</div></div>`;
+    // Participantes podem ser usuários do sistema (setor / de fora) OU membros
+    // (obreiros adicionados no "Finalizar"). Busca nas duas tabelas e junta —
+    // os UUIDs são únicos, sem risco de misturar registros errados.
+    const [{ data: pu }, { data: pm }] = await Promise.all([
+      q('sistema_usuarios').select('id,nome,cargo').in('id', ev.participante_ids),
+      q('membros').select('id,nome,cargo').in('id', ev.participante_ids)
+    ]);
+    const partics = [...(pu || []), ...(pm || [])];
+    if (partics.length) participantesHtml = `<div style="padding:0 30px 8px"><div class="sec-hdr" style="margin-bottom:10px"><h2 style="font-size:.9rem">Participantes (${partics.length})</h2></div><div class="partic-list">${partics.map(p => `<div class="partic-row"><div class="av av-sm" style="background:${avatarColor(p.nome)}">${initials(p.nome)}</div><span class="fs-sm">${escHtml(p.nome)} <em class="c3 fs-xs">${escHtml(p.cargo || '')}</em></span></div>`).join('')}</div></div>`;
   }
-  const detalhes = `<div class="mem-info-grid"><div class="inf-item"><label>Setor</label><span>${escHtml(setorNome)}</span></div><div class="inf-item"><label>Data</label><span>${fmtDate(ev.data)}</span></div><div class="inf-item"><label>Horário</label><span>${ev.hora_inicio || '—'} ${ev.hora_fim ? '– ' + ev.hora_fim : ''}</span></div><div class="inf-item"><label>Participantes</label><span>${ev.participantes || 0}</span></div>${ev.conversoes ? `<div class="inf-item"><label>Conversões</label><span>${ev.conversoes}</span></div>` : ''}</div>`;
-  showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div style="font-size:40px;margin-bottom:8px">${lc('building-2', 40)}</div><div class="mem-modal-name">${escHtml(ev.resumo || 'Evento Setorial')}</div><span class="tag tag-violet">Evento Setorial</span></div>${detalhes}${ev.descricao ? `<div style="padding:0 30px 8px"><p style="color:var(--txt2);font-size:.88rem">${escHtml(ev.descricao)}</p></div>` : ''}${participantesHtml}<div class="mem-modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
+  const futuro = ev.data > new Date().toISOString().slice(0, 10);
+  const rascunho = ev.status === 'rascunho' || futuro;
+  const detalhes = `<div class="mem-info-grid"><div class="inf-item"><label>Setor</label><span>${escHtml(setorNome)}</span></div><div class="inf-item"><label>Data</label><span>${fmtDate(ev.data)}</span></div><div class="inf-item"><label>Horário</label><span>${ev.hora_inicio || '—'} ${ev.hora_fim ? '– ' + ev.hora_fim : ''}</span></div><div class="inf-item"><label>Situação</label><span>${rascunho ? 'Agendado' : 'Publicado'}</span></div><div class="inf-item"><label>Participantes</label><span>${ev.participantes || 0}</span></div>${ev.conversoes ? `<div class="inf-item"><label>Conversões</label><span>${ev.conversoes}</span></div>` : ''}</div>`;
+  const btnFinalizar = (rascunho && canEventoSetorial()) ? `<button class="btn btn-primary" onclick="closeModal();openFinalizarEventoSetorial('${ev.id}')">${lc('check-circle', 14)} Finalizar</button>` : '';
+  showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div style="font-size:40px;margin-bottom:8px">${lc('building-2', 40)}</div><div class="mem-modal-name">${escHtml(ev.resumo || 'Evento Setorial')}</div><span class="tag ${rascunho ? 'tag-secondary' : 'tag-violet'}">${rascunho ? 'Agendado' : 'Evento Setorial'}</span></div>${detalhes}${ev.descricao ? `<div style="padding:0 30px 8px"><p style="color:var(--txt2);font-size:.88rem">${escHtml(ev.descricao)}</p></div>` : ''}${participantesHtml}<div class="mem-modal-foot">${btnFinalizar}<button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
 }
 
 async function openOfertasModal() {
@@ -2501,7 +2585,150 @@ function closeModal() { const mc = $('modal-container'); const ov = mc.querySele
   $('inp-user')?.focus();
 })();
 
-// tema branoc e preto 
+/* ═══════════════════════════════════════════════════════════
+   NOTIFICAÇÕES — sino no topbar (liga/desliga), notificação ao
+   publicar um evento, e deep-link ao clicar na notificação.
+   ───────────────────────────────────────────────────────────
+   • App aberto: a notificação é mostrada localmente pelo Service
+     Worker (nível do SO, mesmo com a aba em segundo plano).
+   • App fechado / usuário deslogado: depende de um servidor de push
+     (VAPID) enviando a mensagem — ver push_notifications.sql. O
+     cliente aqui já registra o SW e (se houver chave VAPID) assina o
+     push, deixando tudo pronto para quando esse servidor existir.
+   ═══════════════════════════════════════════════════════════ */
+const NOTIF_KEY = 'ecclesia_notif_on';
+window._pfPendingGoto = null;
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  navigator.serviceWorker.addEventListener('message', ev => {
+    const m = ev.data || {};
+    if (m.type === 'eclesiasync-goto') { window._pfPendingGoto = { goto: m.goto, ev: m.ev }; pfConsumirGoto(); }
+  });
+}
+
+// Clique numa notificação abre o app com ?goto=&ev= — lê isso já no carregar.
+(function pfLerGotoDaUrl() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const goto = p.get('goto');
+    if (goto) {
+      window._pfPendingGoto = { goto, ev: p.get('ev') };
+      history.replaceState(null, '', location.pathname); // não repete no refresh
+    }
+  } catch (_) {}
+})();
+
+function pfConsumirGoto() {
+  const alvo = window._pfPendingGoto;
+  if (!alvo) return;
+  // Só navega se estiver logado (app visível). Deslogado, fica pendente e é
+  // consumido quando o usuário entrar (startApp chama isto).
+  const logado = !document.getElementById('screen-app')?.classList.contains('hidden');
+  if (!logado) return;
+  window._pfPendingGoto = null;
+  try {
+    if (typeof navigate === 'function' && alvo.goto) navigate(alvo.goto);
+    if (alvo.ev && alvo.goto === 'eventos_setoriais' && typeof openEventoSetorialDetail === 'function') {
+      setTimeout(() => openEventoSetorialDetail(alvo.ev), 400);
+    }
+  } catch (_) {}
+}
+
+function pfNotifSuportado() { return ('Notification' in window); }
+function pfNotifAtivo() {
+  return pfNotifSuportado() && Notification.permission === 'granted' && localStorage.getItem(NOTIF_KEY) === '1';
+}
+
+function pfInjetarSinoNotif() {
+  const container = document.getElementById('theme-panel-container');
+  if (!container || document.getElementById('notif-bell')) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.id = 'notif-bell';
+  btn.className = 'notif-bell';
+  btn.innerHTML = lc('bell', 18);
+  btn.onclick = pfToggleNotif;
+  container.parentElement.insertBefore(btn, container); // à esquerda do tema
+  pfAtualizarSino();
+  if (typeof refreshLucide === 'function') refreshLucide();
+}
+
+function pfAtualizarSino() {
+  const btn = document.getElementById('notif-bell');
+  if (!btn) return;
+  const on = pfNotifAtivo();
+  btn.classList.toggle('notif-on', on);
+  btn.classList.toggle('notif-off', !on);
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  btn.title = on ? 'Notificações ativadas — toque para desativar' : 'Notificações desativadas — toque para ativar';
+}
+
+async function pfToggleNotif() {
+  if (!pfNotifSuportado()) { toast('Este navegador não suporta notificações.', 'error'); return; }
+  if (pfNotifAtivo()) {
+    localStorage.setItem(NOTIF_KEY, '0');
+    pfAtualizarSino();
+    toast('Notificações desativadas.');
+    return;
+  }
+  let perm = Notification.permission;
+  if (perm === 'default') {
+    try { perm = await Notification.requestPermission(); } catch (_) { perm = Notification.permission; }
+  }
+  if (perm !== 'granted') {
+    toast('Permissão negada. Libere as notificações nas configurações do navegador.', 'error');
+    return;
+  }
+  localStorage.setItem(NOTIF_KEY, '1');
+  pfAtualizarSino();
+  pfAssinarPush(); // best-effort (push do servidor, se configurado)
+  toast('Notificações ativadas!');
+}
+
+async function pfAssinarPush() {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    const chave = window.VAPID_PUBLIC_KEY;
+    if (!chave) return; // sem servidor de push configurado ainda
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pfB64ToUint8(chave) });
+    try {
+      await db.from('push_subscriptions').upsert(
+        { usuario_id: currentUser?.id || null, endpoint: sub.endpoint, subscription: sub.toJSON() },
+        { onConflict: 'endpoint' }
+      );
+    } catch (_) {}
+  } catch (_) {}
+}
+
+function pfB64ToUint8(base64) {
+  const pad = '='.repeat((4 - base64.length % 4) % 4);
+  const b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(b64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+// Mostra a notificação quando um evento é publicado (chamada no "Finalizar").
+function pfNotificarEventoPublicado(evento) {
+  if (!pfNotifAtivo()) return;
+  const titulo = 'Novo evento publicado';
+  const corpo = evento?.resumo ? `"${evento.resumo}" já está disponível.` : 'Um evento setorial foi publicado.';
+  const opts = { body: corpo, goto: 'eventos_setoriais', ev: evento?.id || null, tag: 'evento-' + (evento?.id || Date.now()) };
+  try {
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'eclesiasync-notify', title: titulo, options: opts });
+    } else if ('Notification' in window) {
+      const n = new Notification(titulo, { body: corpo, icon: 'assets/icon.png' });
+      n.onclick = () => { window.focus(); if (typeof navigate === 'function') navigate('eventos_setoriais'); };
+    }
+  } catch (_) {}
+}
+
+// tema branoc e preto
 
 (function () {
   'use strict';
@@ -4486,6 +4713,38 @@ function ico(name, size=18, color='currentColor'){
     .bcard-badge { width: 40px; height: 40px; top: -14px; }
     .bcard-lbl { font-size: .54rem; margin-top: 16px; }
   }
+
+  /* Lista de "Usuários do Setor" (Eventos Setoriais) — rola a partir de ~5
+     itens em vez de esticar a página. O max-height só entra em ação quando o
+     conteúdo passa dele; com poucos usuários, não rola. */
+  .es-user-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 340px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .es-user-scroll::-webkit-scrollbar { width: 8px; }
+  .es-user-scroll::-webkit-scrollbar-thumb { background: var(--bdr2); border-radius: 8px; }
+
+  /* Sino de notificações no topbar. Cor viva = ativado; apagado = desativado. */
+  .notif-bell {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; border-radius: 12px; cursor: pointer;
+    border: 1px solid var(--bdr2); background: var(--bg-card);
+    color: var(--txt3); margin-right: 8px;
+    transition: var(--ease), transform .18s ease;
+  }
+  .notif-bell:hover { transform: translateY(-1px); }
+  .notif-bell svg { width: 18px; height: 18px; }
+  .notif-bell.notif-on {
+    color: #fff;
+    background: linear-gradient(135deg, var(--gold-l), var(--gold));
+    border-color: transparent;
+    box-shadow: 0 4px 14px rgba(var(--gold-rgb), .40);
+  }
+  .notif-bell.notif-off { color: var(--txt3); opacity: .6; }
   `;
   document.head.appendChild(s);
 })();
@@ -4956,7 +5215,7 @@ ${podeVerEvSetoriais?`
         const hj=new Date().toISOString().slice(0,10);
        const eventosSetoriaisHtml=(evS||[]).length?(evS||[]).map(e=>{
           const fut=e.data>hj;
-          return `<div class="act-item" onclick="navigate('eventos_setoriais')" style="cursor:pointer;transition:all .2s">
+          return `<div class="act-item" onclick="openEventoSetorialDetail('${e.id}')" style="cursor:pointer;transition:all .2s">
             <div class="act-dot" style="background:${fut?'var(--primary-l,#7eb3ff)':'var(--gold,#f0c060)'}"></div>
             <div class="f1">
               <div class="fw5 fs-sm">${ico('cityHall',13)} ${dp.esc(e.resumo||'Evento Setorial')}</div>
@@ -6718,20 +6977,45 @@ window.openEventoSetorialModal = async function () {
       <div class="form-group"><label>Horário Fim</label><input id="es-fim" type="time"/></div>
     </div>
     <div class="form-group"><label>Resumo / Título *</label><input id="es-resumo" placeholder="Ex: Reunião de Líderes do Setor"/></div>
-    <div class="form-group"><label>Conversões</label><input id="es-conversoes" type="number" min="0" placeholder="0"/></div>
-    <div class="form-group"><label>Participantes do Setor</label>
-      <p class="fs-xs c3" style="margin-bottom:6px">Marque os presentes — o total será calculado automaticamente.</p>
-      <div class="member-select-list" style="max-height:180px">
-        ${usersSetor.map(u => `<label class="check-row"><input type="checkbox" class="es-user-check" value="${u.id}" data-nome="${escHtml(u.nome)}"/>
-        <div class="av av-sm" style="background:${avatarColor(u.nome)}">${initials(u.nome)}</div>
-        <span>${escHtml(u.nome)} <em class="c3">${escHtml(u.cargo || '—')}</em></span></label>`).join('') || '<p class="c3 fs-xs">Nenhum usuário no setor.</p>'}
+    <div id="es-dados-realizacao">
+      <div class="form-group"><label>Conversões</label><input id="es-conversoes" type="number" min="0" placeholder="0"/></div>
+      <div class="form-group"><label>Participantes do Setor</label>
+        <p class="fs-xs c3" style="margin-bottom:6px">Marque os presentes — o total será calculado automaticamente.</p>
+        <div class="member-select-list" style="max-height:180px">
+          ${usersSetor.map(u => `<label class="check-row"><input type="checkbox" class="es-user-check" value="${u.id}" data-nome="${escHtml(u.nome)}"/>
+          <div class="av av-sm" style="background:${avatarColor(u.nome)}">${initials(u.nome)}</div>
+          <span>${escHtml(u.nome)} <em class="c3">${escHtml(u.cargo || '—')}</em></span></label>`).join('') || '<p class="c3 fs-xs">Nenhum usuário no setor.</p>'}
+        </div>
       </div>
     </div>
   </div>
   <div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitEventoSetorial()">${lc('plus-circle', 14)} Registrar</button></div>`);
 
-  setTimeout(() => pfAplicarFuturo('es-data', '#es-conversoes'), 100);
+  // Evento futuro só pode ser agendado (data/horário/título). Conversões e
+  // participantes ficam para a etapa de "Finalizar", depois da realização.
+  setTimeout(() => pfSetorialFuturoToggle(), 60);
 };
+
+/* Esconde o bloco de conversões + participantes quando a data escolhida é
+   futura, mostrando um aviso; volta a mostrar se a data for hoje/passada. */
+function pfSetorialFuturoToggle() {
+  const di = document.getElementById('es-data');
+  if (!di) return;
+  const upd = () => {
+    const futuro = di.value > new Date().toISOString().slice(0, 10);
+    const bloco = document.getElementById('es-dados-realizacao');
+    document.getElementById('es-futuro-notice')?.remove();
+    if (bloco) bloco.style.display = futuro ? 'none' : '';
+    if (futuro) {
+      const n = document.createElement('div');
+      n.id = 'es-futuro-notice'; n.className = 'futuro-notice';
+      n.innerHTML = `${lc('shield', 14)} <strong>Evento futuro:</strong> agende agora só com data e horário. Os participantes e as conversões você preenche depois, tocando em <strong>Finalizar</strong> após a realização.`;
+      di.parentElement.insertAdjacentElement('afterend', n);
+    }
+  };
+  di.addEventListener('change', upd);
+  upd();
+}
 
 window.submitEventoSetorial = async function () {
   const data = $('es-data')?.value;
@@ -6756,6 +7040,92 @@ window.submitEventoSetorial = async function () {
   if (error) { toast(error.message, 'error'); return; }
   toast(futuro ? 'Evento setorial agendado como rascunho.' : 'Evento setorial registrado!');
   closeModal(); renderEventosSetoriais();
+};
+
+/* ── FINALIZAR um evento setorial agendado ────────────────────────────
+   Chamado no botão "Finalizar" dos eventos em rascunho. Aqui se preenche o
+   que aconteceu de fato: conversões, participantes do setor, pessoas de
+   fora do setor e obreiros. Ao salvar, o evento sai de "rascunho" para
+   "pendente" (publicado) e dispara a notificação. */
+window.openFinalizarEventoSetorial = async function (id) {
+  if (!canEventoSetorial()) { toast('Sem permissão', 'error'); return; }
+  showModal(loadingPage());
+  const [{ data: ev }, { data: usuarios }, { data: membros }] = await Promise.all([
+    q('eventos').select('*').eq('id', id).single(),
+    q('sistema_usuarios').select('id,nome,cargo,setor_id').eq('ativo', true).order('nome'),
+    q('membros').select('id,nome,cargo').order('nome')
+  ]);
+  if (!ev) { closeModal(); toast('Evento não encontrado', 'error'); return; }
+
+  const doSetor = (usuarios || []).filter(u => u.setor_id === ev.setor_id);
+  const foraSetor = (usuarios || []).filter(u => u.setor_id !== ev.setor_id);
+  const obreiros = membros || [];
+
+  const linhaUser = (u, cls) => `<label class="check-row ${cls}-row" data-nome="${escAttr(u.nome)}"><input type="checkbox" class="${cls}" value="${u.id}"/>
+    <div class="av av-sm" style="background:${avatarColor(u.nome)}">${initials(u.nome)}</div>
+    <span>${escHtml(u.nome)} <em class="c3">${escHtml(u.cargo || '—')}</em></span></label>`;
+
+  showModal(`
+  <div class="modal-hdr"><span>${lc('check-circle', 20)}</span><h2>Finalizar Evento Setorial</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
+  <div class="modal-body">
+    <div class="futuro-notice" style="margin-bottom:14px">${lc('info', 14)} <strong>${escHtml(ev.resumo || 'Evento')}</strong> · ${fmtDate(ev.data)}. Preencha o que aconteceu na realização.</div>
+    <div class="form-group"><label>Conversões</label><input id="fin-conversoes" type="number" min="0" value="${ev.conversoes || 0}"/></div>
+
+    <div class="form-group"><label>Participantes do Setor</label>
+      <div class="member-select-list es-user-scroll" style="max-height:200px">
+        ${doSetor.map(u => linhaUser(u, 'fin-setor-check')).join('') || '<p class="c3 fs-xs">Nenhum usuário no setor.</p>'}
+      </div>
+    </div>
+
+    <div class="form-group"><label>Pessoas Fora do Setor</label>
+      <input placeholder="Buscar por nome..." oninput="pfFinFiltrar('fin-fora-check-row', this.value)" style="margin-bottom:8px"/>
+      <div class="member-select-list es-user-scroll" style="max-height:180px">
+        ${foraSetor.map(u => linhaUser(u, 'fin-fora-check')).join('') || '<p class="c3 fs-xs">Ninguém em outros setores.</p>'}
+      </div>
+    </div>
+
+    <div class="form-group"><label>Obreiros</label>
+      <input placeholder="Buscar por nome..." oninput="pfFinFiltrar('fin-obreiro-check-row', this.value)" style="margin-bottom:8px"/>
+      <div class="member-select-list es-user-scroll" style="max-height:180px">
+        ${obreiros.map(u => linhaUser(u, 'fin-obreiro-check')).join('') || '<p class="c3 fs-xs">Nenhum obreiro cadastrado.</p>'}
+      </div>
+    </div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitFinalizarEventoSetorial('${id}')">${lc('check-circle', 14)} Publicar Evento</button></div>`);
+  refreshLucide();
+};
+
+/* Filtro por nome genérico das listas do modal de finalizar. */
+window.pfFinFiltrar = function (rowClass, val) {
+  const t = (val || '').trim().toLowerCase();
+  document.querySelectorAll('.' + rowClass).forEach(row => {
+    row.style.display = (row.dataset.nome || '').toLowerCase().includes(t) ? '' : 'none';
+  });
+};
+
+window.submitFinalizarEventoSetorial = async function (id) {
+  if (!canEventoSetorial()) { toast('Sem permissão', 'error'); return; }
+  const ids = [
+    ...document.querySelectorAll('.fin-setor-check:checked'),
+    ...document.querySelectorAll('.fin-fora-check:checked'),
+    ...document.querySelectorAll('.fin-obreiro-check:checked'),
+  ].map(c => c.value);
+  const participante_ids = [...new Set(ids)];
+  const payload = {
+    conversoes: parseInt($('fin-conversoes')?.value) || 0,
+    participante_ids,
+    participantes: participante_ids.length,
+    status: 'pendente',
+  };
+  const { data: evAtualizado, error } = await q('eventos').update(payload).eq('id', id).select().single();
+  if (error) { toast(error.message, 'error'); return; }
+  toast('Evento publicado!');
+  closeModal();
+  // Dispara a notificação de "evento publicado" (se o usuário permitiu).
+  if (typeof pfNotificarEventoPublicado === 'function') {
+    try { pfNotificarEventoPublicado(evAtualizado || { id, ...payload }); } catch (_) {}
+  }
+  renderEventosSetoriais();
 };
 
 window._openEditMembroDesativado_ajuste = function (id) {
@@ -7344,6 +7714,7 @@ const HELP_DATA = [
         sections: [
           { icon: '💡', h: 'O que é', p: ['A tela de login pede o usuário e a senha cadastrados por um administrador ou dirigente do seu setor. Não existe cadastro próprio dentro do sistema — quem cria seu acesso é sempre alguém com permissão de gerenciar usuários.'] },
           { icon: '⏱️', h: 'Como fazer', list: ['Digite seu usuário no primeiro campo.', 'Digite sua senha e pressione Enter, ou toque em "Entrar no Sistema".', 'No campo de senha, toque no ícone de olho para conferir o que digitou antes de enviar.'] },
+          { icon: '🔒', h: 'Bloqueio por senha errada', p: ['Por segurança, errar a senha muitas vezes seguidas (10 vezes em 15 minutos) trava o acesso daquele usuário temporariamente. Basta esperar 15 minutos e tentar de novo — ou pedir a um administrador para liberar na hora, pela tela "Usuários Bloqueados".'] },
           { icon: '❓', h: 'Esqueci minha senha', p: ['Fale com um administrador ou dirigente do seu setor — só quem tem permissão de gerenciar usuários pode cadastrar uma senha nova para você.'] }
         ]
       },
@@ -7358,6 +7729,14 @@ const HELP_DATA = [
         id: 'tema', title: 'Tema claro e escuro', desc: 'O interruptor no topo da tela e o que ele muda.',
         sections: [
           { icon: '💡', h: 'O que é', p: ['O sistema tem dois temas de cores. O interruptor com lua e sol, no canto superior direito, alterna entre eles. A escolha fica salva neste aparelho — da próxima vez que você entrar, o tema escolhido continua o mesmo.'] }
+        ]
+      },
+      {
+        id: 'notificacoes', title: 'Notificações', desc: 'O sino no topo e como ativar avisos de eventos.',
+        sections: [
+          { icon: '💡', h: 'O que é', p: ['O sino no topo da tela liga e desliga as notificações deste aparelho. Quando está aceso (colorido), você recebe um aviso sempre que um evento setorial é publicado. Quando está apagado, nenhum aviso é gerado.'] },
+          { icon: '⏱️', h: 'Como ativar', list: ['Toque no sino. Na primeira vez, o navegador pergunta se você permite notificações — toque em "Permitir".', 'O sino aceso confirma que está ativado; toque de novo para desativar.', 'Se o navegador estiver bloqueando, libere as notificações do site nas configurações do navegador.'] },
+          { icon: '💡', h: 'Ao tocar no aviso', p: ['Tocar na notificação abre o sistema já na tela do evento. Se você estiver com a sessão salva, entra direto; se não estiver logado, cai na tela de login e segue para o evento depois que você entrar.'] }
         ]
       }
     ]
@@ -7426,6 +7805,13 @@ const HELP_DATA = [
         sections: [
           { icon: '⏱️', h: 'Como fazer', list: ['Na tela de Membros, digite o nome no campo de busca — a lista filtra enquanto você digita.', 'Se você enxerga mais de um setor, use o filtro de setor para restringir a busca.'] }
         ]
+      },
+      {
+        id: 'jovens-fora-umadalpe', title: 'Jovens (Fora UMADALPE)', desc: 'Cadastro de jovens que ainda não são da UMADALPE.',
+        sections: [
+          { icon: '💡', h: 'O que é', p: ['Um cadastro à parte, para acompanhar jovens que ainda não fazem parte da UMADALPE — com dados de contato e o responsável, quando for menor de idade. Aparece só para quem tem permissão de ver ou gerenciar esse cadastro.'] },
+          { icon: '⏱️', h: 'Como fazer', list: ['Abra a tela "Jovens (Fora UMADALPE)".', 'Toque em "+ Novo" para cadastrar: nome, sexo, data de nascimento, telefone, responsável, endereço (bairro, cidade, estado) e a congregação de referência.', 'Use a busca por nome para achar alguém; toque no olho para ver, no lápis para editar. Quem gerencia também pode excluir.'] }
+        ]
       }
     ]
   },
@@ -7450,6 +7836,15 @@ const HELP_DATA = [
         id: 'filtrar-relatorio', title: 'Filtrar relatórios por período', desc: 'Atalhos de data e exportação em PDF.',
         sections: [
           { icon: '⏱️', h: 'Como fazer', list: ['Na tela de Relatórios, use os atalhos "Esta semana", "Este mês" etc. para preencher o período rapidamente, ou escolha datas manualmente.', 'Toque em "Filtrar" para atualizar os números com o período escolhido.', 'Quem tem permissão de exportar dados encontra um botão "PDF" no topo da tela.'] }
+        ]
+      },
+      {
+        id: 'eventos-setoriais', title: 'Eventos setoriais', desc: 'Agendar, finalizar e acompanhar eventos do setor.',
+        sections: [
+          { icon: '💡', h: 'O que é', p: ['Diferente do evento de uma única congregação, o evento setorial reúne o setor todo (encontros, congressos, mutirões). Tem uma tela própria e aparece para quem tem permissão de criar eventos setoriais ou de vê-los no dashboard.'] },
+          { icon: '⏱️', h: 'Agendar um evento futuro', list: ['Toque em "+ Novo Evento Setorial".', 'Se a data for futura, você preenche só data, horário, setor e título — os participantes e as conversões ficam para depois. O evento fica marcado como "Agendado".', 'Se a data for hoje, você já pode marcar os participantes e as conversões na hora.'] },
+          { icon: '⏱️', h: 'Finalizar depois da realização', list: ['Na lista "Eventos Registrados", os eventos agendados mostram um botão "Finalizar".', 'Ao finalizar, informe as conversões e marque quem participou: participantes do setor, pessoas de fora do setor e obreiros (cada lista tem busca por nome).', 'Ao publicar, o evento sai de "Agendado" e, se as notificações estiverem ativadas, um aviso é enviado.'] },
+          { icon: '💡', h: 'Ver os detalhes', p: ['Toque em qualquer evento (na lista de eventos registrados ou no card do dashboard) para abrir os detalhes: setor, data, horário, situação, participantes e conversões. A lista de "Usuários do Setor" tem busca por nome e rola sozinha quando passa de 5 pessoas.'] }
         ]
       }
     ]
@@ -7492,6 +7887,13 @@ const HELP_DATA = [
           { icon: '💡', h: 'O que é', p: ['A tela de Usuários é onde se cadastram as pessoas que fazem login no sistema. Só aparece para quem tem permissão de gerenciar usuários, e quem não enxerga todos os setores vê apenas os usuários do próprio setor.'] },
           { icon: '⏱️', h: 'Como fazer', list: ['Toque em "+ Novo" para abrir o cadastro.', 'Preencha nome, usuário (login) e senha, escolha o papel (admin, dirigente, adjunto ou usuário) e vincule o setor e a congregação.', 'Use a busca no topo para encontrar alguém pelo nome.', 'Toque em um usuário existente para editar seus dados ou trocar a senha.'] },
           { icon: '🔒', h: 'Ativar e desativar', p: ['Em vez de excluir, você pode marcar um usuário como inativo — ele perde o acesso mas o histórico dele nos eventos é preservado.'] }
+        ]
+      },
+      {
+        id: 'usuarios-bloqueados', title: 'Usuários bloqueados', desc: 'Liberar quem travou o acesso por errar a senha.',
+        sections: [
+          { icon: '💡', h: 'O que é', p: ['Quando alguém erra a senha 10 vezes em 15 minutos, o acesso daquele usuário é travado por segurança. A tela "Usuários Bloqueados" mostra quem está travado no momento e aparece só para quem tem a permissão "Usuários Bloqueados".'] },
+          { icon: '⏱️', h: 'Como liberar', list: ['Abra a tela "Usuários Bloqueados" no menu.', 'Cada usuário travado mostra quantas tentativas teve, o horário da última e em quanto tempo o desbloqueio acontece sozinho.', 'Toque em "Liberar" para devolver o acesso na hora, sem esperar os 15 minutos.', 'Use "Atualizar" para recarregar a lista.'] }
         ]
       }
     ]
