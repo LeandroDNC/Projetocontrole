@@ -556,6 +556,9 @@ function startApp(user) {
   // notificação abriu o app com ?goto=...).
   if (typeof pfInjetarSinoNotif === 'function') setTimeout(pfInjetarSinoNotif, 60);
   if (typeof pfConsumirGoto === 'function') setTimeout(pfConsumirGoto, 300);
+  // Realtime: notifica este aparelho quando qualquer evento é criado (por
+  // este usuário ou por outro) enquanto o app está aberto.
+  if (typeof pfIniciarRealtimeEventos === 'function') setTimeout(pfIniciarRealtimeEventos, 80);
 
   navigate('dashboard');
 }
@@ -1519,13 +1522,25 @@ function renderAgendaSemanaGrid(items, inicioSemana, congId) {
 
 async function openAgendaModal(congId, dataPreset = '', editId = null) {
   if (!hasPerm('gerenciar_agenda')) { toast('Sem permissão', 'error'); return; }
-  showModal(`<div class="modal-hdr"><span>${lc("calendar", 14)}</span><h2>${editId ? 'Editar' : 'Adicionar'} Agenda</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-group"><label>Data *</label><input id="ag-data" type="date" value="${dataPreset || new Date().toISOString().slice(0, 10)}"/></div><div class="form-group"><label>Título *</label><input id="ag-titulo" placeholder="Ex: Culto de Domingo"/></div><div class="form-group"><label>Horário</label><input id="ag-hora" type="time"/></div><div class="form-group"><label>Descrição</label><textarea id="ag-desc" rows="3"></textarea></div></div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveAgenda('${congId}','${editId || ''}')">${lc("save", 14)} Salvar</button></div>`);
+  showModal(`<div class="modal-hdr"><span>${lc("calendar", 14)}</span><h2>${editId ? 'Editar' : 'Adicionar'} Agenda</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-group"><label>Data *</label><input id="ag-data" type="date" value="${dataPreset || new Date().toISOString().slice(0, 10)}" ${editId ? '' : `min="${new Date().toISOString().slice(0, 10)}"`}/></div><div class="form-group"><label>Título *</label><input id="ag-titulo" placeholder="Ex: Culto de Domingo"/></div><div class="form-group"><label>Horário</label><input id="ag-hora" type="time"/></div><div class="form-group"><label>Descrição</label><textarea id="ag-desc" rows="3"></textarea></div></div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveAgenda('${congId}','${editId || ''}')">${lc("save", 14)} Salvar</button></div>`);
   if (editId) { const { data: ag } = await q('agenda_semana').select('*').eq('id', editId).single(); if (ag) { $('ag-data').value = ag.data || ''; $('ag-titulo').value = ag.titulo || ''; $('ag-hora').value = ag.hora || ''; $('ag-desc').value = ag.descricao || ''; } }
 }
 async function saveAgenda(congId, editId) {
   if (!hasPerm('gerenciar_agenda')) { toast('Sem permissão', 'error'); return; }
   const titulo = ($('ag-titulo')?.value || '').trim(), data = $('ag-data')?.value;
   if (!titulo || !data) { toast('Título e data obrigatórios', 'error'); return; }
+  // Não permite agendar (nem mover) para uma data anterior a hoje. Exceção:
+  // ao editar um item que JÁ estava no passado, mantendo a mesma data (assim
+  // ainda dá para corrigir o título/descrição de um compromisso antigo).
+  const hojeStr = new Date().toISOString().slice(0, 10);
+  if (data < hojeStr) {
+    let permitido = false;
+    if (editId) {
+      const { data: orig } = await q('agenda_semana').select('data').eq('id', editId).single();
+      if (orig && orig.data === data) permitido = true;
+    }
+    if (!permitido) { toast('A data não pode ser anterior a hoje.', 'error'); return; }
+  }
   const payload = { congregacao_id: congId, setor_id: navState.setor?.id || null, data, titulo, hora: $('ag-hora')?.value || null, descricao: ($('ag-desc')?.value || '').trim() || null };
   let error; if (editId) ({ error } = await q('agenda_semana').update(payload).eq('id', editId)); else ({ error } = await q('agenda_semana').insert(payload));
   if (error) { toast(error.message, 'error'); return; }
@@ -2713,18 +2728,104 @@ function pfB64ToUint8(base64) {
 }
 
 // Mostra a notificação quando um evento é publicado (chamada no "Finalizar").
-function pfNotificarEventoPublicado(evento) {
+/* ── SOM "Tri-tom" (Web Audio) ────────────────────────────────────────
+   Três notas curtas ascendentes sintetizadas na hora — sem arquivo de áudio
+   e sem usar o som proprietário de nenhum sistema. Toca junto do popup
+   quando as notificações estão ativas. */
+let _pfAudioCtx = null;
+function pfDesbloquearAudio() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!_pfAudioCtx) _pfAudioCtx = new AC();
+    if (_pfAudioCtx.state === 'suspended') _pfAudioCtx.resume();
+  } catch (_) {}
+}
+function pfTocarSomNotificacao() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!_pfAudioCtx) _pfAudioCtx = new AC();
+    const ctx = _pfAudioCtx;
+    if (ctx.state === 'suspended') ctx.resume();
+    const notas = [{ f: 784, t: 0 }, { f: 1047, t: 0.14 }, { f: 1319, t: 0.28 }]; // Sol5 · Dó6 · Mi6
+    const dur = 0.13;
+    notas.forEach(n => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = n.f;
+      const t0 = ctx.currentTime + n.t;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0 + dur + 0.02);
+    });
+  } catch (_) {}
+}
+// O áudio do navegador precisa de um gesto do usuário para "acordar". Assim
+// que ele clicar/tocar em qualquer coisa uma vez, deixamos o contexto pronto.
+['click', 'keydown', 'touchstart'].forEach(evt =>
+  window.addEventListener(evt, pfDesbloquearAudio, { once: true, passive: true }));
+
+/* ── Notificação unificada de evento (popup + som) ────────────────────
+   Usada tanto pelo aparelho de quem cria (hook nos submits) quanto pelos
+   demais usuários (via Realtime). O dedup por id garante UMA notificação
+   por evento em cada aparelho, mesmo que o criador receba pelo hook local
+   e pelo Realtime. */
+window._pfEventosNotificados = window._pfEventosNotificados || new Set();
+function pfNotificarEvento(evento, titulo, corpo) {
   if (!pfNotifAtivo()) return;
-  const titulo = 'Novo evento publicado';
-  const corpo = evento?.resumo ? `"${evento.resumo}" já está disponível.` : 'Um evento setorial foi publicado.';
-  const opts = { body: corpo, goto: 'eventos_setoriais', ev: evento?.id || null, tag: 'evento-' + (evento?.id || Date.now()) };
+  const id = evento && evento.id ? evento.id : null;
+  if (id) {
+    if (window._pfEventosNotificados.has(id)) return;
+    window._pfEventosNotificados.add(id);
+  }
+  const setorial = evento && evento.tipo === 'evento_setorial';
+  const opts = {
+    body: corpo,
+    goto: setorial ? 'eventos_setoriais' : 'dashboard',
+    ev: setorial ? id : null,
+    tag: 'evento-' + (id || Date.now())
+  };
+  pfTocarSomNotificacao();
   try {
     if (navigator.serviceWorker && navigator.serviceWorker.controller) {
       navigator.serviceWorker.controller.postMessage({ type: 'eclesiasync-notify', title: titulo, options: opts });
     } else if ('Notification' in window) {
       const n = new Notification(titulo, { body: corpo, icon: 'assets/icon.png' });
-      n.onclick = () => { window.focus(); if (typeof navigate === 'function') navigate('eventos_setoriais'); };
+      n.onclick = () => { window.focus(); if (typeof navigate === 'function') navigate(opts.goto); };
     }
+  } catch (_) {}
+}
+
+// Notifica quando um evento é CRIADO (chamado nos submits, no aparelho de
+// quem cria) — o Realtime cuida dos demais usuários.
+function pfNotificarEventoCriado(evento) {
+  const label = (typeof tipoLabel === 'function' && evento && evento.tipo) ? tipoLabel(evento.tipo) : 'Evento';
+  const corpo = evento && evento.resumo ? `${label}: ${evento.resumo}` : `${label} registrado.`;
+  pfNotificarEvento(evento, 'Novo evento', corpo);
+}
+
+// Mantido para o fluxo de "Finalizar/publicar" evento setorial.
+function pfNotificarEventoPublicado(evento) {
+  const corpo = evento && evento.resumo ? `"${evento.resumo}" já está disponível.` : 'Um evento setorial foi publicado.';
+  pfNotificarEvento({ ...(evento || {}), tipo: 'evento_setorial' }, 'Novo evento publicado', corpo);
+}
+
+/* ── Realtime: avisa TODOS os aparelhos conectados quando um evento é
+   inserido (criador + demais usuários com o app aberto). Requer o Realtime
+   habilitado na tabela `eventos` no Supabase (ver push_notifications.sql). */
+function pfIniciarRealtimeEventos() {
+  try {
+    if (!db || typeof db.channel !== 'function' || window._pfCanalEventos) return;
+    window._pfCanalEventos = db.channel('eventos-novos')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'eventos' }, payload => {
+        const ev = payload && payload.new;
+        if (ev) pfNotificarEventoCriado(ev);
+      })
+      .subscribe();
   } catch (_) {}
 }
 
@@ -5002,8 +5103,14 @@ window.renderDashboard = async function(){
   ${eventosFuturos.length ? `
 <div class="sec-hdr"><h2>${ico('calendar', 16)} Próximos Eventos</h2><span class="tag tag-gold">Agendados</span></div>
 <div class="act-list" style="margin-bottom:24px">
-  ${eventosFuturos.slice(0, 8).map(e => `
- <div class="act-item ${fut?'evento-futuro':''}" onclick="openEventDetail('${e.id}')" style="cursor:pointer;border-left:3px solid var(--primary-l,#7eb3ff)">
+  ${eventosFuturos.slice(0, 8).map(e => {
+    // 'fut' precisa ser definido por evento aqui dentro — antes era uma
+    // variável solta (ReferenceError) que travava o dashboard inteiro no
+    // spinner assim que existia qualquer evento futuro.
+    const fut = e.data > hojeStr2;
+    const abrir = e.tipo === 'evento_setorial' ? 'openEventoSetorialDetail' : 'openEventDetail';
+    return `
+ <div class="act-item ${fut?'evento-futuro':''}" onclick="${abrir}('${e.id}')" style="cursor:pointer;border-left:3px solid var(--primary-l,#7eb3ff)">
     <div class="act-dot" style="background:${dpTipoColor(e.tipo)}"></div>
     <div class="f1">
       <div class="fw5 fs-sm">${dpTipoLabel(e.tipo)}</div>
@@ -5011,7 +5118,8 @@ window.renderDashboard = async function(){
     </div>
     <span class="tag tag-primary">Agendado</span>
     <span class="act-time">${dp.fmtD(e.data)}</span>
-  </div>`).join('')}
+  </div>`;
+  }).join('')}
 </div>` : ''}
 
   <div class="sec-hdr"><h2>${ico('calendar',16)} Agenda da Semana</h2><span class="tag">Próximos 7 dias</span></div>
@@ -6131,9 +6239,12 @@ window.submitEvento = async function (tipo) {
 
     status: 'pendente',
   };
-  const { error } = await q('eventos').insert(payload);
+  const { data: novo, error } = await q('eventos').insert(payload).select().single();
   if (error) { toast(error.message, 'error'); return; }
-  toast('Evento registrado!'); closeModal(); renderSetores();
+  toast('Evento registrado!'); closeModal();
+  // Notifica este aparelho (o Realtime cuida dos demais usuários) com o som.
+  if (typeof pfNotificarEventoCriado === 'function') { try { pfNotificarEventoCriado(novo || { id: null, tipo, resumo: payload.resumo }); } catch (_) {} }
+  renderSetores();
 };
 
 /* O bloco "5) RELATÓRIO — totalizadores 100% automáticos" que existia
@@ -6648,9 +6759,12 @@ window.submitEvento = async function (tipo) {
     referencia_biblica: ($('ev-referencia')?.value || '').trim() || null,
     status: 'pendente',
   };
-  const { error } = await q('eventos').insert(payload);
+  const { data: novo, error } = await q('eventos').insert(payload).select().single();
   if (error) { toast(error.message, 'error'); return; }
-  toast('Evento registrado!'); closeModal(); renderSetores();
+  toast('Evento registrado!'); closeModal();
+  // Notifica este aparelho (o Realtime cuida dos demais usuários) com o som.
+  if (typeof pfNotificarEventoCriado === 'function') { try { pfNotificarEventoCriado(novo || { id: null, tipo, resumo: payload.resumo }); } catch (_) {} }
+  renderSetores();
 };
 
 /* ───────────────────────────────────────────────────────────
@@ -7036,10 +7150,13 @@ window.submitEventoSetorial = async function () {
     ofertas: 0, dizimos: 0, evangelizados: 0,
     status: futuro ? 'rascunho' : 'pendente',
   };
-  const { error } = await q('eventos').insert(payload);
+  const { data: novo, error } = await q('eventos').insert(payload).select().single();
   if (error) { toast(error.message, 'error'); return; }
   toast(futuro ? 'Evento setorial agendado como rascunho.' : 'Evento setorial registrado!');
-  closeModal(); renderEventosSetoriais();
+  closeModal();
+  // Notifica este aparelho com o som (o Realtime cuida dos demais usuários).
+  if (typeof pfNotificarEventoCriado === 'function') { try { pfNotificarEventoCriado(novo || { id: null, tipo: 'evento_setorial', resumo }); } catch (_) {} }
+  renderEventosSetoriais();
 };
 
 /* ── FINALIZAR um evento setorial agendado ────────────────────────────
@@ -7623,9 +7740,12 @@ window.submitEvento = async function (tipo) {
 
     status: 'pendente',
   };
-  const { error } = await q('eventos').insert(payload);
+  const { data: novo, error } = await q('eventos').insert(payload).select().single();
   if (error) { toast(error.message, 'error'); return; }
-  toast('Evento registrado!'); closeModal(); renderSetores();
+  toast('Evento registrado!'); closeModal();
+  // Notifica este aparelho (o Realtime cuida dos demais usuários) com o som.
+  if (typeof pfNotificarEventoCriado === 'function') { try { pfNotificarEventoCriado(novo || { id: null, tipo, resumo: payload.resumo }); } catch (_) {} }
+  renderSetores();
 };
 
 /* ───────────────────────────────────────────────────────────
@@ -7734,8 +7854,9 @@ const HELP_DATA = [
       {
         id: 'notificacoes', title: 'Notificações', desc: 'O sino no topo e como ativar avisos de eventos.',
         sections: [
-          { icon: '💡', h: 'O que é', p: ['O sino no topo da tela liga e desliga as notificações deste aparelho. Quando está aceso (colorido), você recebe um aviso sempre que um evento setorial é publicado. Quando está apagado, nenhum aviso é gerado.'] },
+          { icon: '💡', h: 'O que é', p: ['O sino no topo da tela liga e desliga as notificações deste aparelho. Quando está aceso (colorido), você recebe um aviso — com um som curto — sempre que um evento é criado, tanto no seu aparelho quanto no de quem criou. Quando está apagado, nenhum aviso e nenhum som são gerados.'] },
           { icon: '⏱️', h: 'Como ativar', list: ['Toque no sino. Na primeira vez, o navegador pergunta se você permite notificações — toque em "Permitir".', 'O sino aceso confirma que está ativado; toque de novo para desativar.', 'Se o navegador estiver bloqueando, libere as notificações do site nas configurações do navegador.'] },
+          { icon: '💡', h: 'O som do aviso', p: ['Com as notificações ativas, cada novo evento também toca um som curto de aviso. Para os demais usuários ouvirem na hora, eles precisam estar com o app aberto; se o app estiver fechado, o aviso depende da configuração de notificações do sistema.'] },
           { icon: '💡', h: 'Ao tocar no aviso', p: ['Tocar na notificação abre o sistema já na tela do evento. Se você estiver com a sessão salva, entra direto; se não estiver logado, cai na tela de login e segue para o evento depois que você entrar.'] }
         ]
       }
@@ -7786,7 +7907,8 @@ const HELP_DATA = [
         id: 'agenda-semana', title: 'Agenda semanal da congregação', desc: 'Compromissos dos próximos 7 dias.',
         sections: [
           { icon: '💡', h: 'O que é', p: ['Cada congregação tem uma agenda com os compromissos dos próximos dias — cultos extras, reuniões, visitas marcadas.'] },
-          { icon: '⏱️', h: 'Como fazer', list: ['Na página da congregação, toque no "+" ao lado de "Agenda da Semana" para adicionar um compromisso.', 'Toque em "Ver completa" para ver a agenda inteira, não só os próximos 7 dias.'] }
+          { icon: '⏱️', h: 'Como fazer', list: ['Na página da congregação, toque no "+" ao lado de "Agenda da Semana" para adicionar um compromisso.', 'Toque em "Ver completa" para ver a agenda inteira, não só os próximos 7 dias.'] },
+          { icon: '❓', h: 'Não consigo escolher uma data passada', p: ['A agenda é para compromissos futuros, então não é possível adicionar um item com data anterior a hoje. Ao criar, o calendário já bloqueia os dias que passaram.'] }
         ]
       }
     ]

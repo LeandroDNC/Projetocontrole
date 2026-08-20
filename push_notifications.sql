@@ -110,3 +110,21 @@ create policy push_subs_update on public.push_subscriptions
 -- FIM. Sem os passos (a)-(d), continua tudo funcionando em modo "app
 -- aberto"; com eles, as notificações passam a chegar com o app fechado.
 -- ═══════════════════════════════════════════════════════════════════════
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- NOTIFICAÇÃO EM TEMPO REAL (app ABERTO) — para os DEMAIS usuários
+-- ═══════════════════════════════════════════════════════════════════════
+-- Quando alguém cria um evento, os outros usuários que estão com o app
+-- ABERTO recebem o popup + som na hora, via Supabase Realtime. Para isso,
+-- a tabela `eventos` precisa estar publicada no Realtime. Rode uma vez:
+--
+--   alter publication supabase_realtime add table public.eventos;
+--
+-- (No painel também dá: Database -> Replication -> supabase_realtime ->
+--  marcar a tabela `eventos`.)
+--
+-- Sem isto, quem cria o evento ainda ouve o som e vê o popup no próprio
+-- aparelho (é garantido pelo app), mas os demais só recebem com o app
+-- fechado se o Web Push (passos a-d acima) estiver configurado.
+-- ═══════════════════════════════════════════════════════════════════════
