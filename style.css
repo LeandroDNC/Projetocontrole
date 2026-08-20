@@ -6427,3 +6427,39 @@ body {
   }
 }
 
+
+/* ── Logo do sistema na tela de login ────────────────────────────────
+   Substitui o antigo emblema em caixinha dourada pela logo real
+   (assets/logo.png). Mostra a imagem inteira, sem fundo/borda. */
+.login-mob-emblem.login-logo-img {
+  display: flex !important;
+  width: 92px;
+  height: 92px;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0;
+  margin: 0 auto 18px;
+}
+.login-mob-emblem.login-logo-img img {
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+  border-radius: 22px;
+  filter: drop-shadow(0 8px 22px rgba(79, 125, 251, .35));
+}
+@media (max-width: 600px) {
+  .login-mob-emblem.login-logo-img,
+  .login-mob-emblem.login-logo-img img { width: 104px; height: 104px; }
+}
+
+/* Logo no cabeçalho da barra lateral (ao lado do nome do sistema) */
+.sidebar-logo {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  border-radius: 9px;
+  flex-shrink: 0;
+  margin-right: 10px;
+}
+.sidebar.collapsed .sidebar-logo { margin-right: 0; }

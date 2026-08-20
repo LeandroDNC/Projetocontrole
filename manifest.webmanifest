@@ -1,0 +1,15 @@
+{
+  "name": "EclesiaSync — Gestão Eclesiástica",
+  "short_name": "EclesiaSync",
+  "description": "Setores, congregações, membros e eventos organizados em um só lugar.",
+  "lang": "pt-BR",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#090c18",
+  "theme_color": "#4f7dfb",
+  "icons": [
+    { "src": "assets/logo.png", "sizes": "any", "type": "image/png", "purpose": "any" }
+  ]
+}
