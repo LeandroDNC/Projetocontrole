@@ -178,12 +178,41 @@ const escAttr = s => String(s ?? '')
   .replace(/\r?\n/g, ' ');
 const fmtMoney = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
-const toast = (msg, icon = 'success') => Swal.fire({
-  toast: true, position: 'top-end', icon, title: msg,
-  showConfirmButton: false, timer: 3000, timerProgressBar: true,
-  background: '#111827', color: '#f1f5f9',
-  iconColor: icon === 'success' ? '#14b8a6' : icon === 'info' ? '#3b82f6' : '#f43f5e'
-});
+/* Máscara de telefone: o usuário digita manualmente o código do país
+   (opcional), o DDD e o número; o campo formata sozinho para
+   +55 (81) 99999-9999 conforme digita. Usada nos cadastros de membro. */
+function pfMascaraTel(el) {
+  if (!el) return;
+  const d = (el.value || '').replace(/\D/g, '');
+  // Acima de 11 dígitos, o excedente à esquerda é tratado como código do país.
+  let pais = '', resto = d;
+  if (d.length > 11) { pais = d.slice(0, d.length - 11); resto = d.slice(d.length - 11); }
+  resto = resto.slice(0, 11);
+  const ddd = resto.slice(0, 2);
+  const cel = resto.length > 10; // 11 dígitos = celular (9 no começo)
+  const p1 = resto.slice(2, cel ? 7 : 6);
+  const p2 = resto.slice(cel ? 7 : 6, 11);
+  let out = '';
+  if (pais) out += '+' + pais + ' ';
+  if (ddd) out += '(' + ddd + ')';
+  if (p1) out += ' ' + p1;
+  if (p2) out += '-' + p2;
+  el.value = out;
+}
+window.pfMascaraTel = pfMascaraTel;
+const toast = (msg, icon = 'success') => {
+  // Som de ação: toda confirmação de sucesso (criar/editar/excluir/salvar
+  // qualquer coisa no sistema) dispara o "tri-tom", desde que o sino de
+  // notificações esteja ativo (ele é o interruptor mestre do som). Ver
+  // pfSomAcao() — gated por pfNotifAtivo().
+  if (icon === 'success' && typeof pfSomAcao === 'function') pfSomAcao();
+  return Swal.fire({
+    toast: true, position: 'top-end', icon, title: msg,
+    showConfirmButton: false, timer: 3000, timerProgressBar: true,
+    background: '#111827', color: '#f1f5f9',
+    iconColor: icon === 'success' ? '#14b8a6' : icon === 'info' ? '#3b82f6' : '#f43f5e'
+  });
+};
 const confirmDialog = (title, text) => Swal.fire({
   title, text, icon: 'warning', showCancelButton: true,
   confirmButtonText: 'Confirmar', cancelButtonText: 'Cancelar'
@@ -250,6 +279,47 @@ const tipoFinanceiro = t => !!TIPOS_EVENTO[t]?.financeiro;
 const tipoEvangelismo = t => !!TIPOS_EVENTO[t]?.evangelismo;
 const tipoColor = t => ({ culto: 'var(--gold)', ebd: '#38bdf8', evento: 'var(--blue)', evento_setorial: '#a78bfa', saida: 'var(--teal)', visita_enfermos: '#f59e0b', visita_desviados: '#ec4899', visita_detidos: '#ef4444', visita_convertidos: '#14b8a6', culto_ar_livre: '#fb923c', ponto_pregacao: '#a78bfa' }[t] || '#64748b');
 
+/* Ordena uma lista de eventos deixando os FUTUROS (data > hoje, ou status
+   'rascunho') sempre acima dos demais. Entre os futuros: data crescente (o
+   próximo primeiro); entre os já realizados: data decrescente (mais recente
+   primeiro). Usado em todas as listagens de evento para cumprir a regra
+   "todo evento futuro fica sempre em cima dos demais". */
+function pfOrdenarEventosFuturosTopo(lista) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const ehFuturo = e => (e?.data || '') > hoje || e?.status === 'rascunho';
+  const arr = Array.isArray(lista) ? lista.slice() : [];
+  return arr.sort((a, b) => {
+    const fa = ehFuturo(a), fb = ehFuturo(b);
+    if (fa !== fb) return fa ? -1 : 1;
+    if (fa) return (a.data < b.data ? -1 : a.data > b.data ? 1 : 0); // futuros: crescente
+    return (a.data > b.data ? -1 : a.data < b.data ? 1 : 0);         // resto: decrescente
+  });
+}
+window.pfOrdenarEventosFuturosTopo = pfOrdenarEventosFuturosTopo;
+
+/* Popup com a lista de eventos que compõem uma categoria/cor. Usado ao clicar
+   numa fatia do gráfico "Tipos de Eventos" (Dashboard) e nos cards de tipo da
+   tela de Relatórios. Cada linha abre o detalhe do respectivo evento. */
+function pfPopupEventosPorTipo(titulo, lista) {
+  const evs = pfOrdenarEventosFuturosTopo(lista || []);
+  const hoje = new Date().toISOString().slice(0, 10);
+  const linhas = evs.map(e => {
+    const abrir = e.tipo === 'evento_setorial' ? 'openEventoSetorialDetail' : 'openEventDetail';
+    const futuro = (e.data || '') > hoje || e.status === 'rascunho';
+    return `<div class="act-item" onclick="closeModal();${abrir}('${e.id}')" style="cursor:pointer">
+      <div class="act-dot" style="background:${tipoColor(e.tipo)}"></div>
+      <div class="f1"><div class="fw5 fs-sm">${tipoIcon(e.tipo)} ${tipoLabel(e.tipo)} ${futuro ? '<span class="tag tag-primary" style="font-size:.55rem">Agendado</span>' : ''}</div><div class="fs-xs c3">${escHtml(e.resumo || '')}</div></div>
+      <span class="tag">${e.participantes || 0}</span>
+      <span class="act-time">${fmtDate(e.data)}</span>
+    </div>`;
+  }).join('');
+  showModal(`<div class="modal-hdr"><span>${lc('clipboard-list', 18)}</span><h2>${escHtml(titulo)} <span class="count-badge">${evs.length}</span></h2><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body"><div class="act-list" style="display:flex;flex-direction:column;gap:8px">${linhas || '<p class="c3" style="padding:16px;text-align:center">Nenhum evento nesta categoria.</p>'}</div></div>
+    <div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
+  if (typeof refreshLucide === 'function') refreshLucide();
+}
+window.pfPopupEventosPorTipo = pfPopupEventosPorTipo;
+
 /* ── PERMISSÕES ──────────────────────────────────────────── */
 const PERM_DESC = {
   'visualizar_eventos_setoriais_dash': { label: 'Visualizar Eventos Setoriais', desc: 'Mostra eventos setoriais (inclusive futuros) no Dashboard inicial' },
@@ -262,6 +332,7 @@ const PERM_DESC = {
   'filtrar_congregacao_dashboard': { label: 'Filtrar Congregação no Dashboard', desc: 'Filtrar por congregação (leitura)' },
   'ver_relatorio_por_congregacao': { label: 'Ver Relatório por Congregação', desc: 'Relatórios filtrados por congregação' },
   'ver_todos_setores': { label: 'Ver Todos os Setores', desc: 'Acessa outros setores' },
+  'ver_agenda_semanal_outros_setores': { label: 'Ver agenda semanal de outros setores', desc: 'Na tela "Agendas Semanais", permite filtrar e ver as agendas de congregações de outros setores — mesmo sem ter "Ver Todos os Setores".' },
   'gerenciar_setores': { label: 'Gerenciar Setores', desc: 'Criar, editar e excluir setores' },
   'gerenciar_congregacoes': { label: 'Gerenciar Congregações', desc: 'Criar, editar e excluir congregações' },
   'gerenciar_membros': { label: 'Gerenciar Membros', desc: 'Adicionar, editar e remover membros' },
@@ -631,11 +702,6 @@ function toggleMobile(o) { mobileOpen = o; $('sidebar').classList.toggle('mob-op
 
 document.querySelectorAll('.nav-item').forEach(el => {
   el.addEventListener('click', () => {
-    if (el.dataset.page === 'calendario') {
-      window.open('calendar.html', '_blank');
-      toggleMobile(false);
-      return;
-    }
     navigate(el.dataset.page); toggleMobile(false);
   });
 });
@@ -1140,7 +1206,7 @@ async function renderEventosSetoriais() {
   <!-- Eventos Setoriais -->
   <div class="sec-hdr"><h2>Eventos Registrados <span class="count-badge">${(eventos || []).length}</span></h2></div>
   <div style="display:flex;flex-direction:column;gap:8px">
-    ${(eventos || []).length ? (eventos || []).map(e => {
+    ${(eventos || []).length ? pfOrdenarEventosFuturosTopo(eventos || []).map(e => {
       const futuro = e.data > new Date().toISOString().slice(0, 10);
       const rascunho = e.status === 'rascunho' || futuro;
       return `
@@ -1350,9 +1416,16 @@ async function delCong(id, nome) {
 async function openEditCongModal(id) {
   if (!hasPerm('gerenciar_congregacoes')) { toast('Sem permissão', 'error'); return; }
   showModal(`<div class="modal-hdr"><span>${lc("pencil", 14)}</span><h2>Editar Congregação</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="edit-cong-body"><div class="loading-page"><div class="spinner"></div></div></div>`);
-  const [{ data: c }, { data: usuarios }] = await Promise.all([q('congregacoes').select('*').eq('id', id).single(), q('sistema_usuarios').select('id,nome,cargo').order('nome')]);
+  const [{ data: c }, { data: usuariosAll }] = await Promise.all([q('congregacoes').select('*').eq('id', id).single(), q('sistema_usuarios').select('id,nome,cargo,congregacao_id,congregacao').order('nome')]);
   if (!c) { closeModal(); toast('Erro ao carregar', 'error'); return; }
-  const uOpts = (usuarios || []).map(u => `<option value="${u.id}">${escHtml(u.nome)} (${escHtml(u.cargo || '—')})</option>`).join('');
+  // Dirigente/Vice/Secretária/Auxiliares só podem ser escolhidos entre os
+  // usuários cadastrados NESTA congregação (por id ou, na falta dele, pelo
+  // nome da congregação) — antes o select puxava todos os usuários do sistema.
+  const nomeCong = (c.nome || '').trim().toLowerCase();
+  const usuarios = (usuariosAll || []).filter(u =>
+    u.congregacao_id === id || (nomeCong && (u.congregacao || '').trim().toLowerCase() === nomeCong)
+  );
+  const uOpts = usuarios.map(u => `<option value="${u.id}">${escHtml(u.nome)} (${escHtml(u.cargo || '—')})</option>`).join('') || '<option value="" disabled>Nenhum usuário cadastrado nesta congregação</option>';
   $('edit-cong-body').innerHTML = `
   <div class="form-group"><label>Nome *</label><input id="ec-nome" value="${escHtml(c.nome)}"/></div>
   <div class="form-group"><label>Endereço</label><input id="ec-end" value="${escHtml(c.endereco || '')}"/></div>
@@ -1382,6 +1455,87 @@ async function saveCong(id) {
   if (navState.cong?.id === id) navState.cong = { ...navState.cong, ...payload };
   renderSetores();
 }
+
+/* ════════════════════════════════════════════════════════════
+   AGENDAS SEMANAIS (menu "Agendas semanais")
+   Tela de consulta: filtra um setor, lista as congregações dele e,
+   ao tocar numa congregação, abre um popup somente-leitura com a
+   agenda da semana. Serve para usuários verem os dias de culto/evento
+   de congregações de OUTROS setores. O acesso a outros setores é
+   controlado pela permissão 'ver_agenda_semanal_outros_setores' —
+   independente de "Ver Todos os Setores".
+════════════════════════════════════════════════════════════ */
+const canVerAgendaOutrosSetores = () =>
+  isSuperAdmin() || canSeeAllSetores() || (typeof hasPerm === 'function' && hasPerm('ver_agenda_semanal_outros_setores'));
+
+window._asSetorFiltro = window._asSetorFiltro || '';
+
+window.renderAgendasSemanais = async function () {
+  const pc = $('page-content'); if (!pc) return;
+  pc.innerHTML = loadingPage();
+  const podeOutros = canVerAgendaOutrosSetores();
+  const meuSetor = currentUser?.setor_id || null;
+  const { data: setores } = await q('setores').select('id,nome').order('nome');
+  // Setor selecionado: quem pode ver outros respeita o filtro (padrão = seu
+  // setor, ou o primeiro); quem não pode fica travado no próprio setor.
+  let sid = podeOutros ? (window._asSetorFiltro || meuSetor || '') : (meuSetor || '');
+  if (podeOutros && !sid && (setores || []).length) sid = setores[0].id;
+
+  let congs = [];
+  if (sid) { const { data } = await q('congregacoes').select('id,nome,setor_id,endereco,pastor_local').eq('setor_id', sid).order('nome'); congs = data || []; }
+  const setorNome = id => (setores || []).find(s => s.id === id)?.nome || '—';
+
+  const filtro = podeOutros
+    ? `<div class="form-group" style="margin:0"><label>Setor</label>
+        <select id="as-setor" onchange="window._asSetorFiltro=this.value; renderAgendasSemanais()" style="min-width:180px">
+          ${(setores || []).map(s => `<option value="${s.id}" ${s.id === sid ? 'selected' : ''}>${escHtml(s.nome)}</option>`).join('')}
+        </select></div>`
+    : `<div style="font-size:.82rem;color:var(--txt2)">${lc('map-pin', 14)} ${escHtml(setorNome(sid))}</div>`;
+
+  pc.innerHTML = `
+  <div class="sec-hdr">
+    <div><h2>${lc('calendar-days', 20)} Agendas Semanais</h2></div>
+    <div class="sec-actions">${backBtn()}</div>
+  </div>
+  <p class="c3 fs-sm" style="margin:-6px 0 16px">Consulte os dias de culto e eventos registrados nas agendas semanais das congregações${podeOutros ? ' — filtre por setor para acompanhar outras regiões.' : ' do seu setor.'}</p>
+  <div class="filter-bar" style="margin-bottom:20px"><div class="filter-fields">${filtro}</div></div>
+  <div class="sec-hdr"><h2>${lc('church', 18)} Congregações <span class="count-badge">${congs.length}</span></h2></div>
+  ${congs.length ? `<div class="cards-grid">${congs.map((c, i) => `
+    <div class="item-card" style="animation-delay:${i * .05}s;cursor:pointer" onclick="openAgendaSemanalPopup('${c.id}','${escAttr(c.nome)}')">
+      <div class="card-head"><div class="card-ico">${lc('church', 14)}</div>
+        <div><div class="card-name">${escHtml(c.nome)}</div><div class="card-sub">${escHtml(c.endereco || setorNome(c.setor_id))}</div></div>
+      </div>
+      <div style="font-size:.77rem;color:var(--txt2);margin:8px 0">${lc('user-round', 13)} ${escHtml(c.pastor_local || 'A definir')}</div>
+      <div class="card-meta"><span class="tag tag-teal">${lc('calendar', 14)} Ver agenda da semana</span></div>
+    </div>`).join('')}</div>`
+      : `<div class="empty"><div class="empty-ico">${lc('church', 44)}</div><p>Nenhuma congregação neste setor.</p></div>`}`;
+  refreshLucide();
+};
+
+/* Popup somente-leitura com a agenda da SEMANA atual de uma congregação. Não
+   expõe nada além da agenda (sem editar/excluir/adicionar). */
+window.openAgendaSemanalPopup = async function (congId, congNome) {
+  showModal(`<div class="modal-hdr"><span>${lc('calendar-days', 18)}</span><h2>Agenda — ${escHtml(congNome || '')}</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="as-popup-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
+  const hoje = new Date();
+  const inicioSemana = new Date(hoje); inicioSemana.setDate(hoje.getDate() - hoje.getDay());
+  const fimSemana = new Date(inicioSemana); fimSemana.setDate(inicioSemana.getDate() + 6);
+  const { data: items } = await q('agenda_semana').select('*').eq('congregacao_id', congId)
+    .gte('data', inicioSemana.toISOString().slice(0, 10)).lte('data', fimSemana.toISOString().slice(0, 10)).order('data');
+  const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const hojeStr = new Date().toISOString().slice(0, 10);
+  let grid = '<div class="agenda-grid-7">';
+  for (let d = 0; d < 7; d++) {
+    const dia = new Date(inicioSemana); dia.setDate(inicioSemana.getDate() + d);
+    const dStr = dia.toISOString().slice(0, 10);
+    const item = (items || []).find(i => i.data === dStr);
+    const isToday = dStr === hojeStr;
+    grid += `<div class="agenda-day${isToday ? ' agenda-today' : ''}"><div class="ag-day-head"><span class="ag-day-name">${dias[d]}</span><span class="ag-day-num">${dia.getDate()}</span></div><div class="ag-day-body">${item ? `<div class="ag-event-chip" style="cursor:default">${escHtml(item.titulo || item.descricao || '')}${item.hora ? ` <span class="c3">${escHtml(item.hora)}</span>` : ''}</div>` : `<span class="c3 fs-xs" style="opacity:.45">—</span>`}</div></div>`;
+  }
+  grid += '</div>';
+  const body = $('as-popup-body');
+  if (body) body.innerHTML = `<p class="c3 fs-sm" style="margin-bottom:12px">Semana atual — somente leitura.</p><div style="overflow-x:auto">${grid}</div>`;
+  refreshLucide();
+};
 
 async function renderCongregacao(pc) {
   pc.innerHTML = loadingPage();
@@ -1455,17 +1609,24 @@ async function renderCongregacao(pc) {
   <div style="margin-bottom:28px">${renderAgendaSemanaGrid(agendaSemana || [], inicioSemana, c.id)}</div>
 
   <div class="sec-hdr"><h2>Eventos <span class="count-badge">${(eventos || []).length}</span></h2></div>
-  ${(eventos || []).length ? `<div class="act-list" style="margin-bottom:28px">${(eventos || []).map(e => `
-    <div class="act-item" onclick="openEventDetail('${e.id}')" style="cursor:pointer">
-      <div class="act-dot" style="background:${tipoColor(e.tipo)}"></div>
-      <div class="f1"><div class="fw5">${tipoIcon(e.tipo)} ${tipoLabel(e.tipo)}</div><div class="fs-xs c3">${escHtml(e.resumo || '')}</div></div>
+  ${(eventos || []).length ? `<div class="act-list" style="margin-bottom:28px">${pfOrdenarEventosFuturosTopo(eventos || []).map(e => {
+      const futuro = (e.data || '') > new Date().toISOString().slice(0, 10);
+      const rascunho = e.status === 'rascunho' || futuro;
+      return `
+    <div class="act-item${rascunho ? ' evento-futuro' : ''}" onclick="openEventDetail('${e.id}')" style="cursor:pointer">
+      <div class="act-dot" style="background:${rascunho ? 'var(--txt3)' : tipoColor(e.tipo)}"></div>
+      <div class="f1"><div class="fw5">${tipoIcon(e.tipo)} ${tipoLabel(e.tipo)} ${rascunho ? '<span class="tag tag-primary" style="font-size:.58rem">Agendado</span>' : ''}</div><div class="fs-xs c3">${escHtml(e.resumo || '')}</div></div>
       <div style="text-align:right">
         <span class="tag">${e.participantes || 0} pessoas</span>
         ${tipoFinanceiro(e.tipo) && canSeeFinanceiro() ? `<div class="fs-xs c3 mt8">${fmtMoney(e.ofertas || 0)} + ${fmtMoney(e.dizimos || 0)}</div>` : ''}
       </div>
       <span class="act-time">${fmtDate(e.data)}</span>
-      ${hasPerm('excluir_registros') ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();delEvento('${e.id}')">${lc("trash-2", 14)}</button>` : ''}
-    </div>`).join('')}</div>` : `<div class="empty" style="margin-bottom:28px"><div class="empty-ico">${lc("clipboard-list", 14)}</div><p>Nenhum evento registrado.</p></div>`}
+      <div onclick="event.stopPropagation()" style="display:flex;gap:6px;align-items:center">
+        ${rascunho && hasPerm('registrar_eventos') ? `<button class="btn btn-primary btn-sm" onclick="openFinalizarEvento('${e.id}')" title="Preencher os dados após a realização">${lc("check-circle", 14)} Finalizar</button>` : ''}
+        ${hasPerm('excluir_registros') ? `<button class="btn btn-danger btn-sm" onclick="delEvento('${e.id}')">${lc("trash-2", 14)}</button>` : ''}
+      </div>
+    </div>`;
+    }).join('')}</div>` : `<div class="empty" style="margin-bottom:28px"><div class="empty-ico">${lc("clipboard-list", 14)}</div><p>Nenhum evento registrado.</p></div>`}
 
   <div class="sec-hdr"><h2>Membros <span class="count-badge">${(mems || []).length}</span></h2></div>
   ${(mems || []).length ? `<div class="member-list">${(mems || []).map((m, i) => `
@@ -1836,7 +1997,7 @@ function openEditMembro(id) {
     $('edit-mem-body').innerHTML = `
     <div class="form-group"><label>Nome</label><input id="em-nome" value="${escHtml(m.nome)}"/></div>
     <div class="form-row"><div class="form-group"><label>Cargo</label><select id="em-cargo">${CARGOS.map(c => `<option${c === m.cargo ? ' selected' : ''}>${c}</option>`).join('')}</select></div><div class="form-group"><label>Idade</label><input id="em-idade" type="number" value="${m.idade || ''}"/></div></div>
-    <div class="form-group"><label>Telefone</label><input id="em-tel" value="${escHtml(m.telefone || '')}"/></div>
+    <div class="form-group"><label>Telefone</label><input id="em-tel" type="tel" inputmode="tel" placeholder="+55 (81) 99999-9999" oninput="pfMascaraTel(this)" value="${escHtml(m.telefone || '')}"/></div>
     <div class="form-group"><label>Email</label><input id="em-email" value="${escHtml(m.email || '')}"/></div>
     <div class="form-section-title">${lc("book-open", 14)} Escola Bíblica Dominical</div>
     <div class="form-row">
@@ -1872,7 +2033,7 @@ function openAddModal(type) {
   else body = `
     <div class="form-group"><label>Nome Completo *</label><input id="add-nome"/></div>
     <div class="form-row"><div class="form-group"><label>Cargo</label><select id="add-cargo">${CARGOS.map(c => `<option>${c}</option>`).join('')}</select></div><div class="form-group"><label>Idade</label><input id="add-idade" type="number"/></div></div>
-    <div class="form-group"><label>Telefone</label><input id="add-tel"/></div>
+    <div class="form-group"><label>Telefone</label><input id="add-tel" type="tel" inputmode="tel" placeholder="+55 (81) 99999-9999" oninput="pfMascaraTel(this)"/></div>
     <div class="form-group"><label>Email</label><input id="add-email" type="email"/></div>
     <div class="form-section-title">${lc("book-open", 14)} EBD</div>
     <div class="form-row"><div class="form-group"><label>Frequenta EBD?</label><select id="add-ebd"><option value="false">Não</option><option value="true">Sim</option></select></div><div class="form-group"><label>Papel</label><select id="add-papel-ebd"><option value="">—</option><option value="Aluno">Aluno</option><option value="Professor">Professor</option><option value="Superintendente">Superintendente</option></select></div></div>`;
@@ -2070,6 +2231,9 @@ async function renderRelatorios() {
   if (cid) { qEv = qEv.eq('congregacao_id', cid); qCong = qCong.eq('id', cid); qMem = qMem.eq('congregacao_id', cid); }
   const [rEv, rCong, rSet, rMem] = await Promise.all([qEv, qCong, qSet, qMem]);
   const eventos = rEv.data || [], congs = rCong.data || [], setores = rSet.data || [];
+  // Guarda os eventos do período para os popups de tipo (clique nos cards
+  // Cultos/Eventos/Saídas) — ver relPopupTipo().
+  window._relEventosCache = eventos;
   const memCount = id => (rMem.data || []).filter(m => m.congregacao_id === id).length;
   const cultos = eventos.filter(e => e.tipo === 'culto').length, genEvt = eventos.filter(e => e.tipo === 'evento').length, saidas = eventos.filter(e => e.tipo === 'saida').length;
   const totalPart = eventos.reduce((s, e) => s + (e.participantes || 0), 0), totalOfer = eventos.reduce((s, e) => s + (e.ofertas || 0), 0), totalDiz = eventos.reduce((s, e) => s + (e.dizimos || 0), 0), totalConv = eventos.reduce((s, e) => s + (e.conversoes || 0), 0);
@@ -2077,7 +2241,7 @@ async function renderRelatorios() {
   const setorSel = canFilterSetores() ? `<div class="form-group" style="margin:0"><label>Setor</label><select id="rel-setor" onchange="relSetorFiltro=this.value||currentUser?.setor_id||null;relCongFiltro=null" style="min-width:160px">${(allSetores || []).map(s => `<option value="${s.id}" ${s.id === sid ? 'selected' : ''}>${escHtml(s.nome)}</option>`).join('')}</select></div>` : `<div style="font-size:.82rem;color:var(--txt2)">${lc("map-pin", 14)} ${escHtml((allSetores || []).find(s => s.id === sid)?.nome || '—')}</div>`;
   const congSel = canVerRelCong() && congsList.length ? `<div class="form-group" style="margin:0"><label>Congregação</label><select id="rel-cong" onchange="relCongFiltro=this.value||null" style="min-width:160px"><option value="">Todas</option>${congsList.map(c => `<option value="${c.id}" ${c.id === cid ? 'selected' : ''}>${escHtml(c.nome)}</option>`).join('')}</select></div>` : '';
 
-  const evCard = e => { const cong = congs.find(c => c.id === e.congregacao_id); return `<div class="ev-card"><div class="ev-card-left"><div class="act-dot" style="background:${tipoColor(e.tipo)}"></div><div><div class="fw5 fs-sm">${tipoIcon(e.tipo)} ${tipoLabel(e.tipo)}</div><div class="fs-xs c3">${escHtml(cong?.nome || '—')} · ${escHtml(e.resumo || '—')}</div></div></div><div class="ev-card-right"><span class="act-time">${fmtDate(e.data)}</span><span class="tag">${e.participantes || 0} pess.</span>${canSeeFinanceiro() && tipoFinanceiro(e.tipo) ? `<span class="tag tag-gold">${fmtMoney(e.ofertas || 0)}</span>` : ''}</div></div>`; };
+  const evCard = e => { const cong = congs.find(c => c.id === e.congregacao_id); const abrir = e.tipo === 'evento_setorial' ? 'openEventoSetorialDetail' : 'openEventDetail'; return `<div class="ev-card" onclick="${abrir}('${e.id}')" style="cursor:pointer"><div class="ev-card-left"><div class="act-dot" style="background:${tipoColor(e.tipo)}"></div><div><div class="fw5 fs-sm">${tipoIcon(e.tipo)} ${tipoLabel(e.tipo)}</div><div class="fs-xs c3">${escHtml(cong?.nome || '—')} · ${escHtml(e.resumo || '—')}</div></div></div><div class="ev-card-right"><span class="act-time">${fmtDate(e.data)}</span><span class="tag">${e.participantes || 0} pess.</span>${canSeeFinanceiro() && tipoFinanceiro(e.tipo) ? `<span class="tag tag-gold">${fmtMoney(e.ofertas || 0)}</span>` : ''}</div></div>`; };
   const EV_VISIVEIS = 8;
   const eventosIniciais = eventos.slice(0, EV_VISIVEIS);
   const eventosResto = eventos.slice(EV_VISIVEIS);
@@ -2108,9 +2272,9 @@ async function renderRelatorios() {
   </div>
 
   <div class="rel-stats-row">
-    ${relStatCard(lc("church",16), 'ic-gold', cultos, 'Cultos')}
-    ${relStatCard(lc("calendar-days",16), 'ic-blue', genEvt, 'Eventos')}
-    ${relStatCard(lc("footprints",16), 'ic-teal', saidas, 'Saídas Evang.')}
+    <div onclick="relPopupTipo('culto')" style="cursor:pointer" title="Ver os eventos">${relStatCard(lc("church",16), 'ic-gold', cultos, 'Cultos')}</div>
+    <div onclick="relPopupTipo('evento')" style="cursor:pointer" title="Ver os eventos">${relStatCard(lc("calendar-days",16), 'ic-blue', genEvt, 'Eventos')}</div>
+    <div onclick="relPopupTipo('saida')" style="cursor:pointer" title="Ver os eventos">${relStatCard(lc("footprints",16), 'ic-teal', saidas, 'Saídas Evang.')}</div>
     ${relStatCard(lc("cross",16), 'ic-violet', totalConv, 'Conversões')}
     ${relStatCard(lc("users",16), 'ic-blue', totalPart, 'Participantes')}
   </div>
@@ -2208,6 +2372,14 @@ async function renderRelatorios() {
   const top6 = congs.slice(0, 6); const pCtx = document.getElementById('chart-pie'); if (pCtx) chartInstances.pie = new Chart(pCtx, { type: 'doughnut', data: { labels: top6.map(c => c.nome.split('—')[0].trim()), datasets: [{ data: top6.map(c => memCount(c.id)), backgroundColor: ['rgba(201,168,76,.8)', 'rgba(59,130,246,.8)', 'rgba(20,184,166,.8)', 'rgba(244,63,94,.8)', 'rgba(139,92,246,.8)', 'rgba(249,115,22,.8)'], borderWidth: 0, hoverOffset: 6 }] }, options: { responsive: true, plugins: { legend: { labels: { color: '#94a3b8' }, position: 'bottom' } }, cutout: '60%' } });
   if (canSeeFinanceiro()) { const oferMes = Array(12).fill(0), dizMes = Array(12).fill(0); eventos.forEach(e => { const m = new Date(e.data + 'T00:00:00').getMonth(); oferMes[m] += (e.ofertas || 0); dizMes[m] += (e.dizimos || 0); }); const fCtx = document.getElementById('chart-fin'); if (fCtx) chartInstances.fin = new Chart(fCtx, { type: 'bar', data: { labels: meses, datasets: [{ label: 'Ofertas', data: oferMes, backgroundColor: 'rgba(201,168,76,.75)', borderRadius: 6 }, { label: 'Dízimos', data: dizMes, backgroundColor: 'rgba(20,184,166,.55)', borderRadius: 6 }] }, options: { responsive: true, plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,.03)' } }, y: { ticks: { color: '#94a3b8', callback: v => 'R$' + v }, grid: { color: 'rgba(255,255,255,.05)' } } } } }); }
 }
+
+/* Clique num card de tipo (Cultos/Eventos/Saídas) na tela de Relatórios →
+   popup com todos os eventos daquele tipo no período filtrado. */
+window.relPopupTipo = function (tipo) {
+  const lista = (window._relEventosCache || []).filter(e => e.tipo === tipo);
+  const nomes = { culto: 'Cultos', evento: 'Eventos', saida: 'Saídas Evangelísticas' };
+  if (typeof pfPopupEventosPorTipo === 'function') pfPopupEventosPorTipo(nomes[tipo] || (typeof tipoLabel === 'function' ? tipoLabel(tipo) : tipo), lista);
+};
 
 window.relToggleEventos = function () {
   const resto = $('rel-eventos-resto'), btn = $('rel-eventos-toggle');
@@ -2478,7 +2650,7 @@ async function renderPermissoes() {
     'Acesso e Visualização': ['visualizar_dashboard', 'ver_relatorios', 'ver_frequencia_usuarios', 'exportar_dados'],
     'Financeiro': ['ver_financeiro', 'gerenciar_financeiro'],
     'Ranking e Eventos Setoriais': ['visualizar_ranking', 'gerenciar_ranking', 'visualizar_eventos_setoriais_dash'],
-    'Filtros e Visibilidade': ['filtrar_setor_dashboard', 'filtrar_congregacao_dashboard', 'ver_relatorio_por_congregacao', 'ver_todos_setores'],
+    'Filtros e Visibilidade': ['filtrar_setor_dashboard', 'filtrar_congregacao_dashboard', 'ver_relatorio_por_congregacao', 'ver_todos_setores', 'ver_agenda_semanal_outros_setores'],
     'Gestão': ['gerenciar_setores', 'gerenciar_congregacoes', 'gerenciar_membros', 'gerenciar_usuarios', 'gerenciar_agenda'],
     'Operações': ['registrar_eventos', 'criar_eventos_setorial', 'excluir_registros'],
     'Sistema': ['editar_permissoes', 'gerenciar_usuarios_bloqueados']
@@ -2769,6 +2941,17 @@ function pfTocarSomNotificacao() {
 ['click', 'keydown', 'touchstart'].forEach(evt =>
   window.addEventListener(evt, pfDesbloquearAudio, { once: true, passive: true }));
 
+/* ── SOM DE AÇÃO ──────────────────────────────────────────────────────
+   Toca o "tri-tom" como feedback de qualquer ação relevante do sistema:
+   criação de usuário/membro/evento/qualquer coisa, exclusões, mudança de
+   tema e ativação do sino. É disparado centralmente pelo toast() de sucesso
+   e por hooks específicos (tema/sino). O sino de notificações é o
+   interruptor mestre: com ele desligado, nenhum som é emitido. */
+function pfSomAcao() {
+  try { if (pfNotifAtivo()) pfTocarSomNotificacao(); } catch (_) {}
+}
+window.pfSomAcao = pfSomAcao;
+
 /* ── Notificação unificada de evento (popup + som) ────────────────────
    Usada tanto pelo aparelho de quem cria (hook nos submits) quanto pelos
    demais usuários (via Realtime). O dedup por id garante UMA notificação
@@ -2866,7 +3049,11 @@ function pfIniciarRealtimeEventos() {
       '<span class="theme-switch-ico theme-switch-ico-moon">' + lc('moon', 12) + '</span>' +
       '<span class="theme-switch-ico theme-switch-ico-sun">' + lc('sun', 12) + '</span>' +
       '<span class="theme-switch-thumb"></span>';
-    wrap.onclick = function () { applyTheme(currentTheme === 'dark' ? 'light' : 'dark'); };
+    wrap.onclick = function () {
+      applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+      // Som na mudança de tema (respeita o sino como interruptor mestre).
+      if (typeof window.pfSomAcao === 'function') window.pfSomAcao();
+    };
     return wrap;
   }
 
@@ -5283,6 +5470,13 @@ ${podeVerEvSetoriais?`
     const outros=Math.max(0,eventos.length-cultos-genEvt-saidas);
     const bCtx=document.getElementById('chart-dash-bar');
     if(bCtx){
+      // Filtros de cada fatia, na mesma ordem dos labels/data acima.
+      const dashBarCats = [
+        { t: 'Cultos', f: e => e.tipo === 'culto' },
+        { t: 'Eventos', f: e => e.tipo === 'evento' },
+        { t: 'Saídas', f: e => e.tipo === 'saida' },
+        { t: 'Outros', f: e => !['culto', 'evento', 'saida'].includes(e.tipo) },
+      ];
       const barChart=new Chart(bCtx,{type:'doughnut',data:{labels:['Cultos','Eventos','Saídas','Outros'],datasets:[{
         data:[cultos,genEvt,saidas,outros],
         backgroundColor:['rgba(79,142,247,.9)','rgba(56,217,192,.9)','rgba(167,139,250,.9)','rgba(240,192,96,.9)'],
@@ -5294,7 +5488,15 @@ ${podeVerEvSetoriais?`
         responsive:true,
         cutout:'62%',
         animation:{animateRotate:true,animateScale:true,duration:1000,easing:'easeOutCirc'},
-        plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}},position:'bottom'}}
+        plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}},position:'bottom'}},
+        // Clique numa cor → popup com todos os eventos daquela categoria.
+        onHover:(evt,els)=>{ if(evt?.native?.target) evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+        onClick:(evt,els,chart)=>{
+          const pts = chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},true);
+          if(!pts.length) return;
+          const cat = dashBarCats[pts[0].index];
+          if(cat && typeof pfPopupEventosPorTipo==='function') pfPopupEventosPorTipo('Tipos de Eventos · '+cat.t, eventos.filter(cat.f));
+        }
       }});
       if(typeof chartInstances!=='undefined') chartInstances.dashBar=barChart;
     }
@@ -5604,7 +5806,7 @@ window.openEditMembro = function (id) {
     $('edit-mem-body').innerHTML = `
     <div class="form-group"><label>Nome</label><input id="em-nome" value="${escHtml(m.nome)}"/></div>
     <div class="form-row"><div class="form-group"><label>Cargo</label><select id="em-cargo">${CARGOS.map(c => `<option${c === m.cargo ? ' selected' : ''}>${c}</option>`).join('')}</select></div><div class="form-group"><label>Idade</label><input id="em-idade" type="number" value="${m.idade || ''}"/></div></div>
-    <div class="form-group"><label>Telefone</label><input id="em-tel" value="${escHtml(m.telefone || '')}"/></div>
+    <div class="form-group"><label>Telefone</label><input id="em-tel" type="tel" inputmode="tel" placeholder="+55 (81) 99999-9999" oninput="pfMascaraTel(this)" value="${escHtml(m.telefone || '')}"/></div>
     <div class="form-group"><label>Email</label><input id="em-email" value="${escHtml(m.email || '')}"/></div>
     <div class="form-group"><label>Vocação</label><textarea id="em-vocacao" rows="2" placeholder="Ex: Evangelismo, Misericórdia...">${escHtml(m.vocacao || '')}</textarea></div>
     <div class="form-section-title">${lc("shield", 14)} Atuação</div>
@@ -5660,7 +5862,7 @@ window.openAddModal = function (type) {
   <div class="modal-body">
     <div class="form-group"><label>Nome Completo *</label><input id="add-nome"/></div>
     <div class="form-row"><div class="form-group"><label>Cargo</label><select id="add-cargo">${CARGOS.map(c => `<option>${c}</option>`).join('')}</select></div><div class="form-group"><label>Idade</label><input id="add-idade" type="number"/></div></div>
-    <div class="form-group"><label>Telefone</label><input id="add-tel"/></div>
+    <div class="form-group"><label>Telefone</label><input id="add-tel" type="tel" inputmode="tel" placeholder="+55 (81) 99999-9999" oninput="pfMascaraTel(this)"/></div>
     <div class="form-group"><label>Email</label><input id="add-email" type="email"/></div>
     <div class="form-section-title">${lc("shield", 14)} Atuação</div>
     ${pfAtuacaoSelectHtml('add', '', '')}
@@ -5827,7 +6029,7 @@ window.openAddMembroGlobal = async function (matricula) {
     <div class="form-group"><label>Cargo</label><select id="amg-cargo">${CARGOS.map(c => `<option>${c}</option>`).join('')}</select></div>
     <div class="form-group"><label>Idade</label><input id="amg-idade" type="number"/></div>
   </div>
-  <div class="form-group"><label>Telefone</label><input id="amg-tel"/></div>
+  <div class="form-group"><label>Telefone</label><input id="amg-tel" type="tel" inputmode="tel" placeholder="+55 (81) 99999-9999" oninput="pfMascaraTel(this)"/></div>
   <div class="form-group"><label>Email</label><input id="amg-email" type="email"/></div>
   <div class="form-section-title">${lc('shield', 14)} Atuação</div>
   ${pfAtuacaoSelectHtml('amg', '', '')}
@@ -6146,10 +6348,49 @@ function pfCampoOfertasHtml() {
 /* ───────────────────────────────────────────────────────────
    3) MODAL DE EVENTO — reescrito com os campos dinâmicos
    ─────────────────────────────────────────────────────────── */
-window.openEventModal = async function (tipo) {
+/* Esconde TODO o bloco de realização (participantes, visitas, resultados,
+   ofertas) quando a data escolhida é futura, mostrando um aviso — igual ao
+   evento setorial. O evento é salvo como rascunho e os dados são preenchidos
+   depois, no "Finalizar". Volta a mostrar tudo se a data for hoje/passada. */
+function pfCongFuturoToggle() {
+  const di = document.getElementById('ev-data');
+  if (!di) return;
+  const upd = () => {
+    const futuro = di.value > new Date().toISOString().slice(0, 10);
+    const bloco = document.getElementById('ev-dados-realizacao');
+    document.getElementById('ev-futuro-notice')?.remove();
+    if (bloco) bloco.style.display = futuro ? 'none' : '';
+    if (futuro) {
+      const n = document.createElement('div');
+      n.id = 'ev-futuro-notice'; n.className = 'futuro-notice';
+      n.innerHTML = `${lc('shield', 14)} <strong>Evento futuro:</strong> agende agora só com data, horário e resumo. Os participantes e os demais dados você preenche depois, tocando em <strong>Finalizar</strong> após a realização.`;
+      di.parentElement.insertAdjacentElement('afterend', n);
+    }
+  };
+  di.addEventListener('change', upd);
+  upd();
+}
+
+/* Reabre o modal de evento em modo "Finalizar" para um rascunho agendado. */
+window.openFinalizarEvento = function (id) {
+  if (!hasPerm('registrar_eventos')) { toast('Sem permissão', 'error'); return; }
+  return window.openEventModal(null, id);
+};
+
+window.openEventModal = async function (tipo, finalizeId = null) {
   if (!hasPerm('registrar_eventos')) { toast('Sem permissão', 'error'); return; }
   $('event-menu')?.classList.add('hidden');
   if (typeof pfResetVisitas === 'function') pfResetVisitas();
+
+  // Modo "Finalizar": carrega o rascunho para preencher os dados reais e
+  // publicar. Data e tipo vêm do evento agendado.
+  let evFin = null;
+  if (finalizeId) {
+    const { data: evLoad } = await q('eventos').select('*').eq('id', finalizeId).single();
+    if (!evLoad) { toast('Evento não encontrado', 'error'); return; }
+    evFin = evLoad;
+    tipo = evLoad.tipo;
+  }
 
   const info = TIPOS_EVENTO[tipo] || { label: tipo, icon: 'clipboard-list' };
   const ehEvangelistico = UMADALPE_TIPOS_EVANGELISTICOS.includes(tipo);
@@ -6168,15 +6409,17 @@ window.openEventModal = async function (tipo) {
   }
 
   const memsParaLista = ehEBD ? (mems || []).filter(m => m.frequenta_ebd) : (mems || []);
+  const dataInicial = evFin ? (evFin.data || '') : new Date().toISOString().slice(0, 10);
 
-  showModal(`<div class="modal-hdr"><span>${lc(info.icon, 20)}</span><h2>Registrar: ${info.label}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
+  showModal(`<div class="modal-hdr"><span>${lc(info.icon, 20)}</span><h2>${evFin ? 'Finalizar' : 'Registrar'}: ${info.label}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
   <div class="modal-body">
-    <div class="form-group"><label>Data *</label><input id="ev-data" type="date" value="${new Date().toISOString().slice(0, 10)}"/></div>
+    <div class="form-group"><label>Data *</label><input id="ev-data" type="date" value="${dataInicial}" ${evFin ? 'disabled' : ''}/></div>
     <div class="form-row">
-      <div class="form-group"><label>Horário Início</label><input id="ev-inicio" type="time"/></div>
-      <div class="form-group"><label>Horário Fim</label><input id="ev-fim" type="time"/></div>
+      <div class="form-group"><label>Horário Início</label><input id="ev-inicio" type="time" value="${evFin?.hora_inicio || ''}"/></div>
+      <div class="form-group"><label>Horário Fim</label><input id="ev-fim" type="time" value="${evFin?.hora_fim || ''}"/></div>
     </div>
-    <div class="form-group"><label>Resumo / Obs.</label><textarea id="ev-resumo" rows="2" style="resize:vertical"></textarea></div>
+    <div class="form-group"><label>Resumo / Obs.</label><textarea id="ev-resumo" rows="2" style="resize:vertical">${escHtml(evFin?.resumo || '')}</textarea></div>
+    <div id="ev-dados-realizacao">
     ${camposEspecificos}
     ${pfCamposComunsHtml()}
     ${ehEvangelistico ? pfCamposEvangelisticosHtml() : pfCampoBencaosHtml()}
@@ -6186,19 +6429,44 @@ window.openEventModal = async function (tipo) {
     <div class="member-select-list" id="ev-mems-local">${memsParaLista.map(m => `<label class="check-row"><input type="checkbox" class="ev-mem-check" value="${m.id}" data-nome="${escHtml(m.nome)}"/><div class="av av-sm" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><span>${escHtml(m.nome)} <em class="c3">${escHtml(m.cargo)}${m.papel_ebd ? ' · ' + m.papel_ebd : ''}</em></span></label>`).join('') || '<p class="c3 fs-xs">Nenhum membro cadastrado.</p>'}</div></div>
     ${!ehEBD ? `<div class="form-group"><label>Externos (mesmo setor)</label><input id="ev-ext-search" placeholder="Buscar..." oninput="filterExtMembers(this.value)" style="margin-bottom:8px"/><div class="member-select-list" id="ev-mems-ext" style="max-height:140px">${(allMems || []).map(m => `<label class="check-row ev-ext-row"><input type="checkbox" class="ev-ext-check" value="${m.id}" data-nome="${escHtml(m.nome)}"/><div class="av av-sm" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><span>${escHtml(m.nome)} <em class="c3">${escHtml(m.cargo)}</em></span></label>`).join('') || '<p class="c3 fs-xs">Sem externos.</p>'}</div></div>` : ''}
     ${typeof pfVisitasSectionHtml === 'function' ? pfVisitasSectionHtml() : ''}
+    </div>
   </div>
-  <div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitEvento('${tipo}')">${lc("plus-circle", 14)} Registrar</button></div>`);
+  <div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitEvento('${tipo}'${evFin ? `,'${finalizeId}'` : ''})">${lc(evFin ? "check-circle" : "plus-circle", 14)} ${evFin ? 'Finalizar' : 'Registrar'}</button></div>`);
 
-  const camposParaTravarSeFuturo = '#ev-visitas-umadalpe,#ev-visita-coord,#ev-visita-superint,#ev-visita-obreiro,#ev-visitas-ministerio,#ev-desviados-comum,#ev-almas-comum,#ev-batismo-comum,#ev-renovo-comum,#ev-bencaos-comum,#ev-evangelizados-comum,#ev-literaturas-comum,#ev-presentes-evang,#ev-ofertas-comum';
-  setTimeout(() => { if (typeof pfAplicarFuturo === 'function') pfAplicarFuturo('ev-data', camposParaTravarSeFuturo); }, 100);
+  // Só na criação: se a data for futura, esconde o bloco de realização e o
+  // evento é salvo como rascunho. No modo Finalizar mostramos tudo.
+  if (!evFin) setTimeout(() => pfCongFuturoToggle(), 60);
 };
 
 /* ───────────────────────────────────────────────────────────
    4) SUBMIT — salva os campos novos + mantém visitas de obreiros
    ─────────────────────────────────────────────────────────── */
-window.submitEvento = async function (tipo) {
+window.submitEvento = async function (tipo, finalizeId = null) {
   if (!hasPerm('registrar_eventos')) { toast('Sem permissão', 'error'); return; }
   const data = $('ev-data')?.value; if (!data) { toast('Data é obrigatória', 'error'); return; }
+  const hoje = new Date().toISOString().slice(0, 10);
+  // Na criação (sem finalizeId) uma data futura é agendada como rascunho; ao
+  // finalizar já é a realização, então nunca é tratada como futura.
+  const futuro = !finalizeId && data > hoje;
+  const resumo = ($('ev-resumo')?.value || '').trim();
+
+  // ── Criação de evento FUTURO → agenda como rascunho (igual ao setorial):
+  //    só data/horário/resumo; participantes e demais dados ficam para o
+  //    "Finalizar" depois da realização.
+  if (futuro) {
+    const payload = {
+      congregacao_id: navState.cong.id, setor_id: navState.setor.id, tipo, data, resumo,
+      hora_inicio: $('ev-inicio')?.value || null, hora_fim: $('ev-fim')?.value || null,
+      participantes: 0, participante_ids: [],
+      status: 'rascunho',
+    };
+    const { data: novo, error } = await q('eventos').insert(payload).select().single();
+    if (error) { toast(error.message, 'error'); return; }
+    toast('Evento agendado como rascunho.'); closeModal();
+    if (typeof pfNotificarEventoCriado === 'function') { try { pfNotificarEventoCriado(novo || { id: null, tipo, resumo }); } catch (_) {} }
+    renderSetores();
+    return;
+  }
 
   const localChecked = [...document.querySelectorAll('.ev-mem-check:checked')].map(c => c.value);
   const extChecked = [...document.querySelectorAll('.ev-ext-check:checked')].map(c => c.value);
@@ -6210,7 +6478,7 @@ window.submitEvento = async function (tipo) {
 
   const payload = {
     congregacao_id: navState.cong.id, setor_id: navState.setor.id, tipo, data,
-    resumo: ($('ev-resumo')?.value || '').trim(),
+    resumo,
     participantes: participanteIds.length || 0,
     hora_inicio: $('ev-inicio')?.value || null, hora_fim: $('ev-fim')?.value || null,
     participante_ids: participanteIds,
@@ -6239,11 +6507,22 @@ window.submitEvento = async function (tipo) {
 
     status: 'pendente',
   };
+
+  // ── Finalizar um rascunho → atualiza o evento existente e publica.
+  if (finalizeId) {
+    const { data: novo, error } = await q('eventos').update(payload).eq('id', finalizeId).select().single();
+    if (error) { toast(error.message, 'error'); return; }
+    toast('Evento finalizado!'); closeModal();
+    if (typeof pfNotificarEventoCriado === 'function') { try { pfNotificarEventoCriado(novo || { id: finalizeId, tipo, resumo }); } catch (_) {} }
+    renderSetores();
+    return;
+  }
+
   const { data: novo, error } = await q('eventos').insert(payload).select().single();
   if (error) { toast(error.message, 'error'); return; }
   toast('Evento registrado!'); closeModal();
   // Notifica este aparelho (o Realtime cuida dos demais usuários) com o som.
-  if (typeof pfNotificarEventoCriado === 'function') { try { pfNotificarEventoCriado(novo || { id: null, tipo, resumo: payload.resumo }); } catch (_) {} }
+  if (typeof pfNotificarEventoCriado === 'function') { try { pfNotificarEventoCriado(novo || { id: null, tipo, resumo }); } catch (_) {} }
   renderSetores();
 };
 
@@ -7253,7 +7532,7 @@ window._openEditMembroDesativado_ajuste = function (id) {
     $('edit-mem-body').innerHTML = `
     <div class="form-group"><label>Nome</label><input id="em-nome" value="${escHtml(m.nome)}"/></div>
     <div class="form-row"><div class="form-group"><label>Cargo</label><select id="em-cargo">${CARGOS.map(c => `<option${c === m.cargo ? ' selected' : ''}>${c}</option>`).join('')}</select></div><div class="form-group"><label>Idade</label><input id="em-idade" type="number" value="${m.idade || ''}"/></div></div>
-    <div class="form-group"><label>Telefone</label><input id="em-tel" value="${escHtml(m.telefone || '')}"/></div>
+    <div class="form-group"><label>Telefone</label><input id="em-tel" type="tel" inputmode="tel" placeholder="+55 (81) 99999-9999" oninput="pfMascaraTel(this)" value="${escHtml(m.telefone || '')}"/></div>
     <div class="form-group"><label>Email</label><input id="em-email" value="${escHtml(m.email || '')}"/></div>
     <div class="form-group"><label>Vocação</label><textarea id="em-vocacao" rows="2" placeholder="Ex: Evangelismo, Misericórdia...">${escHtml(m.vocacao || '')}</textarea></div>
     <div class="form-section-title">${lc("book-open", 14)} Escola Bíblica Dominical</div>
@@ -7475,7 +7754,7 @@ window._openAddMembroGlobalDesativado_ajuste = async function() {
       <div class="form-group"><label>Cargo</label><select id="amg-cargo">${(typeof CARGOS !== 'undefined' ? CARGOS : ['Pastor Local','Presbítero','Diácono','Dirigente','Membro']).map(c => `<option>${c}</option>`).join('')}</select></div>
       <div class="form-group"><label>Idade</label><input id="amg-idade" type="number"/></div>
     </div>
-    <div class="form-group"><label>Telefone</label><input id="amg-tel"/></div>
+    <div class="form-group"><label>Telefone</label><input id="amg-tel" type="tel" inputmode="tel" placeholder="+55 (81) 99999-9999" oninput="pfMascaraTel(this)"/></div>
     <div class="form-group"><label>Email</label><input id="amg-email" type="email"/></div>
    <div class="form-group">
   <label>Vocação</label>
@@ -7647,10 +7926,49 @@ function pfCampoOfertasHtml() {
 /* ───────────────────────────────────────────────────────────
    3) MODAL DE EVENTO — reescrito com os campos dinâmicos
    ─────────────────────────────────────────────────────────── */
-window.openEventModal = async function (tipo) {
+/* Esconde TODO o bloco de realização (participantes, visitas, resultados,
+   ofertas) quando a data escolhida é futura, mostrando um aviso — igual ao
+   evento setorial. O evento é salvo como rascunho e os dados são preenchidos
+   depois, no "Finalizar". Volta a mostrar tudo se a data for hoje/passada. */
+function pfCongFuturoToggle() {
+  const di = document.getElementById('ev-data');
+  if (!di) return;
+  const upd = () => {
+    const futuro = di.value > new Date().toISOString().slice(0, 10);
+    const bloco = document.getElementById('ev-dados-realizacao');
+    document.getElementById('ev-futuro-notice')?.remove();
+    if (bloco) bloco.style.display = futuro ? 'none' : '';
+    if (futuro) {
+      const n = document.createElement('div');
+      n.id = 'ev-futuro-notice'; n.className = 'futuro-notice';
+      n.innerHTML = `${lc('shield', 14)} <strong>Evento futuro:</strong> agende agora só com data, horário e resumo. Os participantes e os demais dados você preenche depois, tocando em <strong>Finalizar</strong> após a realização.`;
+      di.parentElement.insertAdjacentElement('afterend', n);
+    }
+  };
+  di.addEventListener('change', upd);
+  upd();
+}
+
+/* Reabre o modal de evento em modo "Finalizar" para um rascunho agendado. */
+window.openFinalizarEvento = function (id) {
+  if (!hasPerm('registrar_eventos')) { toast('Sem permissão', 'error'); return; }
+  return window.openEventModal(null, id);
+};
+
+window.openEventModal = async function (tipo, finalizeId = null) {
   if (!hasPerm('registrar_eventos')) { toast('Sem permissão', 'error'); return; }
   $('event-menu')?.classList.add('hidden');
   if (typeof pfResetVisitas === 'function') pfResetVisitas();
+
+  // Modo "Finalizar": carrega o rascunho para preencher os dados reais e
+  // publicar. Data e tipo vêm do evento agendado.
+  let evFin = null;
+  if (finalizeId) {
+    const { data: evLoad } = await q('eventos').select('*').eq('id', finalizeId).single();
+    if (!evLoad) { toast('Evento não encontrado', 'error'); return; }
+    evFin = evLoad;
+    tipo = evLoad.tipo;
+  }
 
   const info = TIPOS_EVENTO[tipo] || { label: tipo, icon: 'clipboard-list' };
   const ehEvangelistico = UMADALPE_TIPOS_EVANGELISTICOS.includes(tipo);
@@ -7669,15 +7987,17 @@ window.openEventModal = async function (tipo) {
   }
 
   const memsParaLista = ehEBD ? (mems || []).filter(m => m.frequenta_ebd) : (mems || []);
+  const dataInicial = evFin ? (evFin.data || '') : new Date().toISOString().slice(0, 10);
 
-  showModal(`<div class="modal-hdr"><span>${lc(info.icon, 20)}</span><h2>Registrar: ${info.label}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
+  showModal(`<div class="modal-hdr"><span>${lc(info.icon, 20)}</span><h2>${evFin ? 'Finalizar' : 'Registrar'}: ${info.label}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
   <div class="modal-body">
-    <div class="form-group"><label>Data *</label><input id="ev-data" type="date" value="${new Date().toISOString().slice(0, 10)}"/></div>
+    <div class="form-group"><label>Data *</label><input id="ev-data" type="date" value="${dataInicial}" ${evFin ? 'disabled' : ''}/></div>
     <div class="form-row">
-      <div class="form-group"><label>Horário Início</label><input id="ev-inicio" type="time"/></div>
-      <div class="form-group"><label>Horário Fim</label><input id="ev-fim" type="time"/></div>
+      <div class="form-group"><label>Horário Início</label><input id="ev-inicio" type="time" value="${evFin?.hora_inicio || ''}"/></div>
+      <div class="form-group"><label>Horário Fim</label><input id="ev-fim" type="time" value="${evFin?.hora_fim || ''}"/></div>
     </div>
-    <div class="form-group"><label>Resumo / Obs.</label><textarea id="ev-resumo" rows="2" style="resize:vertical"></textarea></div>
+    <div class="form-group"><label>Resumo / Obs.</label><textarea id="ev-resumo" rows="2" style="resize:vertical">${escHtml(evFin?.resumo || '')}</textarea></div>
+    <div id="ev-dados-realizacao">
     ${camposEspecificos}
     ${pfCamposComunsHtml()}
     ${ehEvangelistico ? pfCamposEvangelisticosHtml() : pfCampoBencaosHtml()}
@@ -7687,19 +8007,44 @@ window.openEventModal = async function (tipo) {
     <div class="member-select-list" id="ev-mems-local">${memsParaLista.map(m => `<label class="check-row"><input type="checkbox" class="ev-mem-check" value="${m.id}" data-nome="${escHtml(m.nome)}"/><div class="av av-sm" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><span>${escHtml(m.nome)} <em class="c3">${escHtml(m.cargo)}${m.papel_ebd ? ' · ' + m.papel_ebd : ''}</em></span></label>`).join('') || '<p class="c3 fs-xs">Nenhum membro cadastrado.</p>'}</div></div>
     ${!ehEBD ? `<div class="form-group"><label>Externos (mesmo setor)</label><input id="ev-ext-search" placeholder="Buscar..." oninput="filterExtMembers(this.value)" style="margin-bottom:8px"/><div class="member-select-list" id="ev-mems-ext" style="max-height:140px">${(allMems || []).map(m => `<label class="check-row ev-ext-row"><input type="checkbox" class="ev-ext-check" value="${m.id}" data-nome="${escHtml(m.nome)}"/><div class="av av-sm" style="background:${avatarColor(m.nome)}">${initials(m.nome)}</div><span>${escHtml(m.nome)} <em class="c3">${escHtml(m.cargo)}</em></span></label>`).join('') || '<p class="c3 fs-xs">Sem externos.</p>'}</div></div>` : ''}
     ${typeof pfVisitasSectionHtml === 'function' ? pfVisitasSectionHtml() : ''}
+    </div>
   </div>
-  <div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitEvento('${tipo}')">${lc("plus-circle", 14)} Registrar</button></div>`);
+  <div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="submitEvento('${tipo}'${evFin ? `,'${finalizeId}'` : ''})">${lc(evFin ? "check-circle" : "plus-circle", 14)} ${evFin ? 'Finalizar' : 'Registrar'}</button></div>`);
 
-  const camposParaTravarSeFuturo = '#ev-visitas-umadalpe,#ev-visita-coord,#ev-visita-superint,#ev-visita-obreiro,#ev-visitas-ministerio,#ev-desviados-comum,#ev-almas-comum,#ev-batismo-comum,#ev-renovo-comum,#ev-bencaos-comum,#ev-evangelizados-comum,#ev-literaturas-comum,#ev-presentes-evang,#ev-ofertas-comum';
-  setTimeout(() => { if (typeof pfAplicarFuturo === 'function') pfAplicarFuturo('ev-data', camposParaTravarSeFuturo); }, 100);
+  // Só na criação: se a data for futura, esconde o bloco de realização e o
+  // evento é salvo como rascunho. No modo Finalizar mostramos tudo.
+  if (!evFin) setTimeout(() => pfCongFuturoToggle(), 60);
 };
 
 /* ───────────────────────────────────────────────────────────
    4) SUBMIT — salva os campos novos + mantém visitas de obreiros
    ─────────────────────────────────────────────────────────── */
-window.submitEvento = async function (tipo) {
+window.submitEvento = async function (tipo, finalizeId = null) {
   if (!hasPerm('registrar_eventos')) { toast('Sem permissão', 'error'); return; }
   const data = $('ev-data')?.value; if (!data) { toast('Data é obrigatória', 'error'); return; }
+  const hoje = new Date().toISOString().slice(0, 10);
+  // Na criação (sem finalizeId) uma data futura é agendada como rascunho; ao
+  // finalizar já é a realização, então nunca é tratada como futura.
+  const futuro = !finalizeId && data > hoje;
+  const resumo = ($('ev-resumo')?.value || '').trim();
+
+  // ── Criação de evento FUTURO → agenda como rascunho (igual ao setorial):
+  //    só data/horário/resumo; participantes e demais dados ficam para o
+  //    "Finalizar" depois da realização.
+  if (futuro) {
+    const payload = {
+      congregacao_id: navState.cong.id, setor_id: navState.setor.id, tipo, data, resumo,
+      hora_inicio: $('ev-inicio')?.value || null, hora_fim: $('ev-fim')?.value || null,
+      participantes: 0, participante_ids: [],
+      status: 'rascunho',
+    };
+    const { data: novo, error } = await q('eventos').insert(payload).select().single();
+    if (error) { toast(error.message, 'error'); return; }
+    toast('Evento agendado como rascunho.'); closeModal();
+    if (typeof pfNotificarEventoCriado === 'function') { try { pfNotificarEventoCriado(novo || { id: null, tipo, resumo }); } catch (_) {} }
+    renderSetores();
+    return;
+  }
 
   const localChecked = [...document.querySelectorAll('.ev-mem-check:checked')].map(c => c.value);
   const extChecked = [...document.querySelectorAll('.ev-ext-check:checked')].map(c => c.value);
@@ -7711,7 +8056,7 @@ window.submitEvento = async function (tipo) {
 
   const payload = {
     congregacao_id: navState.cong.id, setor_id: navState.setor.id, tipo, data,
-    resumo: ($('ev-resumo')?.value || '').trim(),
+    resumo,
     participantes: participanteIds.length || 0,
     hora_inicio: $('ev-inicio')?.value || null, hora_fim: $('ev-fim')?.value || null,
     participante_ids: participanteIds,
@@ -7740,11 +8085,22 @@ window.submitEvento = async function (tipo) {
 
     status: 'pendente',
   };
+
+  // ── Finalizar um rascunho → atualiza o evento existente e publica.
+  if (finalizeId) {
+    const { data: novo, error } = await q('eventos').update(payload).eq('id', finalizeId).select().single();
+    if (error) { toast(error.message, 'error'); return; }
+    toast('Evento finalizado!'); closeModal();
+    if (typeof pfNotificarEventoCriado === 'function') { try { pfNotificarEventoCriado(novo || { id: finalizeId, tipo, resumo }); } catch (_) {} }
+    renderSetores();
+    return;
+  }
+
   const { data: novo, error } = await q('eventos').insert(payload).select().single();
   if (error) { toast(error.message, 'error'); return; }
   toast('Evento registrado!'); closeModal();
   // Notifica este aparelho (o Realtime cuida dos demais usuários) com o som.
-  if (typeof pfNotificarEventoCriado === 'function') { try { pfNotificarEventoCriado(novo || { id: null, tipo, resumo: payload.resumo }); } catch (_) {} }
+  if (typeof pfNotificarEventoCriado === 'function') { try { pfNotificarEventoCriado(novo || { id: null, tipo, resumo }); } catch (_) {} }
   renderSetores();
 };
 
@@ -8400,6 +8756,85 @@ window.liberarUsuarioBloqueado = async function (username) {
     }
     // Tela de login: não faz nada — mantém o usuário onde está.
   });
+})();
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   NAVEGAÇÃO UNIFICADA + VOLTAR COERENTE  (correção definitiva de #2)
+   ──────────────────────────────────────────────────────────────────────
+   O app tinha vários overrides de navigate() empilhados; alguns (ranking,
+   todos_membros) renderizavam SEM atualizar currentPage nem empilhar o
+   histórico. Resultado: a pilha só continha 'dashboard' e o botão Voltar
+   sempre caía nele. Aqui reescrevemos navigate() e goBack() de forma
+   autoritativa (este bloco roda por último), com uma tabela única de
+   renderizadores que cobre TODAS as páginas — inclusive as injetadas. Todo
+   navigate empilha o estado anterior e todo goBack restaura a página +
+   navState reais anteriores.
+   ══════════════════════════════════════════════════════════════════════ */
+(function unificarNavegacao() {
+  const RENDER = {
+    dashboard: () => (window.renderDashboard || renderDashboard)(),
+    setores: () => (window.renderSetores || renderSetores)(),
+    usuarios: () => (window.renderUsuarios || renderUsuarios)(),
+    relatorios: () => (window.renderRelatorios || renderRelatorios)(),
+    permissoes: () => (window.renderPermissoes || renderPermissoes)(),
+    frequencia: () => (window.renderFrequencia || renderFrequencia)(),
+    financeiro: () => (window.renderFinanceiro || renderFinanceiro)(),
+    eventos_setoriais: () => (window.renderEventosSetoriais || renderEventosSetoriais)(),
+    ranking: () => { if (typeof window.renderRanking === 'function') window.renderRanking(); },
+    todos_membros: () => { if (typeof window.renderTodosMembros === 'function') window.renderTodosMembros(); },
+    jovens_fora_umadalpe: () => { if (typeof window.renderJovensForaUmadalpe === 'function') window.renderJovensForaUmadalpe(); },
+    usuarios_bloqueados: () => { if (typeof window.renderUsuariosBloqueados === 'function') window.renderUsuariosBloqueados(); },
+    agendas_semanais: () => { if (typeof window.renderAgendasSemanais === 'function') window.renderAgendasSemanais(); },
+  };
+  const TITLES = {
+    dashboard: 'Dashboard', setores: 'Setores', usuarios: 'Usuários', relatorios: 'Relatórios',
+    permissoes: 'Permissões', frequencia: 'Frequência de Usuários', financeiro: 'Financeiro',
+    eventos_setoriais: 'Eventos Setoriais', ranking: 'Ranking Mensal', todos_membros: 'Membros',
+    jovens_fora_umadalpe: 'Jovens (Fora UMADALPE)', usuarios_bloqueados: 'Usuários Bloqueados',
+    agendas_semanais: 'Agendas Semanais',
+  };
+
+  function aplicarPagina(page, restaurando) {
+    currentPage = page;
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === page));
+    const titleEl = $('page-title'); if (titleEl) titleEl.textContent = TITLES[page] || page;
+    try { Object.values(chartInstances).forEach(c => c?.destroy?.()); } catch (_) {}
+    chartInstances = {};
+    // Reset de filtros só ao ENTRAR numa página (não ao restaurar via Voltar),
+    // replicando o comportamento dos overrides antigos.
+    if (!restaurando) {
+      if (page === 'dashboard') {
+        dashSetorFiltro = currentUser?.setor_id || null; window.dashSetorFiltro = dashSetorFiltro;
+        window.dashSetorFiltroManual = false; dashCongFiltro = null; window.dashCongFiltro = null;
+      }
+      if (page === 'relatorios') {
+        relSetorFiltro = currentUser?.setor_id || null; window.relSetorFiltro = relSetorFiltro;
+        relCongFiltro = null; window.relCongFiltro = null;
+      }
+      if (page === 'setores') navState = { view: 'setores', setor: null, cong: null };
+      if (page === 'usuarios') userSearch = '';
+    }
+    const pc = $('page-content'); if (pc) { pc.style.animation = 'none'; void pc.offsetHeight; pc.style.animation = ''; }
+    const fn = RENDER[page];
+    if (typeof fn === 'function') fn();
+    if (typeof refreshLucide === 'function') refreshLucide();
+  }
+
+  window.navigate = function (page) {
+    // Empilha o estado atual antes de trocar (só quando muda de página).
+    if (currentPage && currentPage !== page) {
+      pushHistory({ page: currentPage, navState: JSON.parse(JSON.stringify(navState)) });
+    }
+    aplicarPagina(page, false);
+  };
+
+  window.goBack = function () {
+    if (!navHistory.length) { aplicarPagina('dashboard', true); return; }
+    const prev = navHistory.pop();
+    if (prev && prev.navState) navState = prev.navState;
+    aplicarPagina(prev && prev.page ? prev.page : 'dashboard', true);
+  };
 })();
 
 
