@@ -1208,7 +1208,7 @@ async function renderEventosSetoriais() {
   <div style="display:flex;flex-direction:column;gap:8px">
     ${(eventos || []).length ? pfOrdenarEventosFuturosTopo(eventos || []).map(e => {
       const futuro = e.data > new Date().toISOString().slice(0, 10);
-      const rascunho = e.status === 'rascunho' || futuro;
+      const rascunho = e.status === 'rascunho'; // "Agendado" depende só do status; após Finalizar (status != rascunho) some, mesmo se a data ainda for futura.
       return `
       <div class="ev-card ev-card-click" onclick="openEventoSetorialDetail('${e.id}')" style="cursor:pointer">
         <div class="ev-card-left">
@@ -1611,7 +1611,7 @@ async function renderCongregacao(pc) {
   <div class="sec-hdr"><h2>Eventos <span class="count-badge">${(eventos || []).length}</span></h2></div>
   ${(eventos || []).length ? `<div class="act-list" style="margin-bottom:28px">${pfOrdenarEventosFuturosTopo(eventos || []).map(e => {
       const futuro = (e.data || '') > new Date().toISOString().slice(0, 10);
-      const rascunho = e.status === 'rascunho' || futuro;
+      const rascunho = e.status === 'rascunho'; // "Agendado" depende só do status; após Finalizar (status != rascunho) some, mesmo se a data ainda for futura.
       return `
     <div class="act-item${rascunho ? ' evento-futuro' : ''}" onclick="openEventDetail('${e.id}')" style="cursor:pointer">
       <div class="act-dot" style="background:${rascunho ? 'var(--txt3)' : tipoColor(e.tipo)}"></div>
@@ -1851,8 +1851,7 @@ async function openEventoSetorialDetail(id) {
     const partics = [...(pu || []), ...(pm || [])];
     if (partics.length) participantesHtml = `<div style="padding:0 30px 8px"><div class="sec-hdr" style="margin-bottom:10px"><h2 style="font-size:.9rem">Participantes (${partics.length})</h2></div><div class="partic-list">${partics.map(p => `<div class="partic-row"><div class="av av-sm" style="background:${avatarColor(p.nome)}">${initials(p.nome)}</div><span class="fs-sm">${escHtml(p.nome)} <em class="c3 fs-xs">${escHtml(p.cargo || '')}</em></span></div>`).join('')}</div></div>`;
   }
-  const futuro = ev.data > new Date().toISOString().slice(0, 10);
-  const rascunho = ev.status === 'rascunho' || futuro;
+  const rascunho = ev.status === 'rascunho'; // situação depende do status, não da data
   const detalhes = `<div class="mem-info-grid"><div class="inf-item"><label>Setor</label><span>${escHtml(setorNome)}</span></div><div class="inf-item"><label>Data</label><span>${fmtDate(ev.data)}</span></div><div class="inf-item"><label>Horário</label><span>${ev.hora_inicio || '—'} ${ev.hora_fim ? '– ' + ev.hora_fim : ''}</span></div><div class="inf-item"><label>Situação</label><span>${rascunho ? 'Agendado' : 'Publicado'}</span></div><div class="inf-item"><label>Participantes</label><span>${ev.participantes || 0}</span></div>${ev.conversoes ? `<div class="inf-item"><label>Conversões</label><span>${ev.conversoes}</span></div>` : ''}</div>`;
   const btnFinalizar = (rascunho && canEventoSetorial()) ? `<button class="btn btn-primary" onclick="closeModal();openFinalizarEventoSetorial('${ev.id}')">${lc('check-circle', 14)} Finalizar</button>` : '';
   showModal(`<div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button><div style="font-size:40px;margin-bottom:8px">${lc('building-2', 40)}</div><div class="mem-modal-name">${escHtml(ev.resumo || 'Evento Setorial')}</div><span class="tag ${rascunho ? 'tag-secondary' : 'tag-violet'}">${rascunho ? 'Agendado' : 'Evento Setorial'}</span></div>${detalhes}${ev.descricao ? `<div style="padding:0 30px 8px"><p style="color:var(--txt2);font-size:.88rem">${escHtml(ev.descricao)}</p></div>` : ''}${participantesHtml}<div class="mem-modal-foot">${btnFinalizar}<button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
