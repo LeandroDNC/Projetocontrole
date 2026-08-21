@@ -4643,12 +4643,21 @@ const dpPulseDotPlugin = {
 };
 
 function dpStartFlowLoop(chart) {
-  if (window._dpFlowRAF) cancelAnimationFrame(window._dpFlowRAF);
-  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (!chart || !chart.canvas) return;
+  // Observação: antes havia um bloqueio por prefers-reduced-motion que
+  // desligava a animação quando o sistema estava com "reduzir movimento".
+  // A pedido, a animação da linha (bolinhas fluindo + ponto pulsante) roda
+  // sempre. Continua sendo um loop POR gráfico (flag própria) em vez de um RAF
+  // global compartilhado: sem isso, quando o dashboard renderizava 2x seguidas
+  // (navegar/filtrar) um setTimeout atrasado cancelava o loop do gráfico
+  // visível e ele parava. Cada loop se auto-encerra só quando SEU canvas sai
+  // do DOM (destroy).
+  if (chart._dpFlowRunning) return;
+  chart._dpFlowRunning = true;
   (function frame() {
-    if (!chart.canvas || !chart.canvas.isConnected) { window._dpFlowRAF = null; return; }
+    if (!chart.canvas || !chart.canvas.isConnected) { chart._dpFlowRunning = false; return; }
     chart.draw();
-    window._dpFlowRAF = requestAnimationFrame(frame);
+    requestAnimationFrame(frame);
   })();
 }
 
