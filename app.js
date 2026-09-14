@@ -333,6 +333,7 @@ const PERM_DESC = {
   'ver_relatorio_por_congregacao': { label: 'Ver Relatório por Congregação', desc: 'Relatórios filtrados por congregação' },
   'ver_todos_setores': { label: 'Ver Todos os Setores', desc: 'Acessa outros setores' },
   'ver_agenda_semanal_outros_setores': { label: 'Ver agenda semanal de outros setores', desc: 'Na tela "Agendas Semanais", permite filtrar e ver as agendas de congregações de outros setores — mesmo sem ter "Ver Todos os Setores".' },
+  'atribuir_presenca_agendas': { label: 'Atribuir presença nas agendas', desc: 'Na tela "Agendas Semanais", permite confirmar que a sua congregação vai comparecer a um evento publicado por outra congregação (do seu setor ou não). Não é possível marcar presença na própria congregação.' },
   'gerenciar_setores': { label: 'Gerenciar Setores', desc: 'Criar, editar e excluir setores' },
   'gerenciar_congregacoes': { label: 'Gerenciar Congregações', desc: 'Criar, editar e excluir congregações' },
   'gerenciar_membros': { label: 'Gerenciar Membros', desc: 'Adicionar, editar e remover membros' },
@@ -1512,8 +1513,38 @@ window.renderAgendasSemanais = async function () {
   refreshLucide();
 };
 
-/* Popup somente-leitura com a agenda da SEMANA atual de uma congregação. Não
-   expõe nada além da agenda (sem editar/excluir/adicionar). */
+/* Quem pode CONFIRMAR presença nas agendas (marcar que a própria congregação
+   vai a um evento de OUTRA congregação). Ver: openAgendaSemanalPopup. */
+const canAtribuirPresencaAgenda = () =>
+  isSuperAdmin() || (typeof hasPerm === 'function' && hasPerm('atribuir_presenca_agendas'));
+
+/* Busca as presenças confirmadas para um conjunto de itens de agenda e
+   devolve um mapa { agenda_id: [{ congId, nome }] } com o NOME da congregação
+   que marcou presença — que é o que aparece para todos. */
+async function pfBuscarPresencasAgenda(agendaIds) {
+  if (!agendaIds || !agendaIds.length) return {};
+  try {
+    const { data: pres } = await q('agenda_presencas').select('agenda_id,congregacao_id').in('agenda_id', agendaIds);
+    if (!pres || !pres.length) return {};
+    const congIds = [...new Set(pres.map(p => p.congregacao_id))];
+    const { data: cs } = await q('congregacoes').select('id,nome').in('id', congIds);
+    const nome = {}; (cs || []).forEach(c => { nome[c.id] = c.nome; });
+    const out = {};
+    pres.forEach(p => { (out[p.agenda_id] = out[p.agenda_id] || []).push({ congId: p.congregacao_id, nome: nome[p.congregacao_id] || '—' }); });
+    return out;
+  } catch (_) { return {}; }
+}
+
+/* Chips com os nomes das congregações que confirmaram presença num evento. */
+function pfPresencasChipsHtml(lista) {
+  if (!lista || !lista.length) return '';
+  return `<div class="ag-presencas">${lista.map(p => `<span class="ag-presenca-chip">${lc('check', 10)} ${escHtml(p.nome)}</span>`).join('')}</div>`;
+}
+
+/* Popup da agenda da SEMANA atual de uma congregação. Somente-leitura quanto
+   à agenda em si; mas quem tiver a permissão "Atribuir presença nas agendas"
+   pode confirmar presença da própria congregação nos eventos de OUTRAS
+   congregações (não na sua). Todos veem quais congregações confirmaram. */
 window.openAgendaSemanalPopup = async function (congId, congNome) {
   showModal(`<div class="modal-hdr"><span>${lc('calendar-days', 18)}</span><h2>Agenda — ${escHtml(congNome || '')}</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="as-popup-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
   const hoje = new Date();
@@ -1521,6 +1552,13 @@ window.openAgendaSemanalPopup = async function (congId, congNome) {
   const fimSemana = new Date(inicioSemana); fimSemana.setDate(inicioSemana.getDate() + 6);
   const { data: items } = await q('agenda_semana').select('*').eq('congregacao_id', congId)
     .gte('data', inicioSemana.toISOString().slice(0, 10)).lte('data', fimSemana.toISOString().slice(0, 10)).order('data');
+  const presencas = await pfBuscarPresencasAgenda((items || []).map(i => i.id));
+
+  const meuCong = currentUser?.congregacao_id || null;
+  // Só pode marcar presença: tem a permissão, tem congregação própria vinculada,
+  // e está vendo a agenda de OUTRA congregação (não a sua).
+  const podeMarcar = canAtribuirPresencaAgenda() && !!meuCong && congId !== meuCong;
+
   const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   const hojeStr = new Date().toISOString().slice(0, 10);
   let grid = '<div class="agenda-grid-7">';
@@ -1529,12 +1567,52 @@ window.openAgendaSemanalPopup = async function (congId, congNome) {
     const dStr = dia.toISOString().slice(0, 10);
     const item = (items || []).find(i => i.data === dStr);
     const isToday = dStr === hojeStr;
-    grid += `<div class="agenda-day${isToday ? ' agenda-today' : ''}"><div class="ag-day-head"><span class="ag-day-name">${dias[d]}</span><span class="ag-day-num">${dia.getDate()}</span></div><div class="ag-day-body">${item ? `<div class="ag-event-chip" style="cursor:default">${escHtml(item.titulo || item.descricao || '')}${item.hora ? ` <span class="c3">${escHtml(item.hora)}</span>` : ''}</div>` : `<span class="c3 fs-xs" style="opacity:.45">—</span>`}</div></div>`;
+    let corpo;
+    if (item) {
+      const pres = presencas[item.id] || [];
+      const jaMarcou = meuCong && pres.some(p => p.congId === meuCong);
+      let botao = '';
+      if (podeMarcar) {
+        botao = jaMarcou
+          ? `<div class="ag-presenca-feito">${lc('check-circle', 11)} Presença confirmada</div>`
+          : `<button class="ag-presenca-btn" onclick="marcarPresencaAgenda('${item.id}','${escAttr(congId)}','${escAttr(congNome || '')}')">${lc('hand', 11)} Marcar presença</button>`;
+      }
+      corpo = `<div class="ag-event-chip" style="cursor:default">${escHtml(item.titulo || item.descricao || '')}${item.hora ? ` <span class="c3">${escHtml(item.hora)}</span>` : ''}</div>${pfPresencasChipsHtml(pres)}${botao}`;
+    } else {
+      corpo = `<span class="c3 fs-xs" style="opacity:.45">—</span>`;
+    }
+    grid += `<div class="agenda-day${isToday ? ' agenda-today' : ''}"><div class="ag-day-head"><span class="ag-day-name">${dias[d]}</span><span class="ag-day-num">${dia.getDate()}</span></div><div class="ag-day-body">${corpo}</div></div>`;
   }
   grid += '</div>';
   const body = $('as-popup-body');
-  if (body) body.innerHTML = `<p class="c3 fs-sm" style="margin-bottom:12px">Semana atual — somente leitura.</p><div style="overflow-x:auto">${grid}</div>`;
+  const aviso = congId === meuCong
+    ? 'Semana atual — esta é a sua congregação. Veja abaixo quem confirmou presença nos seus eventos.'
+    : (podeMarcar ? 'Semana atual — toque em "Marcar presença" para confirmar que a sua congregação vai a um evento.' : 'Semana atual — somente leitura.');
+  if (body) body.innerHTML = `<p class="c3 fs-sm" style="margin-bottom:12px">${aviso}</p><div style="overflow-x:auto">${grid}</div>`;
   refreshLucide();
+};
+
+/* Confirma a presença da congregação do usuário atual num evento de OUTRA
+   congregação. O que aparece para todos é o NOME da congregação de quem
+   marcou (a congregação do usuário logado). */
+window.marcarPresencaAgenda = async function (agendaId, congId, congNome) {
+  if (!canAtribuirPresencaAgenda()) { toast('Você não tem permissão para atribuir presença.', 'error'); return; }
+  if (!currentUser?.congregacao_id) { toast('Seu perfil não tem uma congregação vinculada — não é possível marcar presença.', 'error'); return; }
+  if (congId === currentUser.congregacao_id) { toast('Você não pode marcar presença na sua própria congregação.', 'error'); return; }
+  const r = await confirmDialog('Confirmar presença neste evento?', 'A sua congregação aparecerá como presente neste evento para todos os usuários.');
+  if (!r || !r.isConfirmed) return;
+  const { error } = await q('agenda_presencas').insert({
+    agenda_id: agendaId,
+    congregacao_id: currentUser.congregacao_id,
+    usuario_id: currentUser.id || null
+  });
+  if (error) {
+    if (/duplicate key|unique|já/i.test(error.message || '')) toast('A sua congregação já confirmou presença neste evento.', 'info');
+    else toast(error.message, 'error');
+    return;
+  }
+  toast('Presença confirmada!');
+  openAgendaSemanalPopup(congId, congNome); // recarrega o popup com a presença
 };
 
 async function renderCongregacao(pc) {
@@ -1551,6 +1629,8 @@ async function renderCongregacao(pc) {
   const hoje = new Date(); const inicioSemana = new Date(hoje); inicioSemana.setDate(hoje.getDate() - hoje.getDay());
   const fimSemana = new Date(inicioSemana); fimSemana.setDate(inicioSemana.getDate() + 6);
   const { data: agendaSemana } = await q('agenda_semana').select('*').eq('congregacao_id', c.id).gte('data', inicioSemana.toISOString().slice(0, 10)).lte('data', fimSemana.toISOString().slice(0, 10)).order('data');
+  // Presenças confirmadas por outras congregações nos eventos desta semana.
+  const presencasCong = await pfBuscarPresencasAgenda((agendaSemana || []).map(a => a.id));
   const mapLinks = buildMapLinks(c);
 
   const findUser = (nomeStr) => {
@@ -1606,7 +1686,7 @@ async function renderCongregacao(pc) {
   </div>
 
   <div class="sec-hdr"><h2>${lc("calendar", 14)} Agenda da Semana</h2><div class="sec-actions">${hasPerm('gerenciar_agenda') ? `<button class="btn btn-primary btn-sm" onclick="openAgendaModal('${c.id}')">+</button>` : ''}<button class="btn btn-secondary btn-sm" onclick="openAgendaCompleta('${c.id}')">Ver completa ${lc("arrow-right", 14)}</button></div></div>
-  <div style="margin-bottom:28px">${renderAgendaSemanaGrid(agendaSemana || [], inicioSemana, c.id)}</div>
+  <div style="margin-bottom:28px">${renderAgendaSemanaGrid(agendaSemana || [], inicioSemana, c.id, presencasCong)}</div>
 
   <div class="sec-hdr"><h2>Eventos <span class="count-badge">${(eventos || []).length}</span></h2></div>
   ${(eventos || []).length ? `<div class="act-list" style="margin-bottom:28px">${pfOrdenarEventosFuturosTopo(eventos || []).map(e => {
@@ -1669,14 +1749,16 @@ function buildEventMenuHtml() {
   return Object.entries(grupos).map(([grupo, itens]) => `<div class="dropdown-label">${grupo}</div>${itens.map(({ tipo, label, icon }) => `<div class="dropdown-item" onclick="openEventModal('${tipo}')">${lc(icon, 14)} ${label}</div>`).join('')}`).join('');
 }
 
-function renderAgendaSemanaGrid(items, inicioSemana, congId) {
+function renderAgendaSemanaGrid(items, inicioSemana, congId, presencasPorAgenda = {}) {
   const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   let html = '<div class="agenda-grid-7">';
   for (let d = 0; d < 7; d++) {
     const dia = new Date(inicioSemana); dia.setDate(inicioSemana.getDate() + d);
     const dStr = dia.toISOString().slice(0, 10); const item = items.find(i => i.data === dStr);
     const isToday = dStr === new Date().toISOString().slice(0, 10);
-    html += `<div class="agenda-day${isToday ? ' agenda-today' : ''}"><div class="ag-day-head"><span class="ag-day-name">${dias[d]}</span><span class="ag-day-num">${dia.getDate()}</span></div><div class="ag-day-body">${item ? `<div class="ag-event-chip" onclick="openAgendaDetail('${item.id}')">${escHtml(item.titulo || item.descricao || '')}</div>` : ''} ${hasPerm('gerenciar_agenda') ? `<button class="ag-add-btn" onclick="openAgendaModal('${congId}','${dStr}',${item ? `'${item.id}'` : 'null'})">+</button>` : ''}</div></div>`;
+    // Mostra quais congregações confirmaram presença neste evento (todos veem).
+    const presHtml = item && presencasPorAgenda[item.id] ? pfPresencasChipsHtml(presencasPorAgenda[item.id]) : '';
+    html += `<div class="agenda-day${isToday ? ' agenda-today' : ''}"><div class="ag-day-head"><span class="ag-day-name">${dias[d]}</span><span class="ag-day-num">${dia.getDate()}</span></div><div class="ag-day-body">${item ? `<div class="ag-event-chip" onclick="openAgendaDetail('${item.id}')">${escHtml(item.titulo || item.descricao || '')}</div>` : ''}${presHtml} ${hasPerm('gerenciar_agenda') ? `<button class="ag-add-btn" onclick="openAgendaModal('${congId}','${dStr}',${item ? `'${item.id}'` : 'null'})">+</button>` : ''}</div></div>`;
   }
   return html + '</div>';
 }
@@ -2649,7 +2731,7 @@ async function renderPermissoes() {
     'Acesso e Visualização': ['visualizar_dashboard', 'ver_relatorios', 'ver_frequencia_usuarios', 'exportar_dados'],
     'Financeiro': ['ver_financeiro', 'gerenciar_financeiro'],
     'Ranking e Eventos Setoriais': ['visualizar_ranking', 'gerenciar_ranking', 'visualizar_eventos_setoriais_dash'],
-    'Filtros e Visibilidade': ['filtrar_setor_dashboard', 'filtrar_congregacao_dashboard', 'ver_relatorio_por_congregacao', 'ver_todos_setores', 'ver_agenda_semanal_outros_setores'],
+    'Filtros e Visibilidade': ['filtrar_setor_dashboard', 'filtrar_congregacao_dashboard', 'ver_relatorio_por_congregacao', 'ver_todos_setores', 'ver_agenda_semanal_outros_setores', 'atribuir_presenca_agendas'],
     'Gestão': ['gerenciar_setores', 'gerenciar_congregacoes', 'gerenciar_membros', 'gerenciar_usuarios', 'gerenciar_agenda'],
     'Operações': ['registrar_eventos', 'criar_eventos_setorial', 'excluir_registros'],
     'Sistema': ['editar_permissoes', 'gerenciar_usuarios_bloqueados']
@@ -8273,6 +8355,14 @@ const HELP_DATA = [
           { icon: '💡', h: 'O que é', p: ['Cada congregação tem uma agenda com os compromissos dos próximos dias — cultos extras, reuniões, visitas marcadas.'] },
           { icon: '⏱️', h: 'Como fazer', list: ['Na página da congregação, toque no "+" ao lado de "Agenda da Semana" para adicionar um compromisso.', 'Toque em "Ver completa" para ver a agenda inteira, não só os próximos 7 dias.'] },
           { icon: '❓', h: 'Não consigo escolher uma data passada', p: ['A agenda é para compromissos futuros, então não é possível adicionar um item com data anterior a hoje. Ao criar, o calendário já bloqueia os dias que passaram.'] }
+        ]
+      },
+      {
+        id: 'presenca-agendas', title: 'Confirmar presença nas agendas', desc: 'Avisar que a sua congregação vai a um evento de outra.',
+        sections: [
+          { icon: '💡', h: 'O que é', p: ['No menu "Agendas Semanais" você abre a agenda da semana de qualquer congregação. Nos eventos publicados por OUTRAS congregações, quem tem a permissão "Atribuir presença nas agendas" pode confirmar que a sua congregação vai comparecer. Você não pode marcar presença na sua própria congregação — só em outra (do seu setor ou não).'] },
+          { icon: '⏱️', h: 'Como fazer', list: ['Abra "Agendas Semanais", escolha a congregação e toque nela para ver a agenda da semana.', 'No dia do evento, toque em "Marcar presença".', 'Responda "Sim" à pergunta "Confirmar presença neste evento?".', 'A sua congregação passa a aparecer como presente naquele evento.'] },
+          { icon: '💡', h: 'Quem vê as presenças', p: ['Todos os usuários podem ver quais congregações confirmaram presença em cada evento — inclusive os usuários da congregação dona do evento, na agenda dela. Mas só quem tem a permissão consegue marcar presença.'] }
         ]
       }
     ]

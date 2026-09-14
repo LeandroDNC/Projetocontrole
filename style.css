@@ -6463,3 +6463,57 @@ body {
   margin-right: 10px;
 }
 .sidebar.collapsed .sidebar-logo { margin-right: 0; }
+
+/* ── Presença nas Agendas Semanais ───────────────────────────────────
+   Chips com os nomes das congregações que confirmaram presença num evento,
+   e o botão de marcar presença (aparece no popup, para quem tem permissão). */
+.ag-presencas {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.ag-presenca-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .64rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--teal);
+  background: rgba(20, 184, 166, .12);
+  border: 1px solid rgba(20, 184, 166, .25);
+  border-radius: 8px;
+  padding: 3px 7px;
+}
+.ag-presenca-chip svg { width: 10px; height: 10px; }
+.ag-presenca-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 8px;
+  font-size: .66rem;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  color: #fff;
+  background: linear-gradient(135deg, var(--gold-l), var(--gold));
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.ag-presenca-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(var(--gold-rgb), .35); }
+.ag-presenca-btn svg { width: 11px; height: 11px; }
+.ag-presenca-feito {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: .64rem;
+  font-weight: 700;
+  color: var(--teal);
+}
+.ag-presenca-feito svg { width: 11px; height: 11px; }
