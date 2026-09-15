@@ -178,6 +178,36 @@ const escAttr = s => String(s ?? '')
   .replace(/\r?\n/g, ' ');
 const fmtMoney = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+
+/* ── VIBRAÇÃO (HÁPTICA) ──────────────────────────────────────
+   Uma leve vibração a cada toque em elementos interativos, para
+   facilitar a sensibilidade/percepção do toque. Preferência salva
+   por aparelho (localStorage) e configurável na tela de perfil.
+   Só funciona em dispositivos com suporte a navigator.vibrate
+   (celulares Android/Chrome); iOS ignora silenciosamente. */
+const HAPTICS_KEY = 'es_haptics';
+function hapticsEnabled() {
+  try { return localStorage.getItem(HAPTICS_KEY) !== 'off'; } catch (_) { return true; }
+}
+function setHapticsEnabled(on) {
+  try { localStorage.setItem(HAPTICS_KEY, on ? 'on' : 'off'); } catch (_) { }
+}
+function hapticTap(ms = 8) {
+  if (!hapticsEnabled()) return;
+  try { if (navigator && typeof navigator.vibrate === 'function') navigator.vibrate(ms); } catch (_) { }
+}
+/* Liga um único listener global que dispara a vibração em QUALQUER toque/clique
+   no sistema — qualquer menu, ícone, botão, card ou área da tela. Idempotente
+   (não duplica o listener). Usa 'pointerdown' para o retorno tátil ser imediato
+   no momento do toque, cobrindo mouse, toque e caneta de uma vez só. */
+function initHaptics() {
+  if (window.__hapticsInit) return;
+  window.__hapticsInit = true;
+  const disparar = () => { if (hapticsEnabled()) hapticTap(8); };
+  // capture:true garante que o toque vibre mesmo que algum handler pare a
+  // propagação do evento; passive:true não bloqueia a rolagem.
+  document.addEventListener('pointerdown', disparar, { passive: true, capture: true });
+}
 /* Máscara de telefone: o usuário digita manualmente o código do país
    (opcional), o DDD e o número; o campo formata sozinho para
    +55 (81) 99999-9999 conforme digita. Usada nos cadastros de membro. */
@@ -346,6 +376,7 @@ const PERM_DESC = {
   'gerenciar_financeiro': { label: 'Gerenciar Financeiro', desc: 'Acessar e gerenciar módulo financeiro de licenças' },
   'visualizar_ranking':   { label: 'Visualizar Ranking Mensal', desc: 'Acessar o menu e tela de ranking mensal das MADALPs' },
   'gerenciar_ranking':    { label: 'Gerenciar Ranking Mensal', desc: 'Configurar metas, apurar e exportar PDF do ranking' },
+  'ver_ranking_dashboard': { label: 'Ver Ranking no Dashboard', desc: 'Exibe o pódio Top 3 do ranking mensal (por setor) na tela inicial do Dashboard' },
 };
 
 const isSuperAdmin = () => currentUser?.role === 'admin';
@@ -357,6 +388,7 @@ const canSeeFinanceiro = () => isSuperAdmin() || hasPerm('ver_financeiro');
 const canVerRelCong = () => isSuperAdmin() || hasPerm('ver_relatorio_por_congregacao');
 const canEventoSetorial = () => isSuperAdmin() || hasPerm('criar_eventos_setorial');
 const canGerFinanceiro = () => isSuperAdmin() || hasPerm('gerenciar_financeiro');
+const canVerRankingDash = () => isSuperAdmin() || hasPerm('ver_ranking_dashboard');
 
 async function loadPermissions() {
   if (!currentUser?.id) return;
@@ -603,6 +635,7 @@ async function doLogin() {
 
 function startApp(user) {
   currentUser = user;
+  initHaptics(); // vibração leve ao toque (respeita a preferência do aparelho)
   $('screen-login').classList.add('hidden'); $('screen-app').classList.remove('hidden');
   const av = $('user-av'); av.textContent = initials(user.nome);
   av.style.background = `linear-gradient(135deg,${avatarColor(user.nome)},#8b5cf6)`;
@@ -732,7 +765,7 @@ function goBack() {
     // Estado simples de página
     currentPage = prev.page;
     document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === prev.page));
-    const titles = { dashboard: 'Dashboard', setores: 'Setores', usuarios: 'Usuários', relatorios: 'Relatórios', permissoes: 'Permissões', frequencia: 'Frequência de Usuários', financeiro: 'Financeiro', eventos_setoriais: 'Eventos Setoriais' };
+    const titles = { dashboard: 'Dashboard', setores: 'Setores', usuarios: 'Usuários', relatorios: 'Relatórios', permissoes: 'Permissões', frequencia: 'Frequência de Usuários', financeiro: 'Financeiro', eventos_setoriais: 'Eventos Setoriais', perfil: 'Meu Perfil' };
     $('page-title').textContent = titles[prev.page] || prev.page;
     Object.values(chartInstances).forEach(c => c?.destroy?.()); chartInstances = {};
     if (prev.navState) navState = prev.navState;
@@ -745,6 +778,7 @@ function goBack() {
       case 'frequencia': renderFrequencia(); break;
       case 'financeiro': renderFinanceiro(); break;
       case 'eventos_setoriais': renderEventosSetoriais(); break;
+      case 'perfil': renderPerfil(); break;
     }
   }
 }
@@ -756,7 +790,7 @@ function navigate(page) {
   }
   currentPage = page;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === page));
-  const titles = { dashboard: 'Dashboard', setores: 'Setores', usuarios: 'Usuários', relatorios: 'Relatórios', permissoes: 'Permissões', frequencia: 'Frequência de Usuários', financeiro: 'Financeiro', eventos_setoriais: 'Eventos Setoriais' };
+  const titles = { dashboard: 'Dashboard', setores: 'Setores', usuarios: 'Usuários', relatorios: 'Relatórios', permissoes: 'Permissões', frequencia: 'Frequência de Usuários', financeiro: 'Financeiro', eventos_setoriais: 'Eventos Setoriais', perfil: 'Meu Perfil' };
   $('page-title').textContent = titles[page] || page;
   if (page === 'setores') navState = { view: 'setores', setor: null, cong: null };
   Object.values(chartInstances).forEach(c => c?.destroy?.()); chartInstances = {};
@@ -770,6 +804,7 @@ function navigate(page) {
     case 'frequencia': renderFrequencia(); break;
     case 'financeiro': renderFinanceiro(); break;
     case 'eventos_setoriais': renderEventosSetoriais(); break;
+    case 'perfil': renderPerfil(); break;
   }
   refreshLucide();
 }
@@ -797,6 +832,123 @@ function dashboardAtalhoConfig() {
 function dashboardScrollEventos() {
   const el = document.getElementById('dash-eventos-section');
   if (el) el.scrollIntoView({ behavior: 'smooth' });
+}
+
+/* ════════════════════════════════════════════════════════════
+   MEU PERFIL — tela do próprio usuário (acessível pelo avatar no
+   topo e pelo cartão do usuário na barra lateral). Responsiva; o
+   usuário edita seus dados básicos, troca a senha e configura a
+   vibração ao toque. Setor/congregação/acesso continuam sob
+   controle do administrador (somente leitura aqui).
+════════════════════════════════════════════════════════════ */
+async function renderPerfil() {
+  const pc = $('page-content'); if (!pc) return;
+  pc.innerHTML = loadingPage();
+  const uid = currentUser?.id;
+  const [{ data: u }, { data: setores }, { data: congs }] = await Promise.all([
+    uid ? q('sistema_usuarios').select('id,nome,username,role,cargo,idade,setor_id,congregacao_id,congregacao,frequenta_ebd,papel_ebd,created_at').eq('id', uid).single() : Promise.resolve({ data: null }),
+    q('setores').select('id,nome'),
+    q('congregacoes').select('id,nome')
+  ]);
+  const user = u || currentUser || {};
+  const setorNome = (setores || []).find(s => s.id === user.setor_id)?.nome || (isSuperAdmin() ? 'Todos os setores' : '—');
+  const congNome = (congs || []).find(c => c.id === user.congregacao_id)?.nome || user.congregacao || '—';
+  const hOn = hapticsEnabled();
+  const memberSince = user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : '—';
+  const hapSuportado = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+
+  pc.innerHTML = `
+  <div class="sec-hdr"><h2>${lc('user-circle', 20)} Meu Perfil</h2><div class="sec-actions">${backBtn()}</div></div>
+  <div class="perfil-wrap">
+    <div class="perfil-card perfil-hero">
+      <div class="perfil-av" style="background:linear-gradient(135deg,${avatarColor(user.nome || '')},#8b5cf6)">${initials(user.nome || '?')}</div>
+      <div class="perfil-hero-info">
+        <div class="perfil-nome">${escHtml(user.nome || '—')}</div>
+        <div class="perfil-badges"><span class="role-badge ${roleCls(user.role)}">${escHtml(user.role || '—')}</span><span class="tag">@${escHtml(user.username || '—')}</span>${user.cargo ? `<span class="tag tag-gold">${escHtml(user.cargo)}</span>` : ''}</div>
+        <div class="perfil-meta">${lc('map-pin', 13)} ${escHtml(setorNome)} &nbsp;·&nbsp; ${lc('church', 13)} ${escHtml(congNome)}</div>
+        <div class="perfil-meta fs-xs c3">${lc('calendar', 12)} No sistema desde ${escHtml(memberSince)}</div>
+      </div>
+    </div>
+
+    <div class="perfil-grid">
+      <div class="perfil-card">
+        <div class="perfil-card-title">${lc('id-card', 16)} Dados pessoais</div>
+        <div class="form-group"><label>Nome completo</label><input id="pf-nome" value="${escHtml(user.nome || '')}" placeholder="Seu nome"/></div>
+        <div class="form-row">
+          <div class="form-group"><label>Idade</label><input id="pf-idade" type="number" min="0" max="120" value="${user.idade || ''}"/></div>
+          <div class="form-group"><label>Cargo</label><select id="pf-cargo">${CARGOS.map(c => `<option ${c === (user.cargo || 'Membro') ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+        </div>
+        <div class="perfil-readonly">
+          <div><span class="c3 fs-xs">Usuário</span><div class="fw5 fs-sm">@${escHtml(user.username || '—')}</div></div>
+          <div><span class="c3 fs-xs">Tipo de acesso</span><div class="fw5 fs-sm">${escHtml(user.role || '—')}</div></div>
+          <div><span class="c3 fs-xs">Setor</span><div class="fw5 fs-sm">${escHtml(setorNome)}</div></div>
+          <div><span class="c3 fs-xs">Congregação</span><div class="fw5 fs-sm">${escHtml(congNome)}</div></div>
+        </div>
+        <p class="fs-xs c3" style="margin-top:10px">${lc('lock', 12)} Setor, congregação e tipo de acesso são definidos por um administrador.</p>
+      </div>
+
+      <div class="perfil-card">
+        <div class="perfil-card-title">${lc('shield', 16)} Segurança</div>
+        <div class="form-group"><label>Nova senha</label><input id="pf-senha" type="password" placeholder="Deixe em branco para manter"/></div>
+        <div class="form-group"><label>Confirmar nova senha</label><input id="pf-senha2" type="password" placeholder="Repita a nova senha"/></div>
+        <p class="fs-xs c3">${lc('info', 12)} A senha é criptografada no servidor. Use ao menos 4 caracteres.</p>
+      </div>
+
+      <div class="perfil-card">
+        <div class="perfil-card-title">${lc('smartphone', 16)} Preferências do aparelho</div>
+        <div class="perfil-pref-row">
+          <div class="perfil-pref-txt"><div class="fw5 fs-sm">Vibração ao toque</div><div class="fs-xs c3">Uma leve vibração a cada toque, para facilitar a sensibilidade. Vale apenas neste aparelho.</div></div>
+          <div class="toggle-sw${hOn ? ' on' : ''}" id="pf-haptics" role="switch" aria-checked="${hOn}" tabindex="0" onclick="togglePerfilHaptics(this)"></div>
+        </div>
+        ${!hapSuportado ? `<p class="fs-xs c3" style="margin-top:8px">${lc('info', 12)} Este aparelho/navegador pode não suportar vibração (comum em computadores e iPhone).</p>` : ''}
+      </div>
+    </div>
+
+    <div class="perfil-actions">
+      <button class="btn btn-primary" onclick="salvarPerfil()">${lc('save', 15)} Salvar alterações</button>
+    </div>
+  </div>`;
+  refreshLucide();
+}
+
+function togglePerfilHaptics(el) {
+  const on = !el.classList.contains('on');
+  el.classList.toggle('on', on);
+  el.setAttribute('aria-checked', on ? 'true' : 'false');
+  setHapticsEnabled(on);
+  if (on) hapticTap(15);
+  toast(on ? 'Vibração ao toque ativada' : 'Vibração ao toque desativada', 'info');
+}
+
+async function salvarPerfil() {
+  const uid = currentUser?.id;
+  if (!uid) { toast('Sessão inválida — entre novamente.', 'error'); return; }
+  const nome = ($('pf-nome')?.value || '').trim();
+  if (!nome) { toast('O nome não pode ficar vazio.', 'error'); return; }
+  const senha = ($('pf-senha')?.value || '').trim();
+  const senha2 = ($('pf-senha2')?.value || '').trim();
+  if (senha || senha2) {
+    if (senha.length < 4) { toast('A nova senha deve ter ao menos 4 caracteres.', 'error'); return; }
+    if (senha !== senha2) { toast('As senhas não coincidem.', 'error'); return; }
+  }
+  const payload = {
+    nome,
+    idade: parseInt($('pf-idade')?.value) || null,
+    cargo: $('pf-cargo')?.value || null
+  };
+  if (senha) payload.senha = senha; // trigger no banco cria o hash bcrypt
+  const { error } = await q('sistema_usuarios').update(payload).eq('id', uid);
+  if (error) { toast(error.message, 'error'); return; }
+  // Atualiza estado local e a UI (avatar/nome na sidebar e no topo).
+  currentUser.nome = nome; currentUser.idade = payload.idade; currentUser.cargo = payload.cargo;
+  const firstName = nome.split(' ')[0];
+  if ($('user-name-side')) $('user-name-side').textContent = firstName;
+  if ($('topbar-user')) $('topbar-user').textContent = firstName;
+  const av = $('user-av'); if (av) { av.textContent = initials(nome); av.style.background = `linear-gradient(135deg,${avatarColor(nome)},#8b5cf6)`; }
+  const tav = $('topbar-user-av'); if (tav) { tav.textContent = initials(nome); tav.style.background = `linear-gradient(135deg,${avatarColor(nome)},#8b5cf6)`; }
+  if ($('pf-senha')) $('pf-senha').value = '';
+  if ($('pf-senha2')) $('pf-senha2').value = '';
+  toast(senha ? 'Perfil e senha atualizados!' : 'Perfil atualizado!');
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -899,6 +1051,10 @@ async function renderDashboard() {
     ${statCard(lc('calendar-check', 20), 'ic-violet', eventosMes.length, 'Eventos', 'este mês')}
   </div>
 
+  ${canVerRankingDash() ? `
+  <div class="sec-hdr" style="margin-top:4px"><h2>${lc('trophy', 18)} Top 3 do Ranking Mensal</h2><span class="tag tag-gold">Por setor</span></div>
+  <div id="dash-podium-box" class="podium-box"><div class="podium-loading">${lc('loader', 18)} Carregando ranking…</div></div>` : ''}
+
   <div class="sec-hdr" style="margin-top:4px"><h2>Resumo do Mês</h2><span class="tag tag-gold">Tempo real</span></div>
   <div class="stats-grid stats-4" style="margin-bottom:28px">
     ${statCard(lc('users', 20), 'ic-blue', totalPartMes, 'Participantes', 'este mês')}
@@ -941,6 +1097,131 @@ async function renderDashboard() {
   if (canSeeFinanceiro()) {
     const fCtx = document.getElementById('chart-dash-fin');
     if (fCtx) chartInstances.dashFin = new Chart(fCtx, { type: 'bar', data: { labels: ['Ofertas', 'Dízimos', 'Total'], datasets: [{ data: [totalOferMes, totalDizMes, totalOferMes + totalDizMes], backgroundColor: ['rgba(201,168,76,.8)', 'rgba(20,184,166,.7)', 'rgba(139,92,246,.7)'], borderRadius: 8 }] }, options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,.03)' } }, y: { ticks: { color: '#94a3b8', callback: v => 'R$' + v.toLocaleString() }, grid: { color: 'rgba(255,255,255,.05)' } } } } });
+  }
+
+  // Pódio Top 3 do ranking mensal — SETORIAL (usa o mesmo setor do dashboard)
+  montarPodioRanking(sid);
+}
+
+/* ════════════════════════════════════════════════════════════
+   PÓDIO TOP 3 DO RANKING MENSAL (Dashboard)
+   Regra: o ranking é SETORIAL — nunca global. Usa o setor do
+   dashboard (filtro ou setor do usuário). As 3 melhores MADALPs
+   do mês corrente entram no pódio; posição vazia = MADALP em
+   branco. Clicar numa posição abre os eventos que a levaram lá.
+════════════════════════════════════════════════════════════ */
+async function montarPodioRanking(sid) {
+  const box = $('dash-podium-box');
+  if (!box) return;
+  // Monta o pódio (mesmo vazio) — os ícones das coroas devem SEMPRE aparecer.
+  const render = (top, nota) => {
+    box.innerHTML = `
+      <div class="podium-wrap">
+        <img class="podium-img" src="assets/ranking.svg" alt="Pódio do ranking mensal" draggable="false">
+        ${podiumSpot(top[0], 'gold', 50, 24)}
+        ${podiumSpot(top[1], 'silver', 14, 46)}
+        ${podiumSpot(top[2], 'bronze', 86, 46)}
+      </div>
+      ${nota ? `<div class="podium-nota">${lc('info', 13)} ${nota}</div>` : ''}`;
+  };
+  // Sem setor definido (visão global): ranking é por setor, mas os ícones
+  // continuam visíveis (em branco) com um aviso.
+  if (!sid) {
+    render([], 'O ranking é por setor — selecione um setor para ver o Top 3.');
+    return;
+  }
+  try {
+    const now = new Date();
+    const mes = now.getMonth() + 1, ano = now.getFullYear();
+    const { data: congs } = await q('congregacoes').select('id,nome').eq('setor_id', sid);
+    const congMap = {}; (congs || []).forEach(c => { congMap[c.id] = c.nome; });
+    const ids = (congs || []).map(c => c.id);
+    let top = [];
+    if (ids.length) {
+      const { data: rk } = await q('ranking_mensal').select('madalp_id,total_eventos').eq('mes', mes).eq('ano', ano).in('madalp_id', ids);
+      top = (rk || [])
+        .filter(r => congMap[r.madalp_id] && (r.total_eventos || 0) > 0)
+        .sort((a, b) => (b.total_eventos || 0) - (a.total_eventos || 0))
+        .slice(0, 3)
+        .map(r => ({ id: r.madalp_id, nome: congMap[r.madalp_id], total: r.total_eventos || 0 }));
+    }
+    // Ícones sempre visíveis; se não houver MADALP apta, os centros ficam em branco.
+    render(top, top.length ? '' : 'Nenhuma MADALP com atividades registradas neste mês ainda.');
+  } catch (e) {
+    console.error('montarPodioRanking:', e);
+    render([], 'Não foi possível carregar os dados do ranking.');
+  }
+}
+
+function podiumSpot(pos, cls, x, y) {
+  const style = `left:${x}%;top:${y}%`;
+  if (!pos) {
+    // Posição sem MADALP: centro em branco, não clicável.
+    return `<div class="podium-spot podium-${cls} is-empty" style="${style}"></div>`;
+  }
+  return `<div class="podium-spot podium-${cls}" style="${style};cursor:pointer"
+      title="Ver os eventos de ${escAttr(pos.nome)}"
+      onclick="abrirPodioDetalhe('${escAttr(pos.id)}','${escAttr(pos.nome)}')">
+      <span class="podium-name">${escHtml(pos.nome)}</span>
+      <span class="podium-count">${pos.total} evento${pos.total === 1 ? '' : 's'}</span>
+    </div>`;
+}
+
+/* Popup: todos os eventos (publicados, mês corrente) que colocaram a MADALP
+   na posição, e os participantes (usuários do sistema + membros) de cada um. */
+async function abrirPodioDetalhe(congId, congNome) {
+  showModal(loadingPage());
+  const now = new Date();
+  const inicioMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const hojeStr = now.toISOString().slice(0, 10);
+  const nomeMes = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  try {
+    const { data: eventos } = await q('eventos').select('*')
+      .eq('congregacao_id', congId).eq('status', 'publicado')
+      .gte('data', inicioMes).lte('data', hojeStr)
+      .order('data', { ascending: false });
+    const lista = eventos || [];
+
+    // Resolve participante_ids uma única vez (usuários do sistema OU membros).
+    const allIds = [...new Set(lista.flatMap(e => e.participante_ids || []))];
+    const pMap = {};
+    if (allIds.length) {
+      const [{ data: us }, { data: ms }] = await Promise.all([
+        q('sistema_usuarios').select('id,nome,cargo').in('id', allIds),
+        q('membros').select('id,nome,cargo').in('id', allIds)
+      ]);
+      (us || []).forEach(u => { pMap[u.id] = u; });
+      (ms || []).forEach(m => { pMap[m.id] = m; });
+    }
+
+    const corpo = lista.length ? lista.map(e => {
+      const parts = (e.participante_ids || []).map(id => pMap[id]).filter(Boolean);
+      const participantesHtml = parts.length
+        ? `<div class="partic-list" style="margin-top:8px">${parts.map(p => `<div class="partic-row"><div class="av av-sm" style="background:${avatarColor(p.nome)}">${initials(p.nome)}</div><span class="fs-sm">${escHtml(p.nome)}${p.cargo ? ` <em class="c3 fs-xs">${escHtml(p.cargo)}</em>` : ''}</span></div>`).join('')}</div>`
+        : `<div class="fs-xs c3" style="margin-top:6px">Sem participantes registrados neste evento.</div>`;
+      return `<div class="podium-ev">
+        <div class="podium-ev-hdr">
+          <div class="fw5 fs-sm">${tipoIcon(e.tipo)} ${escHtml(tipoLabel(e.tipo))}</div>
+          <span class="act-time">${fmtDate(e.data)}</span>
+        </div>
+        ${e.resumo ? `<div class="fs-xs c3" style="margin-top:2px">${escHtml(e.resumo)}</div>` : ''}
+        <div style="margin-top:6px"><span class="tag">${lc('users', 12)} ${e.participantes || 0} presentes</span></div>
+        ${participantesHtml}
+      </div>`;
+    }).join('') : `<div class="empty" style="padding:24px"><div class="empty-ico">${lc('calendar-x', 40)}</div><p>Nenhum evento publicado neste mês.</p></div>`;
+
+    showModal(`
+      <div class="mem-profile"><button class="modal-close" style="position:absolute;top:14px;right:14px" onclick="closeModal()">✕</button>
+        <div style="font-size:38px;margin-bottom:6px">${lc('trophy', 38)}</div>
+        <div class="mem-modal-name">${escHtml(congNome)}</div>
+        <span class="tag tag-gold">${lista.length} evento${lista.length === 1 ? '' : 's'} em ${nomeMes}</span>
+      </div>
+      <div style="padding:6px 24px 4px"><p class="c3 fs-xs">Eventos publicados que levaram esta MADALP à sua posição no ranking do mês, com os participantes de cada atividade.</p></div>
+      <div style="padding:4px 20px 8px;display:flex;flex-direction:column;gap:10px">${corpo}</div>
+      <div class="mem-modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
+  } catch (e) {
+    console.error('abrirPodioDetalhe:', e);
+    showModal(`<div class="mem-profile"><div class="mem-modal-name">${escHtml(congNome)}</div></div><div style="padding:24px;text-align:center" class="c3">Erro ao carregar os eventos: ${escHtml(e.message)}</div><div class="mem-modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Fechar</button></div>`);
   }
 }
 
@@ -1571,13 +1852,12 @@ window.openAgendaSemanalPopup = async function (congId, congNome) {
     if (item) {
       const pres = presencas[item.id] || [];
       const jaMarcou = meuCong && pres.some(p => p.congId === meuCong);
-      let botao = '';
-      if (podeMarcar) {
-        botao = jaMarcou
-          ? `<div class="ag-presenca-feito">${lc('check-circle', 11)} Presença confirmada</div>`
-          : `<button class="ag-presenca-btn" onclick="marcarPresencaAgenda('${item.id}','${escAttr(congId)}','${escAttr(congNome || '')}')">${lc('hand', 11)} Marcar presença</button>`;
-      }
-      corpo = `<div class="ag-event-chip" style="cursor:default">${escHtml(item.titulo || item.descricao || '')}${item.hora ? ` <span class="c3">${escHtml(item.hora)}</span>` : ''}</div>${pfPresencasChipsHtml(pres)}${botao}`;
+      // Botão compacto: abre um popup para ver quem confirmou e (se permitido)
+      // marcar presença — evita o card esticar quando há muitas congregações.
+      const presBtn = `<button class="ag-pres-open${jaMarcou ? ' is-done' : ''}" onclick="openPresencasPopup('${item.id}','${escAttr(congId)}','${escAttr(congNome || '')}')">${lc('users', 11)}<span class="ag-pres-lbl">Presenças</span>${pres.length ? `<span class="ag-pres-count">${pres.length}</span>` : ''}${jaMarcou ? lc('check', 10) : ''}</button>`;
+      // Título do evento e, abaixo, o horário.
+      const titulo = escHtml(item.titulo || item.descricao || '');
+      corpo = `<div class="ag-event-chip" style="cursor:default"><span class="ag-ev-titulo">${titulo}</span>${item.hora ? `<span class="ag-ev-hora">${lc('clock', 10)} ${escHtml(item.hora)}</span>` : ''}</div>${presBtn}`;
     } else {
       corpo = `<span class="c3 fs-xs" style="opacity:.45">—</span>`;
     }
@@ -1595,7 +1875,7 @@ window.openAgendaSemanalPopup = async function (congId, congNome) {
 /* Confirma a presença da congregação do usuário atual num evento de OUTRA
    congregação. O que aparece para todos é o NOME da congregação de quem
    marcou (a congregação do usuário logado). */
-window.marcarPresencaAgenda = async function (agendaId, congId, congNome) {
+window.marcarPresencaAgenda = async function (agendaId, congId, congNome, voltarPara) {
   if (!canAtribuirPresencaAgenda()) { toast('Você não tem permissão para atribuir presença.', 'error'); return; }
   if (!currentUser?.congregacao_id) { toast('Seu perfil não tem uma congregação vinculada — não é possível marcar presença.', 'error'); return; }
   if (congId === currentUser.congregacao_id) { toast('Você não pode marcar presença na sua própria congregação.', 'error'); return; }
@@ -1612,7 +1892,44 @@ window.marcarPresencaAgenda = async function (agendaId, congId, congNome) {
     return;
   }
   toast('Presença confirmada!');
-  openAgendaSemanalPopup(congId, congNome); // recarrega o popup com a presença
+  // Reabre a origem para refletir a nova presença.
+  if (voltarPara === 'presencas') openPresencasPopup(agendaId, congId, congNome);
+  else openAgendaSemanalPopup(congId, congNome);
+};
+
+/* Popup de presenças de um evento da agenda: lista quem confirmou e, para quem
+   tem a permissão, permite marcar a presença da própria congregação. Mantém o
+   card da agenda enxuto, já que a lista pode crescer bastante. */
+window.openPresencasPopup = async function (agendaId, congId, congNome) {
+  showModal(`<div class="modal-hdr"><span>${lc('users', 18)}</span><h2>Presenças</h2><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="pres-popup-body"><div class="loading-page"><div class="spinner"></div></div></div><div class="modal-foot" id="pres-popup-foot"></div>`);
+  try {
+    const { data: item } = await q('agenda_semana').select('*').eq('id', agendaId).single();
+    const presMap = await pfBuscarPresencasAgenda([agendaId]);
+    const pres = presMap[agendaId] || [];
+    const meuCong = currentUser?.congregacao_id || null;
+    const jaMarcou = meuCong && pres.some(p => p.congId === meuCong);
+    const podeMarcar = canAtribuirPresencaAgenda() && !!meuCong && congId !== meuCong;
+    const tituloEv = escHtml(item?.titulo || item?.descricao || 'Evento');
+    const lista = pres.length
+      ? `<div class="pres-list">${pres.map(p => `<div class="pres-row"><div class="av av-sm" style="background:${avatarColor(p.nome)}">${initials(p.nome)}</div><span class="fs-sm">${escHtml(p.nome)}</span><span class="tag tag-teal" style="margin-left:auto">${lc('check', 11)} Confirmada</span></div>`).join('')}</div>`
+      : `<div class="empty" style="padding:22px"><div class="empty-ico">${lc('users', 36)}</div><p>Nenhuma congregação confirmou presença ainda.</p></div>`;
+    const body = $('pres-popup-body');
+    if (body) body.innerHTML = `
+      <div class="pres-ev-hdr">
+        <div class="fw6 fs-sm">${lc('calendar', 13)} ${tituloEv}${item?.hora ? ` · <span class="c3">${escHtml(item.hora)}</span>` : ''}</div>
+        <div class="fs-xs c3">${escHtml(congNome || '')}</div>
+      </div>
+      <div class="sec-hdr" style="margin:14px 0 8px"><h2 style="font-size:.85rem">Confirmaram presença <span class="count-badge">${pres.length}</span></h2></div>
+      ${lista}`;
+    const foot = $('pres-popup-foot');
+    let acao = '';
+    if (jaMarcou) acao = `<span class="ag-presenca-feito" style="margin-right:auto">${lc('check-circle', 13)} Sua congregação confirmou</span>`;
+    else if (podeMarcar) acao = `<button class="btn btn-primary" style="margin-right:auto" onclick="marcarPresencaAgenda('${escAttr(agendaId)}','${escAttr(congId)}','${escAttr(congNome || '')}','presencas')">${lc('hand', 14)} Marcar presença</button>`;
+    if (foot) foot.innerHTML = `${acao}<button class="btn btn-secondary" onclick="openAgendaSemanalPopup('${escAttr(congId)}','${escAttr(congNome || '')}')">${lc('arrow-left', 13)} Voltar</button>`;
+    refreshLucide();
+  } catch (e) {
+    const body = $('pres-popup-body'); if (body) body.innerHTML = `<p class="c3" style="padding:20px;text-align:center">Erro ao carregar presenças: ${escHtml(e.message)}</p>`;
+  }
 };
 
 async function renderCongregacao(pc) {
@@ -2730,7 +3047,7 @@ async function renderPermissoes() {
     const grupos = {
     'Acesso e Visualização': ['visualizar_dashboard', 'ver_relatorios', 'ver_frequencia_usuarios', 'exportar_dados'],
     'Financeiro': ['ver_financeiro', 'gerenciar_financeiro'],
-    'Ranking e Eventos Setoriais': ['visualizar_ranking', 'gerenciar_ranking', 'visualizar_eventos_setoriais_dash'],
+    'Ranking e Eventos Setoriais': ['visualizar_ranking', 'gerenciar_ranking', 'ver_ranking_dashboard', 'visualizar_eventos_setoriais_dash'],
     'Filtros e Visibilidade': ['filtrar_setor_dashboard', 'filtrar_congregacao_dashboard', 'ver_relatorio_por_congregacao', 'ver_todos_setores', 'ver_agenda_semanal_outros_setores', 'atribuir_presenca_agendas'],
     'Gestão': ['gerenciar_setores', 'gerenciar_congregacoes', 'gerenciar_membros', 'gerenciar_usuarios', 'gerenciar_agenda'],
     'Operações': ['registrar_eventos', 'criar_eventos_setorial', 'excluir_registros'],
@@ -5288,6 +5605,12 @@ window.renderDashboard = async function(){
       <div class="bcard-lbl bc-violet">Financeiro</div>
     </div>`:''}
   </div>
+
+  ${canVerRankingDash()?`
+  <!-- TOP 3 DO RANKING MENSAL (pódio) -->
+  <div class="sec-hdr" style="margin-top:4px"><h2>${lc('trophy',18)} Top 3 do Ranking Mensal</h2><span class="tag tag-gold">Por setor</span></div>
+  <div id="dash-podium-box" class="podium-box"><div class="podium-loading">${lc('loader',18)} Carregando ranking…</div></div>`:''}
+
   <!-- RESUMO DO MÊS (participantes + conversões) -->
   <div class="sec-hdr"><h2>Resumo do Mês</h2><span class="tag tag-primary">Tempo real</span></div>
   <div class="mes-grid">
@@ -5630,6 +5953,9 @@ esC.innerHTML = eventosSetoriaisHtml;
       }catch(err){ esC.innerHTML='<p class="c3">Erro ao carregar.</p>'; }
     }
   }
+
+  // Pódio Top 3 do ranking mensal — SETORIAL (usa o mesmo setor do dashboard).
+  if(canVerRankingDash()) montarPodioRanking(sid);
 };
 
 /* ── AÇÕES DOS CARDS ────────────────────────────────────── */
@@ -8305,6 +8631,15 @@ const HELP_DATA = [
           { icon: '💡', h: 'O som do aviso', p: ['Com as notificações ativas, cada novo evento também toca um som curto de aviso. Para os demais usuários ouvirem na hora, eles precisam estar com o app aberto; se o app estiver fechado, o aviso depende da configuração de notificações do sistema.'] },
           { icon: '💡', h: 'Ao tocar no aviso', p: ['Tocar na notificação abre o sistema já na tela do evento. Se você estiver com a sessão salva, entra direto; se não estiver logado, cai na tela de login e segue para o evento depois que você entrar.'] }
         ]
+      },
+      {
+        id: 'meu-perfil', title: 'Meu perfil', desc: 'Ver e editar seus dados e a vibração ao toque.',
+        sections: [
+          { icon: '💡', h: 'O que é', p: ['A tela "Meu Perfil" mostra seus dados e deixa você editar o que é pessoal. Para abrir, toque no seu nome/avatar no canto superior direito da tela, ou no seu cartão no rodapé do menu lateral.'] },
+          { icon: '⏱️', h: 'O que você pode alterar', list: ['Nome completo, idade e cargo.', 'Sua senha — preencha "Nova senha" e repita em "Confirmar nova senha" (deixe em branco para manter a atual).', 'Toque em "Salvar alterações" para gravar.'] },
+          { icon: '🔒', h: 'O que só o administrador muda', p: ['Setor, congregação e tipo de acesso (papel) aparecem apenas para leitura. Se algum estiver errado, peça a um administrador ou dirigente para ajustar no cadastro de usuários.'] },
+          { icon: '📳', h: 'Vibração ao toque', p: ['No cartão "Preferências do aparelho" existe o interruptor "Vibração ao toque". Ligado, o sistema dá uma leve vibração a cada toque, para facilitar a sensibilidade e a percepção do toque. A escolha vale apenas neste aparelho e alguns aparelhos (computadores e iPhone, em geral) não têm suporte a vibração.'] }
+        ]
       }
     ]
   },
@@ -8329,6 +8664,14 @@ const HELP_DATA = [
         id: 'financeiro-mes', title: 'Financeiro do mês', desc: 'O card com a meta de arrecadação.',
         sections: [
           { icon: '💡', h: 'O que é', p: ['Card exclusivo de quem tem permissão de ver dados financeiros. Mostra o total de ofertas e dízimos do mês atual, comparado a uma meta, além do detalhamento de cada um.'] }
+        ]
+      },
+      {
+        id: 'podio-ranking', title: 'Top 3 do Ranking Mensal', desc: 'O pódio das melhores MADALPs do mês.',
+        sections: [
+          { icon: '💡', h: 'O que é', p: ['O pódio "Top 3 do Ranking Mensal" mostra, sobre três coroas (ouro, prata e bronze), as MADALPs com mais atividades no mês. É por setor — usa o setor selecionado no filtro do dashboard (ou o seu setor), nunca um ranking geral. O pódio é dinâmico: conforme uma MADALP registra atividades, ela sobe de posição.'] },
+          { icon: '⏱️', h: 'Como usar', list: ['A coroa de ouro (centro) é o 1º lugar; a de prata (esquerda), o 2º; a de bronze (direita), o 3º.', 'Toque em uma posição para abrir os eventos que levaram aquela MADALP à posição, com os participantes de cada atividade.', 'Se ainda não houver MADALPs com atividades no mês, as coroas aparecem em branco — sem nenhum nome no centro.'] },
+          { icon: '🔒', h: 'Quem vê', p: ['O pódio só aparece para quem tem a permissão "Ver Ranking no Dashboard" (no grupo "Ranking e Eventos Setoriais" da tela de Permissões). Administradores sempre veem.'] }
         ]
       }
     ]
@@ -8361,7 +8704,8 @@ const HELP_DATA = [
         id: 'presenca-agendas', title: 'Confirmar presença nas agendas', desc: 'Avisar que a sua congregação vai a um evento de outra.',
         sections: [
           { icon: '💡', h: 'O que é', p: ['No menu "Agendas Semanais" você abre a agenda da semana de qualquer congregação. Nos eventos publicados por OUTRAS congregações, quem tem a permissão "Atribuir presença nas agendas" pode confirmar que a sua congregação vai comparecer. Você não pode marcar presença na sua própria congregação — só em outra (do seu setor ou não).'] },
-          { icon: '⏱️', h: 'Como fazer', list: ['Abra "Agendas Semanais", escolha a congregação e toque nela para ver a agenda da semana.', 'No dia do evento, toque em "Marcar presença".', 'Responda "Sim" à pergunta "Confirmar presença neste evento?".', 'A sua congregação passa a aparecer como presente naquele evento.'] },
+          { icon: '⏱️', h: 'Como fazer', list: ['Abra "Agendas Semanais", escolha a congregação e toque nela para ver a agenda da semana.', 'No dia do evento, toque no botão "Presenças" (com o número de confirmações) dentro do quadradinho daquele dia.', 'No popup que abre, toque em "Marcar presença" e responda "Sim" à pergunta "Confirmar presença neste evento?".', 'A sua congregação passa a aparecer na lista de presentes daquele evento.'] },
+          { icon: '💡', h: 'O botão "Presenças"', p: ['Para o card do dia não esticar quando muitas congregações confirmam, as presenças ficam dentro de um popup. Cada dia mostra o título do evento e, abaixo, o horário. Toque no botão "Presenças" do evento para ver a lista de quem confirmou e, se você tiver a permissão, marcar a sua. O número ao lado do botão indica quantas congregações já confirmaram — no celular o botão aparece compacto, só com o ícone e esse número.'] },
           { icon: '💡', h: 'Quem vê as presenças', p: ['Todos os usuários podem ver quais congregações confirmaram presença em cada evento — inclusive os usuários da congregação dona do evento, na agenda dela. Mas só quem tem a permissão consegue marcar presença.'] }
         ]
       }
@@ -8884,13 +9228,14 @@ window.liberarUsuarioBloqueado = async function (username) {
     jovens_fora_umadalpe: () => { if (typeof window.renderJovensForaUmadalpe === 'function') window.renderJovensForaUmadalpe(); },
     usuarios_bloqueados: () => { if (typeof window.renderUsuariosBloqueados === 'function') window.renderUsuariosBloqueados(); },
     agendas_semanais: () => { if (typeof window.renderAgendasSemanais === 'function') window.renderAgendasSemanais(); },
+    perfil: () => (window.renderPerfil || renderPerfil)(),
   };
   const TITLES = {
     dashboard: 'Dashboard', setores: 'Setores', usuarios: 'Usuários', relatorios: 'Relatórios',
     permissoes: 'Permissões', frequencia: 'Frequência de Usuários', financeiro: 'Financeiro',
     eventos_setoriais: 'Eventos Setoriais', ranking: 'Ranking Mensal', todos_membros: 'Membros',
     jovens_fora_umadalpe: 'Jovens (Fora UMADALPE)', usuarios_bloqueados: 'Usuários Bloqueados',
-    agendas_semanais: 'Agendas Semanais',
+    agendas_semanais: 'Agendas Semanais', perfil: 'Meu Perfil',
   };
 
   function aplicarPagina(page, restaurando) {

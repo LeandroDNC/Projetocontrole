@@ -111,7 +111,7 @@
         <!-- Financeiro injetado via financeiro_module.js -->
       </div>
       <div class="sidebar-footer">
-        <div class="user-pill" id="user-pill">
+        <div class="user-pill" id="user-pill" role="button" tabindex="0" title="Meu perfil" onclick="navigate('perfil')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate('perfil')}">
           <div class="user-av" id="user-av"></div>
           <div class="user-inf">
             <strong id="user-name-side"></strong>
@@ -138,7 +138,7 @@
           <small id="topbar-date"></small>
         </div>
         <div id="theme-panel-container"></div>
-        <div class="topbar-user-wrap">
+        <div class="topbar-user-wrap" role="button" tabindex="0" title="Meu perfil" onclick="navigate('perfil')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate('perfil')}">
           <span class="topbar-user-av" id="topbar-user-av"></span>
           <span class="fs-sm c2 fw5" id="topbar-user"></span>
         </div>

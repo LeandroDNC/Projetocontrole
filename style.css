@@ -2771,6 +2771,7 @@ textarea:focus {
   border-radius: var(--r2);
   padding: 10px 8px;
   min-height: 90px;
+  min-width: 0;
   transition: var(--ease);
   position: relative
 }
@@ -2814,10 +2815,14 @@ textarea:focus {
 .ag-day-body {
   display: flex;
   flex-direction: column;
-  gap: 4px
+  gap: 4px;
+  min-width: 0
 }
 
 .ag-event-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   background: rgba(var(--gold-rgb), .12);
   color: var(--gold);
   border-radius: 6px;
@@ -2827,8 +2832,24 @@ textarea:focus {
   cursor: pointer;
   transition: var(--ease);
   line-height: 1.3;
-  word-break: break-word
+  min-width: 0;
+  max-width: 100%;
+  word-break: break-word;
+  overflow-wrap: anywhere
 }
+.ag-ev-titulo {
+  font-weight: 600;
+  line-height: 1.2
+}
+.ag-ev-hora {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: .6rem;
+  font-weight: 600;
+  opacity: .82
+}
+.ag-ev-hora svg { width: 10px; height: 10px }
 
 .ag-event-chip:hover {
   background: rgba(var(--gold-rgb), .22)
@@ -6517,3 +6538,224 @@ body {
   color: var(--teal);
 }
 .ag-presenca-feito svg { width: 11px; height: 11px; }
+
+/* ══════════ PÓDIO TOP 3 — RANKING MENSAL (Dashboard) ══════════ */
+.podium-box { margin: 4px 0 28px; }
+.podium-loading,
+.podium-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  padding: 22px 16px;
+  border: 1px dashed rgba(var(--gold-rgb), .25);
+  border-radius: 14px;
+  background: rgba(var(--gold-rgb), .05);
+  color: var(--txt2);
+  font-size: .82rem;
+}
+.podium-loading svg,
+.podium-empty svg { width: 16px; height: 16px; }
+.podium-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.podium-img {
+  width: 100%;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.podium-spot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 22%;
+  min-height: 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+  padding: 4px;
+  border-radius: 10px;
+  transition: transform .15s ease, background .15s ease;
+}
+.podium-spot:not(.is-empty):hover {
+  transform: translate(-50%, -50%) scale(1.05);
+  background: rgba(255, 255, 255, .06);
+}
+.podium-name {
+  font-weight: 800;
+  line-height: 1.05;
+  color: #1a1205;
+  font-size: clamp(.6rem, 1.7vw, .95rem);
+  text-shadow: 0 1px 1px rgba(255, 255, 255, .45);
+  word-break: break-word;
+  max-width: 100%;
+}
+.podium-count {
+  font-size: clamp(.48rem, 1.1vw, .68rem);
+  font-weight: 700;
+  color: #5a4708;
+  background: rgba(201, 168, 76, .28);
+  padding: 0 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+/* Prata e bronze usam texto escuro sobre metal claro; o ouro idem */
+.podium-silver .podium-name { color: #23272e; text-shadow: 0 1px 1px rgba(255,255,255,.5); }
+.podium-bronze .podium-name { color: #3a220c; text-shadow: 0 1px 1px rgba(255,255,255,.35); }
+
+/* Cartões de evento no popup do pódio */
+.podium-ev {
+  background: var(--bg2, rgba(255, 255, 255, .03));
+  border: 1px solid rgba(var(--gold-rgb), .18);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.podium-ev-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.podium-ev-hdr svg { width: 15px; height: 15px; vertical-align: -2px; }
+
+@media (max-width: 560px) {
+  .podium-name { font-size: clamp(.5rem, 2.6vw, .8rem); }
+  .podium-spot { width: 27%; }
+}
+
+/* ══════════ Nota do pódio (Dashboard) ══════════ */
+.podium-nota {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  margin: 8px auto 0;
+  max-width: 720px;
+  font-size: .74rem;
+  color: var(--txt2);
+  text-align: center;
+}
+.podium-nota svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+/* ══════════ Botão/Popup de Presenças (Agendas) ══════════ */
+.ag-pres-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 4px 9px;
+  max-width: 100%;
+  font-size: .64rem;
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--gold);
+  background: rgba(var(--gold-rgb), .12);
+  border: 1px solid rgba(var(--gold-rgb), .3);
+  transition: background .15s ease, transform .1s ease;
+}
+.ag-pres-lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Em telas estreitas, o botão fica só com o ícone + contagem, para o
+   card do dia manter a largura original e os 7 dias não quebrarem. */
+@media (max-width: 768px) {
+  .ag-pres-open { padding: 4px 7px; gap: 3px; }
+  .ag-pres-lbl { display: none; }
+}
+.ag-pres-open:hover { background: rgba(var(--gold-rgb), .22); }
+.ag-pres-open:active { transform: scale(.96); }
+.ag-pres-open svg { width: 11px; height: 11px; }
+.ag-pres-open.is-done { color: var(--teal); background: rgba(20,184,166,.12); border-color: rgba(20,184,166,.35); }
+.ag-pres-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #1a1205;
+  font-size: .58rem;
+  font-weight: 800;
+}
+.ag-pres-open.is-done .ag-pres-count { background: var(--teal); color: #04201c; }
+.pres-ev-hdr {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(var(--gold-rgb), .06);
+  border: 1px solid rgba(var(--gold-rgb), .18);
+}
+.pres-ev-hdr svg { width: 13px; height: 13px; vertical-align: -2px; }
+.pres-list { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
+.pres-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--bdr);
+}
+
+/* ══════════ Tela Meu Perfil ══════════ */
+.user-pill, .topbar-user-wrap { cursor: pointer; }
+.user-pill:focus-visible, .topbar-user-wrap:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 10px; }
+.topbar-user-wrap:hover .topbar-user-av { box-shadow: 0 0 0 2px rgba(var(--gold-rgb), .5); }
+
+.perfil-wrap { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.perfil-card {
+  background: var(--bg2, rgba(255,255,255,.03));
+  border: 1px solid var(--bdr);
+  border-radius: 16px;
+  padding: 18px;
+}
+.perfil-hero { display: flex; align-items: center; gap: 18px; }
+.perfil-av {
+  width: 76px; height: 76px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 800; font-size: 1.7rem;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+}
+.perfil-hero-info { min-width: 0; }
+.perfil-nome { font-family: 'Cinzel', serif; font-size: 1.25rem; font-weight: 700; line-height: 1.2; }
+.perfil-badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; align-items: center; }
+.perfil-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: .8rem; color: var(--txt2); margin-top: 2px; }
+.perfil-meta svg { width: 13px; height: 13px; vertical-align: -2px; }
+.perfil-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.perfil-card-title {
+  display: flex; align-items: center; gap: 7px;
+  font-weight: 700; font-size: .92rem;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--bdr);
+}
+.perfil-card-title svg { width: 16px; height: 16px; color: var(--gold); }
+.perfil-readonly {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px dashed var(--bdr);
+}
+.perfil-pref-row { display: flex; align-items: center; gap: 14px; justify-content: space-between; }
+.perfil-pref-txt { min-width: 0; }
+.perfil-actions { display: flex; justify-content: flex-end; }
+.perfil-actions .btn { min-width: 200px; justify-content: center; }
+
+@media (max-width: 760px) {
+  .perfil-grid { grid-template-columns: 1fr; }
+  .perfil-hero { flex-direction: column; text-align: center; }
+  .perfil-badges, .perfil-meta { justify-content: center; }
+  .perfil-actions { justify-content: stretch; }
+  .perfil-actions .btn { width: 100%; }
+}
+@media (max-width: 460px) {
+  .perfil-readonly { grid-template-columns: 1fr; }
+}
